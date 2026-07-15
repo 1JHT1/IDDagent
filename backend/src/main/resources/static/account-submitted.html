@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对公账户开户 - 提交确认</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #333; }
+.container { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+.header { text-align: center; margin-bottom: 20px; }
+.header h1 { font-size: 20px; color: #1a1a2e; margin-bottom: 6px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 20px; font-size: 13px; font-weight: 600; margin-top: 8px; }
+.badge-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.status-bar { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 20px; }
+.step { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.step.done { color: #10b981; }
+.step-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; background: #10b981; color: #fff; }
+.step-line { width: 32px; height: 2px; background: #10b981; }
+.card { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.card h2 { font-size: 15px; color: #1a1a2e; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.field-item { padding: 8px 0; }
+.field-label { font-size: 11px; color: #999; margin-bottom: 2px; }
+.field-value { font-size: 14px; color: #1a1a2e; font-weight: 500; }
+.field-value.mono { font-family: monospace; letter-spacing: 0.5px; }
+.divider { border: none; border-top: 1px dashed #e5e7eb; margin: 14px 0; }
+.sub-title { font-size: 13px; font-weight: 600; color: #4f46e5; margin-bottom: 10px; }
+.product-tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.product-tag { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; }
+.product-tag.active { background: #eff6ff; color: #4f46e5; border: 1px solid #bfdbfe; }
+.product-tag.inactive { background: #f9fafb; color: #9ca3af; border: 1px solid #e5e7eb; text-decoration: line-through; }
+.btn { padding: 12px 24px; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-outline { background: #fff; color: #4f46e5; border: 2px solid #4f46e5; }
+.btn-outline:hover { background: #f5f3ff; }
+.btn-group { display: flex; gap: 12px; justify-content: center; margin-top: 8px; }
+.alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.submitted-info { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 16px; text-align: center; margin-bottom: 20px; }
+.submitted-info p { font-size: 13px; color: #166534; margin-top: 4px; }
+.submitted-info strong { font-size: 16px; color: #065f46; }
+@media print { .no-print { display: none !important; } body { background: #fff; } .card { box-shadow: none; border: 1px solid #ddd; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>对公账户开户 - 提交确认</h1>
+    <div class="badge badge-success">✅ 开户申请已提交</div>
+  </div>
+
+  <div class="status-bar">
+    <div class="step done"><div class="step-dot">✓</div>上传资料</div>
+    <div class="step-line"></div>
+    <div class="step done"><div class="step-dot">✓</div>信息预填</div>
+    <div class="step-line"></div>
+    <div class="step done"><div class="step-dot">✓</div>确认提交</div>
+  </div>
+
+  <div id="submittedInfo" class="submitted-info" style="display:none">
+    <strong id="companyName"></strong>
+    <p>提交时间：<span id="submittedTime"></span></p>
+    <p>申请编号：<span id="appIdDisplay"></span></p>
+  </div>
+
+  <div id="alertBox" style="display:none"></div>
+
+  <!-- 企业信息 -->
+  <div class="card" id="section-company">
+    <h2>🏢 企业信息</h2>
+    <div class="field-grid" id="companyFields"></div>
+    <div class="divider"></div>
+    <div class="sub-title">法定代表人</div>
+    <div class="field-grid" id="legalRepFields"></div>
+    <div class="divider"></div>
+    <div class="sub-title">受益人</div>
+    <div class="field-grid" id="beneficiaryFields"></div>
+  </div>
+
+  <!-- 账户信息 -->
+  <div class="card" id="section-account">
+    <h2>🏦 账户信息</h2>
+    <div class="field-grid" id="accountFields"></div>
+  </div>
+
+  <!-- 尽职调查 -->
+  <div class="card" id="section-dd">
+    <h2>🔍 尽职调查</h2>
+    <div class="field-grid" id="ddFields"></div>
+  </div>
+
+  <!-- 产品签约 -->
+  <div class="card" id="section-product">
+    <h2>📝 产品签约</h2>
+    <div class="product-tags" id="productTags"></div>
+  </div>
+
+  <div class="btn-group no-print">
+    <button class="btn btn-outline" onclick="window.print()">🖨️ 打印</button>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const appId = params.get('app_id');
+const API_BASE = window.location.origin;
+
+function makeField(label, value, mono) {
+  return `<div class="field-item"><div class="field-label">${label}</div><div class="field-value${mono ? ' mono' : ''}">${value || '-'}</div></div>`;
+}
+
+(async function() {
+  if (!appId) { showAlert('缺少申请编号'); return; }
+  try {
+    const res = await fetch(`${API_BASE}/api/account-opening/preview/${appId}`);
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || e.error); }
+    const data = await res.json();
+    const fd = data.form_data;
+
+    // 提交信息
+    document.getElementById('submittedInfo').style.display = 'block';
+    document.getElementById('companyName').textContent = data.company_name;
+    document.getElementById('appIdDisplay').textContent = appId;
+    // 获取提交时间
+    document.getElementById('submittedTime').textContent = new Date().toLocaleString('zh-CN');
+
+    // 企业信息
+    const ci = fd.company_info || {};
+    document.getElementById('companyFields').innerHTML =
+      makeField('企业名称', ci.company_name) + makeField('统一信用代码', ci.credit_code, true) +
+      makeField('注册地址', ci.registered_address) + makeField('注册资本', ci.registered_capital) +
+      makeField('经营范围', ci.business_scope);
+
+    document.getElementById('legalRepFields').innerHTML =
+      makeField('法人姓名', ci.legal_representative) + makeField('法人证件号', ci.legal_rep_id_number, true) +
+      makeField('法人手机号', ci.legal_rep_phone, true);
+
+    document.getElementById('beneficiaryFields').innerHTML =
+      makeField('受益人姓名', ci.beneficiary_name) + makeField('受益人证件号', ci.beneficiary_id_number, true) +
+      makeField('受益人关系', ci.beneficiary_relationship);
+
+    // 账户信息
+    const ai = fd.account_info || {};
+    document.getElementById('accountFields').innerHTML =
+      makeField('账户类型', ai.account_type) + makeField('币种', ai.currency) +
+      makeField('账号', ai.account_number, true) + makeField('预留印鉴', ai.reserved_seal) +
+      makeField('对账方式', ai.reconciliation_method);
+
+    // 尽调
+    const dd = fd.due_diligence || {};
+    document.getElementById('ddFields').innerHTML =
+      makeField('开户目的', dd.opening_purpose) + makeField('资金来源', dd.fund_source) +
+      makeField('预期交易规模', dd.expected_transaction_volume) + makeField('跨境交易', dd.cross_border_involved) +
+      makeField('风险评级', dd.risk_rating) + makeField('尽调结论', dd.conclusion);
+
+    // 产品签约
+    const ps = fd.product_signing || {};
+    const names = {enterprise_online_banking:'🏦 企业网银', bank_enterprise_reconciliation:'📊 银企对账',
+      enterprise_mobile_banking:'📱 企业手机银行', corporate_settlement_card:'💳 单位结算卡',
+      payroll_service:'💰 代发工资', sms_notification:'🔔 短信通知'};
+    document.getElementById('productTags').innerHTML = Object.entries(names).map(([k,v]) =>
+      `<span class="product-tag ${ps[k] ? 'active' : 'inactive'}">${v}</span>`
+    ).join('');
+
+  } catch (e) { showAlert('加载失败: ' + e.message); }
+})();
+
+function showAlert(msg) {
+  const box = document.getElementById('alertBox');
+  box.className = 'alert alert-error';
+  box.textContent = msg;
+  box.style.display = 'block';
+}
+</script>
+</body>
+</html>

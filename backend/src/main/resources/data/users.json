@@ -1,0 +1,20 @@
+{
+  "d713ea99-9a16-4185-97e1-95788b17e50e": {
+    "id": "d713ea99-9a16-4185-97e1-95788b17e50e",
+    "username": "admin",
+    "password": "4049dc3b1e89a843b9c0e1057dbccbee$ce291b6e5e9c7410275f47da33e720707c397f4de96fd14769f6d336e4679b7f",
+    "created_at": "2026-06-15T11:40:29.456356+00:00"
+  },
+  "81feb4b9-b724-4c4d-8fea-c62348436e92": {
+    "id": "81feb4b9-b724-4c4d-8fea-c62348436e92",
+    "username": "1073645698",
+    "password": "aa7c4d53bee59926d849622d88583fb3$97aa0f993a53b4288402bda94736b3c4f1fd62050062ef56d01ea0161460ffcc",
+    "created_at": "2026-06-15T11:43:06.503614+00:00"
+  },
+  "f82c5726-ca06-4184-bee5-a360149d57da": {
+    "id": "f82c5726-ca06-4184-bee5-a360149d57da",
+    "username": "test",
+    "password": "5bcd9981164a269de765f1f788a29e13$d5afaadf25cf5df00255cd6951930c081ce292de3e2f3b90dc67c40ac8be0954",
+    "created_at": "2026-06-19T05:56:18.838180+00:00"
+  }
+}

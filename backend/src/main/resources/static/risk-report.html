@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>企业风险预查报告</title>
+  <style>
+    :root {
+      --risk-high: #cf1322; --risk-high-bg: #fff1f0; --risk-high-border: #ffa39e;
+      --risk-medium: #d48806; --risk-medium-bg: #fffbe6; --risk-medium-border: #ffe58f;
+      --risk-low: #389e0d; --risk-low-bg: #f6ffed; --risk-low-border: #b7eb8f;
+      --blue: #1677ff; --gray-50: #fafafa; --gray-100: #f5f5f5; --gray-200: #f0f0f0;
+      --gray-500: #8c8c8c; --gray-700: #434343; --gray-900: #1a1a2e;
+      --radius: 14px; --shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #e8edf5 0%, #f0f2f5 120px);
+      color: var(--gray-900); min-height: 100vh; -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; }
+
+    /* ====== Header ====== */
+    .report-header { text-align: center; padding: 32px 16px 20px; position: relative; }
+    .report-header .logo { font-size: 36px; margin-bottom: 8px; }
+    .report-header h1 { font-size: 22px; font-weight: 800; letter-spacing: 1px; color: var(--gray-900); }
+    .report-header .meta { font-size: 12px; color: var(--gray-500); margin-top: 4px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .report-header .meta span { display: inline-flex; align-items: center; gap: 4px; }
+
+    /* ====== Risk Score Circle ====== */
+    .score-section { display: flex; align-items: center; gap: 16px; padding: 0 4px; margin-bottom: 14px; }
+    .score-circle-wrap { flex-shrink: 0; position: relative; width: 88px; height: 88px; }
+    .score-circle-wrap svg { transform: rotate(-90deg); }
+    .score-circle-wrap .bg { fill: none; stroke: var(--gray-200); stroke-width: 6; }
+    .score-circle-wrap .fg { fill: none; stroke-width: 6; stroke-linecap: round; transition: stroke-dashoffset 0.8s ease; }
+    .score-circle-wrap .center-text { 
+      position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    }
+    .score-circle-wrap .score-val { font-size: 24px; font-weight: 800; line-height: 1; }
+    .score-circle-wrap .score-label { font-size: 10px; color: var(--gray-500); margin-top: 2px; }
+
+    .score-info { flex: 1; min-width: 0; }
+    .score-info .company-name { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+    .score-info .credit-code { font-size: 11px; color: var(--gray-500); font-family: 'SF Mono', 'Menlo', monospace; word-break: break-all; margin-bottom: 8px; }
+    .score-info .badge-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .level-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; }
+    .level-badge.high { background: var(--risk-high-bg); color: var(--risk-high); border: 1px solid var(--risk-high-border); }
+    .level-badge.medium { background: var(--risk-medium-bg); color: var(--risk-medium); border: 1px solid var(--risk-medium-border); }
+    .level-badge.low { background: var(--risk-low-bg); color: var(--risk-low); border: 1px solid var(--risk-low-border); }
+
+    /* ====== Summary Card ====== */
+    .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; }
+    .card-body { padding: 16px 18px; }
+    .card-body .conclusion { font-size: 13px; line-height: 1.7; color: var(--gray-700); padding: 12px 14px; background: #f7f9fc; border-radius: 10px; border-left: 3px solid var(--blue); }
+
+    /* ====== Score Bars ====== */
+    .score-bars { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 14px; }
+    .score-bar-item { text-align: center; }
+    .score-bar-item .bar-label { font-size: 11px; color: var(--gray-500); margin-bottom: 4px; }
+    .score-bar-item .bar-track { height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+    .score-bar-item .bar-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
+    .score-bar-item .bar-val { font-size: 13px; font-weight: 700; }
+    .bar-fill.danger { background: linear-gradient(90deg, #ff7875, #cf1322); }
+    .bar-fill.warning { background: linear-gradient(90deg, #ffc53d, #d48806); }
+    .bar-fill.success { background: linear-gradient(90deg, #73d13d, #389e0d); }
+
+    /* ====== Module Card ====== */
+    .module-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; }
+    .module-header { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; 
+      cursor: pointer; user-select: none; border-bottom: 1px solid transparent; transition: background .15s; }
+    .module-header:hover { background: #fafafa; }
+    .module-header.open { border-bottom-color: var(--gray-200); }
+    .module-header .mod-left { display: flex; align-items: center; gap: 10px; }
+    .module-header .mod-icon { font-size: 22px; }
+    .module-header .mod-info { display: flex; flex-direction: column; }
+    .module-header .mod-name { font-size: 15px; font-weight: 700; }
+    .module-header .mod-stats { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
+    .module-header .mod-right { display: flex; align-items: center; gap: 8px; }
+    .module-header .risk-count { font-size: 12px; font-weight: 600; }
+    .module-header .risk-count.danger { color: var(--risk-high); }
+    .module-header .risk-count.warning { color: var(--risk-medium); }
+    .module-header .risk-count.success { color: var(--risk-low); }
+    .module-header .arrow { font-size: 11px; color: #bfbfbf; transition: transform .25s; }
+    .module-header .arrow.open { transform: rotate(180deg); }
+    .module-body { overflow: hidden; max-height: 0; transition: max-height .35s ease; }
+    .module-body.show { max-height: 3000px; }
+
+    /* ====== Item Rows ====== */
+    .items-wrap { padding: 8px 0; }
+    .item { display: flex; align-items: center; padding: 11px 18px; gap: 12px; }
+    .item:nth-child(even) { background: var(--gray-50); }
+    .item .item-icon { flex-shrink: 0; width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+    .item .item-icon.risk { background: var(--risk-high-bg); }
+    .item .item-icon.warn { background: var(--risk-medium-bg); }
+    .item .item-icon.safe { background: var(--risk-low-bg); }
+    .item .item-content { flex: 1; min-width: 0; }
+    .item .item-name { font-size: 13px; font-weight: 500; color: #262626; margin-bottom: 2px; }
+    .item .item-detail { font-size: 11px; color: var(--gray-500); line-height: 1.5; }
+    .item .item-status { flex-shrink: 0; }
+    .status-tag { display: inline-block; padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .status-tag.risk { background: var(--risk-high-bg); color: var(--risk-high); }
+    .status-tag.warn { background: var(--risk-medium-bg); color: var(--risk-medium); }
+    .status-tag.safe { background: var(--risk-low-bg); color: var(--risk-low); }
+
+    /* ====== Recommendation ====== */
+    .recommendation { padding: 18px; background: linear-gradient(135deg, #fff7e6, #fffbe6); border-radius: var(--radius); 
+      box-shadow: var(--shadow); margin-bottom: 14px; border: 1px solid #ffe58f; }
+    .recommendation .rec-title { font-size: 14px; font-weight: 700; color: #ad6800; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+    .recommendation .rec-list { display: flex; flex-direction: column; gap: 6px; }
+    .recommendation .rec-item { font-size: 12px; color: var(--gray-700); display: flex; gap: 6px; line-height: 1.5; }
+    .recommendation .rec-num { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #faad14; 
+      color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+
+    /* ====== Footer ====== */
+    .footer { text-align: center; padding: 20px 0; }
+    .footer .disclaimer { font-size: 11px; color: #bfbfbf; line-height: 1.6; margin-bottom: 8px; }
+    .footer .report-id { font-size: 10px; color: #d9d9d9; font-family: monospace; }
+
+    /* ====== Loading & Error ====== */
+    .page-loading { text-align: center; padding: 100px 20px; color: var(--gray-500); }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--gray-200); border-top-color: var(--blue); border-radius: 50%; 
+      animation: spin .8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .page-error { text-align: center; padding: 80px 20px; }
+    .page-error .err-icon { font-size: 52px; margin-bottom: 12px; }
+    .page-error .err-msg { font-size: 14px; color: #595959; }
+    .page-error .retry-btn { margin-top: 16px; padding: 8px 24px; border-radius: 20px; border: none; background: var(--blue); 
+      color: #fff; font-size: 13px; cursor: pointer; }
+
+    @media print {
+      body { background: #fff; }
+      .module-body { max-height: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="app"></div>
+
+  <script>
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code');
+    const root = document.getElementById('app');
+
+    if (!code) {
+      root.innerHTML = '<div class="page-error"><div class="err-icon">❌</div><div class="err-msg">缺少企业统一信用代码参数</div></div>';
+      return;
+    }
+
+    root.innerHTML = '<div class="page-loading"><div class="spinner"></div><p style="color:#8c8c8c;font-size:13px;">正在加载企业风险报告...</p></div>';
+
+    fetch('/api/risk-report/' + encodeURIComponent(code))
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(render)
+      .catch(e => {
+        root.innerHTML = '<div class="page-error"><div class="err-icon">⚠️</div><div class="err-msg">报告加载失败：' + e.message
+          + '</div><button class="retry-btn" onclick="location.reload()">重新加载</button></div>';
+      });
+
+    // -------- helpers --------
+    const LEVEL_MAP = { high: '高风险', medium: '中等风险', low: '低风险' };
+    const SCORE_MAP = { high: 78, medium: 45, low: 12 };
+    const LEVEL_COLORS = { high: { stroke: '#cf1322', bg: '#fff1f0', bar: 'danger' },
+                           medium: { stroke: '#d48806', bg: '#fffbe6', bar: 'warning' },
+                           low: { stroke: '#389e0d', bg: '#f6ffed', bar: 'success' } };
+
+    function itemIcon(hasRisk) {
+      if (hasRisk) return '<span class="item-icon risk">⚠️</span>';
+      return '<span class="item-icon safe">✅</span>';
+    }
+
+    function statusBadge(result, hasRisk) {
+      if (hasRisk) return '<span class="status-tag risk">' + result + '</span>';
+      var r = result;
+      if (r === '关注' || r === '异常' || r === '疑似异常' || r === '有记录' || r === '命中' || r === '不稳定')
+        return '<span class="status-tag warn">' + r + '</span>';
+      return '<span class="status-tag safe">' + r + '</span>';
+    }
+
+    function renderScoreCircle(score, color) {
+      var r = 36, circ = 2 * Math.PI * r;
+      return '<svg viewBox="0 0 88 88" width="88" height="88">'
+        + '<circle class="bg" cx="44" cy="44" r="' + r + '"/>'
+        + '<circle class="fg" cx="44" cy="44" r="' + r + '" stroke="' + color + '" '
+        + 'stroke-dasharray="' + circ + '" stroke-dashoffset="' + (circ * (1 - score/100)) + '"/>'
+        + '</svg>';
+    }
+
+    function render() {
+      var data = arguments[0];
+      var level = data.risk_level || 'low';
+      var lc = LEVEL_COLORS[level] || LEVEL_COLORS.low;
+      var score = SCORE_MAP[level] || 12;
+      var details = data.details || {};
+      var modules = Object.values(details);
+
+      // count risk items per module
+      var modStats = modules.map(function(m) {
+        var riskCount = m.items.filter(function(i) { return i.has_risk; }).length;
+        return { name: m.name, total: m.items.length, riskCount: riskCount };
+      });
+
+      var now = new Date();
+      var timeStr = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate())
+        + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+      var reportId = 'RK-' + now.getFullYear() + pad(now.getMonth()+1) + pad(now.getDate())
+        + '-' + Math.random().toString(36).slice(2, 8).toUpperCase();
+
+      var html = ''
+        /* ====== Header ====== */
+        + '<div class="report-header">'
+        + '<div class="logo">📋</div>'
+        + '<h1>企业风险预查报告</h1>'
+        + '<div class="meta">'
+        + '<span>📅 ' + timeStr + '</span>'
+        + '<span style="color:#d9d9d9;">|</span>'
+        + '<span>🔍 ' + reportId + '</span>'
+        + '</div></div>'
+
+        /* ====== Score + Company Info ====== */
+        + '<div class="card"><div class="card-body">'
+        + '<div class="score-section">'
+        + '<div class="score-circle-wrap">'
+        + renderScoreCircle(score, lc.stroke)
+        + '<div class="center-text"><span class="score-val" style="color:' + lc.stroke + '">' + score + '</span>'
+        + '<span class="score-label">风险分值</span></div></div>'
+        + '<div class="score-info">'
+        + '<div class="company-name">' + (data.company_name || '未知') + '</div>'
+        + '<div class="credit-code">' + (data.credit_code || '') + '</div>'
+        + '<div class="badge-row">'
+        + '<span class="level-badge ' + level + '">' + (LEVEL_MAP[level] || level) + '</span>'
+        + '</div></div></div>'
+
+        /* ====== Score Bars ====== */
+        + '<div class="score-bars">'
+        + modStats.map(function(s) {
+          var pct = Math.round((s.riskCount / s.total) * 100);
+          var barClass = pct >= 50 ? 'danger' : pct >= 20 ? 'warning' : 'success';
+          return '<div class="score-bar-item"><div class="bar-label">' + s.name + '</div>'
+            + '<div class="bar-track"><div class="bar-fill ' + barClass + '" style="width:' + pct + '%"></div></div>'
+            + '<div class="bar-val" style="color:' + lc.stroke + '">' + s.riskCount + '/' + s.total + '</div></div>';
+        }).join('') + '</div>'
+
+        /* ====== Risk Conclusion ====== */
+        + '<div class="conclusion" style="margin-top:14px;">💡 <strong>风险结论：</strong>' + (data.risk_summary || '暂未发现风险点') + '</div>'
+        + '</div></div>';
+
+      /* ====== Modules ====== */
+      modules.forEach(function(mod, idx) {
+        var stat = modStats[idx];
+        var riskPct = stat.total > 0 ? Math.round((stat.riskCount / stat.total) * 100) : 0;
+        var countClass = riskPct >= 50 ? 'danger' : riskPct >= 20 ? 'warning' : 'success';
+
+        html += '<div class="module-card"><div class="module-header open" onclick="var b=this.nextElementSibling;var o=b.classList.toggle(\'show\');this.classList.toggle(\'open\',o);this.querySelector(\'.arrow\').classList.toggle(\'open\',o)">'
+          + '<div class="mod-left">'
+          + '<span class="mod-icon">' + (['🏢','💰','⚠️'][idx] || '📌') + '</span>'
+          + '<div class="mod-info"><span class="mod-name">' + (idx+1) + '. ' + mod.name + '</span>'
+          + '<span class="mod-stats">共 ' + stat.total + ' 项指标</span></div></div>'
+          + '<div class="mod-right">'
+          + '<span class="risk-count ' + countClass + '">风险 ' + stat.riskCount + ' 项</span>'
+          + '<span class="arrow open">▼</span></div></div>'
+          + '<div class="module-body show"><div class="items-wrap">';
+
+        mod.items.forEach(function(item) {
+          html += '<div class="item">'
+            + itemIcon(item.has_risk)
+            + '<div class="item-content"><div class="item-name">' + item.name + '</div>'
+            + '<div class="item-detail">' + (item.detail || '') + '</div></div>'
+            + '<div class="item-status">' + statusBadge(item.result, item.has_risk) + '</div>'
+            + '</div>';
+        });
+
+        html += '</div></div></div>';
+      });
+
+      /* ====== Recommendation ====== */
+      var recItems;
+      if (level === 'high') {
+        recItems = [
+          '建议暂缓受理该企业的开户申请，并上报区域风控部门复核',
+          '需对企业法人及受益所有人进行增强型尽职调查（EDD）',
+          '对该企业关联方及交易对手进行全面排查',
+          '如确需受理，必须获得区域内部控制部门书面审批'
+        ];
+      } else if (level === 'medium') {
+        recItems = [
+          '可以受理开户申请，但需执行标准尽职调查程序',
+          '重点关注受益所有人信息及跨境交易记录的完整性',
+          '开户后需进行定期交易监控，频次不低于每季度一次',
+          '如尽调过程中发现其他风险点，应及时升级风险等级'
+        ];
+      } else {
+        recItems = [
+          '该企业综合风险较低，建议受理开户申请',
+          '执行简化型尽职调查程序即可',
+          '开户后进行例行交易监控，频次不低于每半年一次',
+          '如企业信息发生重大变更，需重新进行风险评估'
+        ];
+      }
+
+      html += '<div class="recommendation">'
+        + '<div class="rec-title">💼 开户处理建议</div>'
+        + '<div class="rec-list">'
+        + recItems.map(function(t, i) { return '<div class="rec-item"><span class="rec-num">' + (i+1) + '</span><span>' + t + '</span></div>'; }).join('')
+        + '</div></div>';
+
+      /* ====== Footer ====== */
+      html += '<div class="footer">'
+        + '<div class="disclaimer">本报告由对公存款智能体系统自动生成，数据来源为工商公示信息、反洗钱监测系统及风险评级模型。<br>'
+        + '以上内容仅供内部参考，不构成任何法律或商业建议。如需进一步核实，请联系风控合规部门。</div>'
+        + '<div class="report-id">报告编号：' + reportId + '　|　生成时间：' + timeStr + '</div>'
+        + '</div>';
+
+      root.innerHTML = html;
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  })();
+  </script>
+</body>
+</html>

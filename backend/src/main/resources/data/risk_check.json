@@ -1,0 +1,4034 @@
+{
+  "91110108MA01B3XK2P": {
+    "credit_code": "91110108MA01B3XK2P",
+    "company_name": "北京星河科技有限公司",
+    "has_risk": true,
+    "risk_level": "high",
+    "risk_summary": "该企业存在营业执照期限异常、法人变更频繁、注册地址与经营地址不一致等多项高风险特征，建议谨慎办理开户业务。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "营业执照有效期不足30日"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "注册地址与实际经营地址不符"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "法人3年内变更3次"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "股东为失信被执行人关联方"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "主要人员频繁变更"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "曾被列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益所有人信息不完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "受益人穿透后为境外公司"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "关联公司涉及高风险行业"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "命中",
+            "has_risk": true,
+            "detail": "命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有媒体负面报道"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "关联账户有可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "涉及高风险国家跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "高风险",
+            "has_risk": false,
+            "detail": "综合评分高于70分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "高",
+            "has_risk": true,
+            "detail": "基于28项指标综合评分，风险等级为：高"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "工商信息维度得分72分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "反洗钱维度得分72分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "信用维度得分72分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议拒绝",
+            "has_risk": true,
+            "detail": "综合风险等级为高，建议拒绝开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "增强型",
+            "has_risk": true,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "需要区域内控审批",
+            "has_risk": true,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "持续监控",
+            "has_risk": true,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "存在",
+            "has_risk": true,
+            "detail": "关联企业存在风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91440300MA5DCTJH8N": {
+    "credit_code": "91440300MA5DCTJH8N",
+    "company_name": "深圳前海创新金融集团有限公司",
+    "has_risk": true,
+    "risk_level": "high",
+    "risk_summary": "该企业涉及跨境金融业务，受益人穿透为境外壳公司，且命中国际制裁名单，风险等级为高，建议拒绝受理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "营业执照有效期不足30日"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "注册地址与实际经营地址不符"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "法人3年内变更3次"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "股东为失信被执行人关联方"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "主要人员频繁变更"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "曾被列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益所有人信息不完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "受益人穿透后为境外公司"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "关联公司涉及高风险行业"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "命中",
+            "has_risk": true,
+            "detail": "命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有媒体负面报道"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "关联账户有可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "涉及高风险国家跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "高风险",
+            "has_risk": false,
+            "detail": "综合评分高于70分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "高",
+            "has_risk": true,
+            "detail": "基于28项指标综合评分，风险等级为：高"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "工商信息维度得分72分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "反洗钱维度得分72分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "信用维度得分72分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议拒绝",
+            "has_risk": true,
+            "detail": "综合风险等级为高，建议拒绝开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "增强型",
+            "has_risk": true,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "需要区域内控审批",
+            "has_risk": true,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "持续监控",
+            "has_risk": true,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "存在",
+            "has_risk": true,
+            "detail": "关联企业存在风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91330108MA27XK5B3D": {
+    "credit_code": "91330108MA27XK5B3D",
+    "company_name": "杭州云栖大数据技术有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业经营状况良好，各项信息合规，未发现明显风险点，可正常办理开户业务。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照长期有效"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "高管团队稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人清晰可追溯"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无高风险跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分15分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分15分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "信用维度得分15分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "稳定",
+            "has_risk": false,
+            "detail": "企业经营状况总体稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议受理",
+            "has_risk": false,
+            "detail": "综合风险低，建议受理开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "简化型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "例行监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91310115MA1K3L6M9Q": {
+    "credit_code": "91310115MA1K3L6M9Q",
+    "company_name": "上海浦江智能装备制造有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业为高新技术制造企业，信息完整合规，未发现风险点，可正常办理开户。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照长期有效"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "高管团队稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人清晰可追溯"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无高风险跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分15分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分15分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "信用维度得分15分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "稳定",
+            "has_risk": false,
+            "detail": "企业经营状况总体稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议受理",
+            "has_risk": false,
+            "detail": "综合风险低，建议受理开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "简化型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "例行监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91440101MA5AK7T4R2": {
+    "credit_code": "91440101MA5AK7T4R2",
+    "company_name": "广州珠江国际贸易有限公司",
+    "has_risk": true,
+    "risk_level": "medium",
+    "risk_summary": "该企业整体风险可控，但存在受益所有人识别不清晰及小额行政处罚记录，建议加强尽职调查后办理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "营业执照将在6个月内到期"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "近1年有人员变更记录"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "有1次行政处罚记录，已整改"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益链中有境外层"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有大额跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "中等风险",
+            "has_risk": false,
+            "detail": "综合评分在30-70分之间"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "中",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：中"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分45分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分45分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "信用维度得分45分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": false,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "可以受理（加强尽调）",
+            "has_risk": false,
+            "detail": "综合风险中等，需加强尽职调查"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "标准型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "定期监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91510100MA6C8M2F5W": {
+    "credit_code": "91510100MA6C8M2F5W",
+    "company_name": "成都天府半导体材料有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业各项信息正常，未发现明显风险点，可正常办理开户业务。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照长期有效"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "高管团队稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人清晰可追溯"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无高风险跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分15分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分15分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "信用维度得分15分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "稳定",
+            "has_risk": false,
+            "detail": "企业经营状况总体稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议受理",
+            "has_risk": false,
+            "detail": "综合风险低，建议受理开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "简化型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "例行监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91420100MA4KX2L8H1": {
+    "credit_code": "91420100MA4KX2L8H1",
+    "company_name": "武汉光谷生物医药科技有限公司",
+    "has_risk": true,
+    "risk_level": "medium",
+    "risk_summary": "该企业经营状态正常，但近1年有1次行政处罚记录及法人变更，建议尽职调查后办理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "营业执照将在6个月内到期"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "近1年有人员变更记录"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "有1次行政处罚记录，已整改"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益链中有境外层"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有大额跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "中等风险",
+            "has_risk": false,
+            "detail": "综合评分在30-70分之间"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "中",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：中"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分45分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分45分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "信用维度得分45分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": false,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "可以受理（加强尽调）",
+            "has_risk": false,
+            "detail": "综合风险中等，需加强尽职调查"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "标准型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "定期监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91320115MA1W7J9P3B": {
+    "credit_code": "91320115MA1W7J9P3B",
+    "company_name": "南京江宁新能源动力有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业信息完整合规，经营状况稳定，未发现明显风险点。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照长期有效"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "高管团队稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人清晰可追溯"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无高风险跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分15分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分15分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "信用维度得分15分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "稳定",
+            "has_risk": false,
+            "detail": "企业经营状况总体稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议受理",
+            "has_risk": false,
+            "detail": "综合风险低，建议受理开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "简化型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "例行监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91500000MA5YU6RA4C": {
+    "credit_code": "91500000MA5YU6RA4C",
+    "company_name": "重庆两江新区供应链管理有限公司",
+    "has_risk": true,
+    "risk_level": "high",
+    "risk_summary": "该企业关联多起诉讼案件，法人被列为失信被执行人，且经营范围涉及高风险行业，建议暂缓受理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "营业执照有效期不足30日"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "注册地址与实际经营地址不符"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "法人3年内变更3次"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "股东为失信被执行人关联方"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "主要人员频繁变更"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "曾被列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益所有人信息不完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "受益人穿透后为境外公司"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "关联公司涉及高风险行业"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "命中",
+            "has_risk": true,
+            "detail": "命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有媒体负面报道"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "关联账户有可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "涉及高风险国家跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "高风险",
+            "has_risk": false,
+            "detail": "综合评分高于70分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "高",
+            "has_risk": true,
+            "detail": "基于28项指标综合评分，风险等级为：高"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "工商信息维度得分72分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "反洗钱维度得分72分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "信用维度得分72分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议拒绝",
+            "has_risk": true,
+            "detail": "综合风险等级为高，建议拒绝开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "增强型",
+            "has_risk": true,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "需要区域内控审批",
+            "has_risk": true,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "持续监控",
+            "has_risk": true,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "存在",
+            "has_risk": true,
+            "detail": "关联企业存在风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91320594MA1R8T2B6E": {
+    "credit_code": "91320594MA1R8T2B6E",
+    "company_name": "苏州工业园区芯片设计有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业为政府扶持的高新技术企业，资质齐全，经营规范，未发现风险点。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照长期有效"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "高管团队稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人清晰可追溯"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无高风险跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分15分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分15分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "信用维度得分15分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "稳定",
+            "has_risk": false,
+            "detail": "企业经营状况总体稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议受理",
+            "has_risk": false,
+            "detail": "综合风险低，建议受理开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "简化型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "例行监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91610131MA6U2F8G8K": {
+    "credit_code": "91610131MA6U2F8G8K",
+    "company_name": "西安高新区航空航天零部件有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业为军工配套供应商，信息完整，资质合规，未发现风险点。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照长期有效"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "高管团队稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人清晰可追溯"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无高风险跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分15分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分15分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "信用维度得分15分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "稳定",
+            "has_risk": false,
+            "detail": "企业经营状况总体稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议受理",
+            "has_risk": false,
+            "detail": "综合风险低，建议受理开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "简化型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "例行监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91410100MA44N6K3D9": {
+    "credit_code": "91410100MA44N6K3D9",
+    "company_name": "郑州航空港区跨境电子商务有限公司",
+    "has_risk": true,
+    "risk_level": "medium",
+    "risk_summary": "该企业涉及跨境电商业务，近1年跨境交易金额较大，建议关注资金来源合规性。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "营业执照将在6个月内到期"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "近1年有人员变更记录"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "有1次行政处罚记录，已整改"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益链中有境外层"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有大额跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "中等风险",
+            "has_risk": false,
+            "detail": "综合评分在30-70分之间"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "中",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：中"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分45分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分45分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "信用维度得分45分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": false,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "可以受理（加强尽调）",
+            "has_risk": false,
+            "detail": "综合风险中等，需加强尽职调查"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "标准型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "定期监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91120116MA05K8N3X7": {
+    "credit_code": "91120116MA05K8N3X7",
+    "company_name": "天津滨海新区精工制造有限公司",
+    "has_risk": true,
+    "risk_level": "high",
+    "risk_summary": "该企业涉及多起知识产权侵权诉讼，法人变更频繁，营业执照即将到期，风险等级为高。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "营业执照有效期不足30日"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "注册地址与实际经营地址不符"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "法人3年内变更3次"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "股东为失信被执行人关联方"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "主要人员频繁变更"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "曾被列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益所有人信息不完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "受益人穿透后为境外公司"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "关联公司涉及高风险行业"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "命中",
+            "has_risk": true,
+            "detail": "命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有媒体负面报道"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "关联账户有可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "涉及高风险国家跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "高风险",
+            "has_risk": false,
+            "detail": "综合评分高于70分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "高",
+            "has_risk": true,
+            "detail": "基于28项指标综合评分，风险等级为：高"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "工商信息维度得分72分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "反洗钱维度得分72分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "72/100",
+            "has_risk": true,
+            "detail": "信用维度得分72分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议拒绝",
+            "has_risk": true,
+            "detail": "综合风险等级为高，建议拒绝开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "增强型",
+            "has_risk": true,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "需要区域内控审批",
+            "has_risk": true,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "持续监控",
+            "has_risk": true,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "存在",
+            "has_risk": true,
+            "detail": "关联企业存在风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91460000MA5T8F3K6D": {
+    "credit_code": "91460000MA5T8F3K6D",
+    "company_name": "海南自贸港国际物流有限公司",
+    "has_risk": true,
+    "risk_level": "medium",
+    "risk_summary": "该企业为新注册自贸港企业，受益所有人信息不完整，建议完善信息后受理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "营业执照将在6个月内到期"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "近1年有人员变更记录"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "有1次行政处罚记录，已整改"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益链中有境外层"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有大额跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "中等风险",
+            "has_risk": false,
+            "detail": "综合评分在30-70分之间"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "中",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：中"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分45分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分45分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "45/100",
+            "has_risk": false,
+            "detail": "信用维度得分45分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": false,
+            "detail": "企业经营存在不稳定因素"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "可以受理（加强尽调）",
+            "has_risk": false,
+            "detail": "综合风险中等，需加强尽职调查"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "标准型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "定期监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91350200MA34P9J8K2": {
+    "credit_code": "91350200MA34P9J8K2",
+    "company_name": "厦门两岸科技孵化器有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业经营规范，资质齐全，为国家级科技孵化器运营主体，未发现风险点。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照长期有效"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "注册地址与经营地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人代表任职稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "高管团队稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无经营异常记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整有效"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人清晰可追溯"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "关联公司无异常记录"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无高风险跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分15分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分15分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "15/100",
+            "has_risk": false,
+            "detail": "信用维度得分15分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "稳定",
+            "has_risk": false,
+            "detail": "企业经营状况总体稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议受理",
+            "has_risk": false,
+            "detail": "综合风险低，建议受理开户"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "简化型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "网点自行审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "例行监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "无",
+            "has_risk": false,
+            "detail": "未发现关联风险"
+          }
+        ]
+      }
+    }
+  },
+  "91110108MA01B3XK2PB": {
+    "credit_code": "91110108MA01B3XK2PB",
+    "company_name": "红米子集科技有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "该企业工商信息正常，无重大风险事项，反洗钱筛查未发现异常，建议正常受理开户业务。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照有效期充足"
+          },
+          {
+            "name": "注册地址与经营地址",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人信息稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "主要人员稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "未列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人信息清晰"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未发现高风险交易对手"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "未命中",
+            "has_risk": false,
+            "detail": "未命中任何制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分25分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分25分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "信用维度得分25分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业经营稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议正常受理",
+            "has_risk": false,
+            "detail": "建议正常受理"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "标准型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型：标准型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "标准审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "常规监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "不存在",
+            "has_risk": false,
+            "detail": "关联企业无风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91440300MA5DCTJH8NB": {
+    "credit_code": "91440300MA5DCTJH8NB",
+    "company_name": "木棉花供应链管理有限公司",
+    "has_risk": true,
+    "risk_level": "medium",
+    "risk_summary": "该企业存在少量行政处罚记录（环保类），注册资本实缴比例偏低，综合风险等级为中等，建议加强尽职调查后受理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照有效期充足"
+          },
+          {
+            "name": "注册地址与经营地址",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "注册地址与实际经营地址存在细微差异"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "法人曾涉及民事纠纷（已结案）"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "注册资本实缴比例偏低"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "主要人员稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "曾有环保处罚记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有环保类行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "部分信息需补充核实"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人信息清晰"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未发现高风险交易对手"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "未命中",
+            "has_risk": false,
+            "detail": "未命中任何制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "少量网络负面评论，影响有限"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "中风险",
+            "has_risk": false,
+            "detail": "综合评分45分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "中",
+            "has_risk": true,
+            "detail": "基于28项指标综合评分，风险等级为：中"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "48/100",
+            "has_risk": true,
+            "detail": "工商信息维度得分48分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "48/100",
+            "has_risk": true,
+            "detail": "反洗钱维度得分48分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "48/100",
+            "has_risk": true,
+            "detail": "信用维度得分48分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "企业成立时间较短，经营稳定性待观察"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议加强尽调后受理",
+            "has_risk": true,
+            "detail": "建议加强尽调后受理"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "增强型",
+            "has_risk": true,
+            "detail": "根据风险等级确定尽职调查类型：增强型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "需主管审批",
+            "has_risk": true,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "加强监控",
+            "has_risk": true,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "关联企业存在少量风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91440300MA5DCTJHQAZ": {
+    "credit_code": "91440300MA5DCTJHQAZ",
+    "company_name": "叶子科技有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "企业工商信息完整有效，法人及主要股东信用良好，反洗钱筛查通过，风险等级低，建议正常受理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照有效期充足"
+          },
+          {
+            "name": "注册地址与经营地址",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人信息稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "主要人员稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "未列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人信息清晰"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未发现高风险交易对手"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "未命中",
+            "has_risk": false,
+            "detail": "未命中任何制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分25分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分25分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "信用维度得分25分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业经营稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议正常受理",
+            "has_risk": false,
+            "detail": "建议正常受理"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "标准型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型：标准型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "标准审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "常规监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "不存在",
+            "has_risk": false,
+            "detail": "关联企业无风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91440300MA5DCTJHQA1": {
+    "credit_code": "91440300MA5DCTJHQA1",
+    "company_name": "小米科技有限公司",
+    "has_risk": false,
+    "risk_level": "low",
+    "risk_summary": "企业工商信息正常，信用记录良好，反洗钱筛查未发现异常，综合风险等级低，建议正常受理开户业务。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照有效期充足"
+          },
+          {
+            "name": "注册地址与经营地址",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人信息稳定"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "股东结构清晰"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "主要人员稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "未列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人信息清晰"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未发现高风险交易对手"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "未命中",
+            "has_risk": false,
+            "detail": "未命中任何制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无负面舆情"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "低风险",
+            "has_risk": false,
+            "detail": "综合评分低于30分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "低",
+            "has_risk": false,
+            "detail": "基于28项指标综合评分，风险等级为：低"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分25分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分25分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "25/100",
+            "has_risk": false,
+            "detail": "信用维度得分25分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业经营稳定"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议正常受理",
+            "has_risk": false,
+            "detail": "建议正常受理"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "标准型",
+            "has_risk": false,
+            "detail": "根据风险等级确定尽职调查类型：标准型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "标准审批",
+            "has_risk": false,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "常规监控",
+            "has_risk": false,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "不存在",
+            "has_risk": false,
+            "detail": "关联企业无风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91440300MA5DCTJHQA2": {
+    "credit_code": "91440300MA5DCTJHQA2",
+    "company_name": "小米至善科技有限公司",
+    "has_risk": true,
+    "risk_level": "medium",
+    "risk_summary": "该企业成立时间较短（不足2年），注册资本实缴比例偏低，法人曾涉及民事纠纷（已结案），综合风险等级为中等，建议加强尽调。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照有效期充足"
+          },
+          {
+            "name": "注册地址与经营地址",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "注册地址与实际经营地址存在细微差异"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "法人曾涉及民事纠纷（已结案）"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "注册资本实缴比例偏低"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "主要人员稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "曾有环保处罚记录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有环保类行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "部分信息需补充核实"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人信息清晰"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未发现高风险交易对手"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "未命中",
+            "has_risk": false,
+            "detail": "未命中任何制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "少量网络负面评论，影响有限"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "中风险",
+            "has_risk": false,
+            "detail": "综合评分45分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "中",
+            "has_risk": true,
+            "detail": "基于28项指标综合评分，风险等级为：中"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "48/100",
+            "has_risk": true,
+            "detail": "工商信息维度得分48分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "48/100",
+            "has_risk": true,
+            "detail": "反洗钱维度得分48分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "48/100",
+            "has_risk": true,
+            "detail": "信用维度得分48分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "企业成立时间较短，经营稳定性待观察"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议加强尽调后受理",
+            "has_risk": true,
+            "detail": "建议加强尽调后受理"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "增强型",
+            "has_risk": true,
+            "detail": "根据风险等级确定尽职调查类型：增强型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "需主管审批",
+            "has_risk": true,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "加强监控",
+            "has_risk": true,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "关联企业存在少量风险记录"
+          }
+        ]
+      }
+    }
+  },
+  "91440300MA5DCTJHQA3": {
+    "credit_code": "91440300MA5DCTJHQA3",
+    "company_name": "小米食品有限公司",
+    "has_risk": true,
+    "risk_level": "medium",
+    "risk_summary": "该企业存在食品安全行政处罚记录（2024年一次产品抽检不合格），注册资本实缴比例60%，综合风险等级为中等，建议加强尽调后受理。",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "营业执照有效期至2047年"
+          },
+          {
+            "name": "注册地址与经营地址",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "地址一致"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生重大经营范围变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "法人信息稳定，近5年未变更"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "注册资本实缴比例60%"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "主要人员稳定"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "未列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "2024年因产品抽检不合格被市场监管局行政处罚"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "设有3个生产基地分公司"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "客户身份信息完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "受益所有人信息清晰"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "未发现高风险交易对手"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "未命中",
+            "has_risk": false,
+            "detail": "未命中任何制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "2024年产品抽检事件有少量媒体报道，影响有限"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "无记录",
+            "has_risk": false,
+            "detail": "无可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "少量进口原材料交易，风险可控"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "中风险",
+            "has_risk": false,
+            "detail": "综合评分42分"
+          }
+        ]
+      },
+      "risk_level": {
+        "name": "风险等级",
+        "items": [
+          {
+            "name": "综合风险等级",
+            "result": "中",
+            "has_risk": true,
+            "detail": "基于28项指标综合评分，风险等级为：中"
+          },
+          {
+            "name": "工商风险评分",
+            "result": "42/100",
+            "has_risk": false,
+            "detail": "工商信息维度得分42分"
+          },
+          {
+            "name": "反洗钱风险评分",
+            "result": "42/100",
+            "has_risk": false,
+            "detail": "反洗钱维度得分42分"
+          },
+          {
+            "name": "信用风险评分",
+            "result": "42/100",
+            "has_risk": false,
+            "detail": "信用维度得分42分"
+          },
+          {
+            "name": "经营稳定性评估",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业经营稳定，营收持续增长"
+          },
+          {
+            "name": "开户受理建议",
+            "result": "建议加强尽调后受理",
+            "has_risk": true,
+            "detail": "建议加强尽调后受理"
+          },
+          {
+            "name": "尽职调查要求",
+            "result": "增强型",
+            "has_risk": true,
+            "detail": "根据风险等级确定尽职调查类型：增强型"
+          },
+          {
+            "name": "复核审批要求",
+            "result": "需主管审批",
+            "has_risk": true,
+            "detail": "根据风险等级确定审批层级"
+          },
+          {
+            "name": "开户后监控要求",
+            "result": "加强监控",
+            "has_risk": true,
+            "detail": "根据风险等级确定监控频次"
+          },
+          {
+            "name": "关联风险提示",
+            "result": "不存在",
+            "has_risk": false,
+            "detail": "关联企业无风险记录"
+          }
+        ]
+      }
+    }
+  }
+}

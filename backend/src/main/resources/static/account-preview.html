@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>对公账户开户 - 信息确认</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f5f7fa; color: #333; }
+.container { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+.header { text-align: center; margin-bottom: 20px; }
+.header h1 { font-size: 20px; color: #1a1a2e; margin-bottom: 6px; }
+.header p { font-size: 13px; color: #666; }
+.status-bar { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 20px; }
+.step { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #999; }
+.step.active { color: #4f46e5; font-weight: 600; }
+.step.done { color: #10b981; }
+.step-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold; }
+.step.active .step-dot { background: #4f46e5; color: #fff; }
+.step.done .step-dot { background: #10b981; color: #fff; }
+.step .step-dot { background: #e5e7eb; color: #999; }
+.step-line { width: 32px; height: 2px; background: #e5e7eb; }
+.step.done + .step-line, .step.done ~ .step-line { background: #10b981; }
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; overflow-x: auto; }
+.tab { padding: 8px 16px; border-radius: 8px 8px 0 0; font-size: 13px; cursor: pointer; border: 1px solid #e5e7eb; background: #fff; color: #666; white-space: nowrap; }
+.tab.active { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+.card { background: #fff; border-radius: 0 12px 12px 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.field-group { margin-bottom: 14px; }
+.field-label { font-size: 12px; color: #666; margin-bottom: 4px; font-weight: 500; }
+.field-input { width: 100%; padding: 10px 12px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px; outline: none; transition: border 0.2s; }
+.field-input:focus { border-color: #4f46e5; }
+.field-input:disabled { background: #f9fafb; color: #999; }
+select.field-input { appearance: auto; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.checkbox-group { display: flex; flex-wrap: wrap; gap: 12px; }
+.checkbox-item { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s; }
+.checkbox-item.checked { background: #eff6ff; border-color: #4f46e5; color: #4f46e5; }
+.checkbox-item input { display: none; }
+.btn { padding: 14px 24px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-primary { background: #4f46e5; color: #fff; width: 100%; }
+.btn-primary:hover { background: #4338ca; }
+.btn-primary:disabled { background: #a5b4fc; cursor: not-allowed; }
+.btn-secondary { background: #f3f4f6; color: #374151; }
+.btn-group { display: flex; gap: 12px; margin-top: 8px; }
+.alert { padding: 12px 16px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; }
+.alert-info { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.alert-success { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.alert-error { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.hidden { display: none; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>对公账户开户 - 信息确认</h1>
+    <p id="companyInfo">正在加载...</p>
+  </div>
+
+  <div class="status-bar">
+    <div class="step done"><div class="step-dot">✓</div>上传资料</div>
+    <div class="step-line" style="background:#10b981"></div>
+    <div class="step active"><div class="step-dot">2</div>信息预填</div>
+    <div class="step-line"></div>
+    <div class="step"><div class="step-dot">3</div>确认提交</div>
+  </div>
+
+  <div id="alertBox" class="alert alert-info">系统已根据上传资料自动识别并预填信息，请仔细核对后提交。所有字段均可修改。</div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('company')">企业信息</div>
+    <div class="tab" onclick="switchTab('account')">账户信息</div>
+    <div class="tab" onclick="switchTab('dd')">尽职调查</div>
+    <div class="tab" onclick="switchTab('product')">产品签约</div>
+  </div>
+
+  <!-- 企业信息 -->
+  <div class="card tab-panel active" id="panel-company">
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">企业名称</div><input class="field-input" id="f_company_name" /></div>
+      <div class="field-group"><div class="field-label">统一信用代码</div><input class="field-input" id="f_credit_code" disabled /></div>
+    </div>
+    <div class="field-group"><div class="field-label">注册地址</div><input class="field-input" id="f_registered_address" /></div>
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">注册资本</div><input class="field-input" id="f_registered_capital" /></div>
+      <div class="field-group"><div class="field-label">经营范围</div><input class="field-input" id="f_business_scope" /></div>
+    </div>
+    <hr style="border:none;border-top:1px solid #f0f0f0;margin:16px 0">
+    <div style="font-size:13px;font-weight:600;color:#4f46e5;margin-bottom:12px">法定代表人信息</div>
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">法人姓名</div><input class="field-input" id="f_legal_representative" /></div>
+      <div class="field-group"><div class="field-label">法人证件号</div><input class="field-input" id="f_legal_rep_id_number" /></div>
+    </div>
+    <div class="field-group"><div class="field-label">法人手机号</div><input class="field-input" id="f_legal_rep_phone" /></div>
+    <hr style="border:none;border-top:1px solid #f0f0f0;margin:16px 0">
+    <div style="font-size:13px;font-weight:600;color:#4f46e5;margin-bottom:12px">受益人信息</div>
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">受益人姓名</div><input class="field-input" id="f_beneficiary_name" /></div>
+      <div class="field-group"><div class="field-label">受益人证件号</div><input class="field-input" id="f_beneficiary_id_number" /></div>
+    </div>
+    <div class="field-group"><div class="field-label">受益人关系</div>
+      <select class="field-input" id="f_beneficiary_relationship">
+        <option>实际控制人</option><option>法定代表人</option><option>最大股东</option><option>其他</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- 账户信息 -->
+  <div class="card tab-panel" id="panel-account">
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">账户类型</div>
+        <select class="field-input" id="f_account_type"><option>基本户</option><option>一般户</option><option>专用户</option></select>
+      </div>
+      <div class="field-group"><div class="field-label">币种</div>
+        <select class="field-input" id="f_currency"><option>人民币</option><option>美元</option><option>港币</option><option>欧元</option></select>
+      </div>
+    </div>
+    <div class="field-group"><div class="field-label">账号（系统生成）</div><input class="field-input" id="f_account_number" disabled style="font-family:monospace" /></div>
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">预留印鉴</div><input class="field-input" id="f_reserved_seal" /></div>
+      <div class="field-group"><div class="field-label">对账方式</div>
+        <select class="field-input" id="f_reconciliation_method"><option>电子对账（企业网银）</option><option>纸质对账单</option><option>短信对账</option></select>
+      </div>
+    </div>
+  </div>
+
+  <!-- 尽职调查 -->
+  <div class="card tab-panel" id="panel-dd">
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">开户目的</div>
+        <select class="field-input" id="f_opening_purpose"><option>日常经营结算</option><option>项目资金管理</option><option>投资理财</option><option>贷款发放</option><option>其他</option></select>
+      </div>
+      <div class="field-group"><div class="field-label">资金来源</div>
+        <select class="field-input" id="f_fund_source"><option>经营收入</option><option>股东投入</option><option>借款</option><option>投资收益</option><option>其他</option></select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">预期年交易规模</div><input class="field-input" id="f_expected_transaction_volume" /></div>
+      <div class="field-group"><div class="field-label">是否涉及跨境交易</div>
+        <select class="field-input" id="f_cross_border_involved"><option>否</option><option>是</option></select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div class="field-group"><div class="field-label">风险评级（系统评估）</div><input class="field-input" id="f_risk_rating" disabled /></div>
+    </div>
+    <div class="field-group"><div class="field-label">尽职调查结论</div>
+      <textarea class="field-input" id="f_conclusion" rows="3" style="resize:vertical"></textarea>
+    </div>
+  </div>
+
+  <!-- 产品签约 -->
+  <div class="card tab-panel" id="panel-product">
+    <p style="font-size:13px;color:#666;margin-bottom:16px">请选择需要签约的产品服务（点击切换选中状态）：</p>
+    <div class="checkbox-group" id="productCheckboxes">
+      <label class="checkbox-item checked" data-key="enterprise_online_banking"><input type="checkbox" checked>🏦 企业网银</label>
+      <label class="checkbox-item checked" data-key="bank_enterprise_reconciliation"><input type="checkbox" checked>📊 银企对账</label>
+      <label class="checkbox-item checked" data-key="enterprise_mobile_banking"><input type="checkbox" checked>📱 企业手机银行</label>
+      <label class="checkbox-item" data-key="corporate_settlement_card"><input type="checkbox">💳 单位结算卡</label>
+      <label class="checkbox-item" data-key="payroll_service"><input type="checkbox">💰 代发工资</label>
+      <label class="checkbox-item checked" data-key="sms_notification"><input type="checkbox" checked>🔔 短信通知</label>
+    </div>
+  </div>
+
+  <div class="btn-group">
+    <button class="btn btn-secondary" onclick="saveDraft()" style="flex:1">💾 保存修改</button>
+    <button class="btn btn-primary" id="submitBtn" onclick="handleSubmit()" style="flex:2">✅ 确认提交开户申请</button>
+  </div>
+</div>
+
+<script>
+const params = new URLSearchParams(window.location.search);
+const appId = params.get('app_id');
+const conversationId = params.get('conversation_id') || '';
+const API_BASE = window.location.origin;
+let formData = null;
+
+// 初始化
+(async function() {
+  if (!appId) { showAlert('error', '缺少申请编号'); return; }
+  try {
+    const res = await fetch(`${API_BASE}/api/account-opening/preview/${appId}`);
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || e.error); }
+    const data = await res.json();
+    formData = data.form_data;
+    document.getElementById('companyInfo').textContent = `${data.company_name} | ${data.credit_code}`;
+    fillForm(formData);
+  } catch (e) {
+    showAlert('error', '加载失败: ' + e.message);
+  }
+})();
+
+function fillForm(fd) {
+  // 企业信息
+  const ci = fd.company_info || {};
+  setVal('f_company_name', ci.company_name);
+  setVal('f_credit_code', ci.credit_code);
+  setVal('f_registered_address', ci.registered_address);
+  setVal('f_registered_capital', ci.registered_capital);
+  setVal('f_business_scope', ci.business_scope);
+  setVal('f_legal_representative', ci.legal_representative);
+  setVal('f_legal_rep_id_number', ci.legal_rep_id_number);
+  setVal('f_legal_rep_phone', ci.legal_rep_phone);
+  setVal('f_beneficiary_name', ci.beneficiary_name);
+  setVal('f_beneficiary_id_number', ci.beneficiary_id_number);
+  setVal('f_beneficiary_relationship', ci.beneficiary_relationship);
+  // 账户信息
+  const ai = fd.account_info || {};
+  setVal('f_account_type', ai.account_type);
+  setVal('f_currency', ai.currency);
+  setVal('f_account_number', ai.account_number);
+  setVal('f_reserved_seal', ai.reserved_seal);
+  setVal('f_reconciliation_method', ai.reconciliation_method);
+  // 尽调
+  const dd = fd.due_diligence || {};
+  setVal('f_opening_purpose', dd.opening_purpose);
+  setVal('f_fund_source', dd.fund_source);
+  setVal('f_expected_transaction_volume', dd.expected_transaction_volume);
+  setVal('f_cross_border_involved', dd.cross_border_involved);
+  setVal('f_risk_rating', dd.risk_rating);
+  setVal('f_conclusion', dd.conclusion);
+  // 产品签约
+  const ps = fd.product_signing || {};
+  document.querySelectorAll('#productCheckboxes .checkbox-item').forEach(el => {
+    const key = el.dataset.key;
+    const checked = ps[key] === true;
+    el.classList.toggle('checked', checked);
+    el.querySelector('input').checked = checked;
+  });
+}
+
+function setVal(id, val) { const el = document.getElementById(id); if (el && val !== undefined) el.value = val; }
+function getVal(id) { const el = document.getElementById(id); return el ? el.value : ''; }
+
+// Tab切换
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', t.textContent.includes(
+    {company:'企业信息',account:'账户信息',dd:'尽职调查',product:'产品签约'}[name]
+  )));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+}
+
+// 复选框点击
+document.querySelectorAll('.checkbox-item').forEach(el => {
+  el.addEventListener('click', function(e) {
+    e.preventDefault();
+    const cb = this.querySelector('input');
+    cb.checked = !cb.checked;
+    this.classList.toggle('checked', cb.checked);
+  });
+});
+
+function collectFormData() {
+  const ps = {};
+  document.querySelectorAll('#productCheckboxes .checkbox-item').forEach(el => {
+    ps[el.dataset.key] = el.querySelector('input').checked;
+  });
+  return {
+    company_info: {
+      company_name: getVal('f_company_name'), credit_code: getVal('f_credit_code'),
+      registered_address: getVal('f_registered_address'), registered_capital: getVal('f_registered_capital'),
+      business_scope: getVal('f_business_scope'), legal_representative: getVal('f_legal_representative'),
+      legal_rep_id_number: getVal('f_legal_rep_id_number'), legal_rep_phone: getVal('f_legal_rep_phone'),
+      beneficiary_name: getVal('f_beneficiary_name'), beneficiary_id_number: getVal('f_beneficiary_id_number'),
+      beneficiary_relationship: getVal('f_beneficiary_relationship'),
+    },
+    account_info: {
+      account_type: getVal('f_account_type'), currency: getVal('f_currency'),
+      account_number: getVal('f_account_number'), reserved_seal: getVal('f_reserved_seal'),
+      reconciliation_method: getVal('f_reconciliation_method'),
+    },
+    due_diligence: {
+      opening_purpose: getVal('f_opening_purpose'), fund_source: getVal('f_fund_source'),
+      expected_transaction_volume: getVal('f_expected_transaction_volume'),
+      cross_border_involved: getVal('f_cross_border_involved'), risk_rating: getVal('f_risk_rating'),
+      conclusion: getVal('f_conclusion'),
+    },
+    product_signing: ps,
+  };
+}
+
+async function saveDraft() {
+  try {
+    const res = await fetch(`${API_BASE}/api/account-opening/update/${appId}`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ form_data: collectFormData() }),
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || e.error); }
+    showAlert('success', '修改已保存');
+  } catch (e) { showAlert('error', '保存失败: ' + e.message); }
+}
+
+async function handleSubmit() {
+  if (!confirm('确认提交开户申请？提交后信息将锁定，不可修改。')) return;
+  const btn = document.getElementById('submitBtn');
+  btn.disabled = true; btn.textContent = '提交中...';
+  try {
+    // 先保存最新修改
+    await saveDraft();
+    // 提交
+    const res = await fetch(`${API_BASE}/api/account-opening/submit/${appId}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message || e.error); }
+    const data = await res.json();
+
+    // 回调通知智能体：开户已提交
+    if (conversationId) {
+      try {
+        await fetch(`${API_BASE}/api/account-opening/notify/${appId}`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversation_id: conversationId }),
+        });
+      } catch (_) { /* 通知失败不影响主流程 */ }
+    }
+
+    showAlert('success', data.message);
+    btn.textContent = '✅ 已提交'; btn.style.background = '#10b981';
+    setTimeout(() => { window.location.href = data.submitted_url; }, 1500);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = '✅ 确认提交开户申请';
+    showAlert('error', '提交失败: ' + e.message);
+  }
+}
+
+function showAlert(type, msg) {
+  const box = document.getElementById('alertBox');
+  box.className = 'alert alert-' + type;
+  box.textContent = msg;
+  box.classList.remove('hidden');
+}
+</script>
+</body>
+</html>

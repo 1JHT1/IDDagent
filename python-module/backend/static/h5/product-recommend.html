@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>产品智荐 · 详细报告</title>
+<style>
+  :root {
+    --high: #e53e3e;
+    --medium: #dd6b20;
+    --low: #38a169;
+    --bg: #f7f8fc;
+    --card: #fff;
+    --text: #1a202c;
+    --muted: #718096;
+    --border: #e2e8f0;
+    --brand: #2b6cb0;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif; background:var(--bg); color:var(--text); line-height:1.6; -webkit-font-smoothing:antialiased; }
+  .container { max-width:640px; margin:0 auto; padding:16px; }
+
+  /* Header */
+  .header { background:linear-gradient(135deg, #2b6cb0 0%, #3182ce 100%); color:#fff; padding:28px 20px 24px; border-radius:16px; margin-bottom:16px; position:relative; overflow:hidden; }
+  .header::after { content:''; position:absolute; top:-40px; right:-20px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,0.08); }
+  .header h1 { font-size:20px; font-weight:700; position:relative; z-index:1; }
+  .header .company { font-size:14px; opacity:0.9; margin-top:4px; position:relative; z-index:1; }
+  .header .code { font-size:12px; opacity:0.65; margin-top:2px; position:relative; z-index:1; }
+
+  /* Summary */
+  .summary { background:var(--card); border-radius:12px; padding:16px; margin-bottom:16px; border-left:4px solid var(--brand); }
+  .summary .label { font-size:12px; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
+  .summary p { font-size:14px; color:var(--text); line-height:1.7; }
+
+  /* Count bar */
+  .count-bar { display:flex; gap:8px; margin-bottom:16px; }
+  .count-item { flex:1; text-align:center; padding:10px 4px; border-radius:10px; font-weight:600; }
+  .count-item.high { background:#fff5f5; color:var(--high); }
+  .count-item.medium { background:#fffbeb; color:var(--medium); }
+  .count-item.low { background:#f0fff4; color:var(--low); }
+  .count-item .num { font-size:22px; display:block; }
+  .count-item .tag { font-size:11px; display:block; }
+
+  /* Product Card */
+  .section-title { font-size:16px; font-weight:700; margin-bottom:12px; display:flex; align-items:center; gap:8px; }
+  .section-title .icon { width:6px; height:20px; border-radius:3px; display:inline-block; }
+
+  .product-card { background:var(--card); border-radius:12px; overflow:hidden; margin-bottom:12px; box-shadow:0 1px 3px rgba(0,0,0,0.04); }
+  .product-card .card-header { padding:16px; display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border); }
+  .product-card .card-header .name { font-size:15px; font-weight:700; }
+  .product-card .card-header .category { font-size:11px; color:var(--muted); }
+  .badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:600; white-space:nowrap; flex-shrink:0; }
+  .badge-high { background:#fff5f5; color:var(--high); }
+  .badge-medium { background:#fffbeb; color:var(--medium); }
+  .badge-low { background:#f0fff4; color:var(--low); }
+  .product-card .card-body { padding:16px; }
+  .product-card .reason { font-size:13px; color:var(--muted); margin-bottom:12px; line-height:1.6; padding:10px 12px; background:#f7f8fc; border-radius:8px; }
+  .product-card .meta { display:flex; gap:12px; font-size:12px; color:var(--muted); margin-bottom:12px; }
+  .product-card .meta span { display:flex; align-items:center; gap:4px; }
+  .product-card .features { list-style:none; }
+  .product-card .features li { font-size:13px; padding:6px 0; border-bottom:1px dashed var(--border); display:flex; align-items:center; gap:8px; }
+  .product-card .features li:last-child { border-bottom:none; }
+  .product-card .features li::before { content:'✦'; color:var(--brand); font-size:8px; }
+
+  /* Footer */
+  .footer { text-align:center; padding:24px 16px; color:var(--muted); font-size:11px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="container" id="content"></div>
+  <div class="footer">本报告由智能体自动生成 · 仅供参考 · 不构成投资建议</div>
+</div>
+
+<script>
+function getParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
+function loadData(err) {
+  document.getElementById('content').innerHTML =
+    `<div style="text-align:center;padding:60px 20px;color:#718096;">
+      <div style="font-size:48px;margin-bottom:12px;">📋</div>
+      <div style="font-size:14px;">${err || '暂无产品推荐数据'}</div>
+    </div>`;
+}
+
+function priorityClass(p) { return 'badge-' + p; }
+function sectionBorder(p) { return p === 'high' ? 'var(--high)' : (p === 'medium' ? 'var(--medium)' : 'var(--low)'); }
+
+async function render() {
+  const code = getParam('code');
+  if (!code) { loadData('缺少企业信用代码参数'); return; }
+
+  try {
+    const resp = await fetch('/api/product-recommend/' + encodeURIComponent(code));
+    if (!resp.ok) throw new Error('数据加载失败');
+    const data = await resp.json();
+    if (!data || data.action === 'not_found') { loadData('未找到该企业的产品推荐'); return; }
+
+    const prods = data.products || [];
+    const high = prods.filter(p => p.priority === 'high').length;
+    const med = prods.filter(p => p.priority === 'medium').length;
+    const lo = prods.filter(p => p.priority === 'low').length;
+
+    let html = `
+      <div class="header">
+        <h1>🎯 产品智能推荐</h1>
+        <div class="company">${esc(data.company_name)}</div>
+        <div class="code">${esc(code)}</div>
+      </div>
+      <div class="summary">
+        <div class="label">📊 企业诊断摘要</div>
+        <p>${esc(data.analysis_summary)}</p>
+      </div>
+      <div class="count-bar">
+        <div class="count-item high"><span class="num">${high}</span><span class="tag">高优先级</span></div>
+        <div class="count-item medium"><span class="num">${med}</span><span class="tag">中优先级</span></div>
+        <div class="count-item low"><span class="num">${lo}</span><span class="tag">低优先级</span></div>
+      </div>`;
+
+    // Group by priority
+    for (const p of ['high', 'medium', 'low']) {
+      const group = prods.filter(x => x.priority === p);
+      if (!group.length) continue;
+      const labels = { high: '高优先级推荐', medium: '中优先级推荐', low: '低优先级建议' };
+      html += `<div class="section-title"><span class="icon" style="background:${sectionBorder(p)}"></span>${labels[p]}</div>`;
+      for (const prod of group) {
+        html += `
+          <div class="product-card">
+            <div class="card-header">
+              <div>
+                <div class="name">${esc(prod.product_name)}</div>
+                <div class="category">${esc(prod.category)}</div>
+              </div>
+              <span class="badge ${priorityClass(prod.priority)}">${esc(prod.priority_label)}</span>
+            </div>
+            <div class="card-body">
+              <div class="reason">💡 ${esc(prod.reason)}</div>
+              <div class="meta">
+                ${prod.expected_amount && prod.expected_amount !== '—' ? `<span>💰 预估额度 <strong>${esc(prod.expected_amount)}</strong></span>` : ''}
+                ${prod.application_period && prod.application_period !== '—' ? `<span>⏱ 办理周期 <strong>${esc(prod.application_period)}</strong></span>` : ''}
+              </div>
+              ${(prod.features || []).length ? `<ul class="features">${prod.features.map(f => `<li>${esc(f)}</li>`).join('')}</ul>` : ''}
+            </div>
+          </div>`;
+      }
+    }
+
+    document.getElementById('content').innerHTML = html;
+  } catch(e) {
+    loadData('加载失败: ' + e.message);
+  }
+}
+
+function esc(s) {
+  if (!s) return '';
+  const div = document.createElement('div');
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+render();
+</script>
+</body>
+</html>

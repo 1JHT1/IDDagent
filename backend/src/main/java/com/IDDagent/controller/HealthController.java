@@ -17,7 +17,7 @@ public class HealthController {
     public Mono<Map<String, Object>> healthCheck() {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", "ok");
-        result.put("service", "对公账户开户智能体");
+        result.put("service", "智能尽调智能体");
         result.put("version", "1.0.0");
         result.put("timestamp", Instant.now().toString());
         return Mono.just(result);

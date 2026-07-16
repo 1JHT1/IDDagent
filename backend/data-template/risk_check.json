@@ -1,0 +1,106 @@
+{
+  "91110108551385082Q": {
+    "credit_code": "91110108551385082Q",
+    "enterprise_name": "小米科技有限责任公司",
+    "certificate_type": "身份证",
+    "risk_summary": "该客户的异常查询中需开展加强型尽职调查！详情见《人民币单位银行结算账户尽职调查管理办法》。",
+    "certificate_number": "41***********590",
+    "details": {
+      "business_info": {
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业基本信息",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "企业基本信息完整有效"
+          },
+          {
+            "name": "营业执照期限异常",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "营业执照有效期不足30日"
+          },
+          {
+            "name": "注册地址与经营地址不一致",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "注册地址与实际经营地址不符"
+          },
+          {
+            "name": "经营范围变更",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "近2年未发生经营范围重大变更"
+          },
+          {
+            "name": "法人代表信息",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "法人3年内变更3次"
+          },
+          {
+            "name": "股东及出资信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "股东为失信被执行人关联方"
+          },
+          {
+            "name": "主要人员变更",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "主要人员频繁变更"
+          },
+          {
+            "name": "经营异常名录",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "曾被列入经营异常名录"
+          },
+          {
+            "name": "行政处罚信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有行政处罚记录"
+          },
+          {
+            "name": "分支机构情况",
+            "result": "正常",
+            "has_risk": false,
+            "detail": "无分支机构"
+          }
+        ]
+      }
+    }
+
+  },
+
+
+  "riskCategories": {
+    "工商信息": {
+      "异常企业": 2
+    },
+    "反洗钱": {
+      "异常企业": 1
+    },
+    "融安E信": {
+      "异常企业": 5
+    },
+    "其他风险": "存在接口异常"
+  },
+  "enterpriseInfo": {
+    "industry": "其他科技推广服务业",
+    "riskTags": [
+      "法人一人多企",
+      "异常经营名录",
+      "空壳探查"
+    ],
+    "abnormalFeatureCount": 0,
+    "note": "该企业存在0项异常特征"
+  },
+  "historyChanges": {
+    "hasChange": false,
+    "description": "该企业近3个月内无企业历史变更信息"
+  },
+  "customerStatus": "存量客户信息"
+},

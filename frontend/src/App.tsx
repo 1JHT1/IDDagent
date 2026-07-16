@@ -110,12 +110,26 @@ const App: React.FC = () => {
     try {
       setConversationId(id);
       const conv = await getConversation(id);
-      const msgs: ChatMessage[] = conv.messages.map((m) => ({
-        id: m.id,
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-        created_at: m.created_at,
-      }));
+      const msgs: ChatMessage[] = conv.messages.map((m) => {
+        const base = {
+          id: m.id,
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+          created_at: m.created_at,
+        };
+        // 如果是助手消息且 content 是 JSON（技能返回结果），解析为 extra 以渲染卡片
+        if (m.role === 'assistant' && m.content && m.content.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(m.content);
+            if (parsed && typeof parsed.action === 'string') {
+              return { ...base, content: '', extra: parsed };
+            }
+          } catch {
+            // 非合法 JSON，按普通文本处理
+          }
+        }
+        return base;
+      });
       setMessages(msgs);
     } catch (err) {
       console.error('加载会话失败:', err);

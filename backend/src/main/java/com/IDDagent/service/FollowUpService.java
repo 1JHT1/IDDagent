@@ -95,7 +95,7 @@ public class FollowUpService {
                         allSkillsDone,
                         companyName != null ? companyName : "无",
                         companySkillsDone);
-
+        //TODO 对公修改        
         String systemPrompt = """
                 你是一个银行对公客户经理的智能助手。你的任务是在完成当前应答后，主动预测用户的下一步需求。
 

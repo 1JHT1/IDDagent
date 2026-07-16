@@ -20,6 +20,7 @@ public class PotentialCustomerSkill {
         this.registry = registry;
     }
 
+    //TODO 对公修改
     @PostConstruct
     public void init() {
         registry.register(new Skill(

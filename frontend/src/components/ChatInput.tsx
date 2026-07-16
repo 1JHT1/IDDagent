@@ -37,7 +37,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
   };
 
   return (
-    <div className="border-t border-gray-200 bg-white p-4">
+    <div className="flex-shrink-0 border-t border-gray-200 bg-white p-4">
       <div className="max-w-3xl mx-auto flex gap-3 items-end">
         <div className="flex-1 relative">
           <textarea
@@ -45,7 +45,7 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="输入您的问题，如：开立基本存款账户需要准备哪些材料？"
+            placeholder="输入您的问题，如：请帮我查询某某某公司的风险报告？"
             disabled={disabled}
             rows={1}
             className="w-full resize-none rounded-xl border border-gray-300 bg-gray-50 px-4 py-3

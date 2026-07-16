@@ -23,7 +23,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* 消息区域 */}
       <div
         ref={scrollRef}
@@ -51,9 +51,8 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               <h2 className="text-xl font-semibold text-gray-700 mb-2">
                 智能尽调智能体
               </h2>
-              {/* 修改点：添加 text-left，使这段描述文字左对齐，不再居中 */}
-              <p className="text-gray-500 mb-8 max-w-md text-left">
-                我是您的智能尽调智能体小助手，可以帮您进行信息智能核实、风险智能识别、历史尽调共享、尽调任务处理、资料智能分析、尽调报告生成等功能。
+              <p className="text-gray-500 mb-8 ">
+                我是您的智能尽调智能体小助手
                 <br />
                 请随时向我提问！
               </p>
@@ -91,8 +90,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
 
 /** 快捷提问 */
 const QUICK_QUESTIONS = [
-  '这里用来放一些快捷提问？',
-  '什么是智能尽调？',
+  '智能尽调的基本流程是什么？',
   '智能尽调有什么业务',
 ];
 

@@ -1,7 +1,7 @@
 package com.IDDagent.config;
 /*
 * Spring Boot 配置属性类（Configuration Properties Class），它的核心作用
-* 是将 application.yml（或 application.properties）配置文件中的参数，统一映射成 Java 代码中可以调用的对象。
+* 是将 application-template.yml（或 application.properties）配置文件中的参数，统一映射成 Java 代码中可以调用的对象。
 * */
 import lombok.Getter;
 import lombok.Setter;

@@ -1,2 +1,5 @@
 # 项目排除路径
 /backend/target/
+backend/src/main/resources/application.yml
+backend/src/main/resources/application-local.yml
+.env

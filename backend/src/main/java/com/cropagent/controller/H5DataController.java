@@ -1,5 +1,6 @@
 package com.cropagent.controller;
 
+import com.cropagent.skill.DataLoader;
 import com.cropagent.model.UserInfo;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,7 +35,7 @@ public class H5DataController {
     @GetMapping("/risk-report/{creditCode}")
     public Mono<Map<String, Object>> getRiskReport(@PathVariable String creditCode) {
         return Mono.fromCallable(() -> {
-            Map<String, Object> riskData = loadJson(DATA_DIR + "/risk_check.json");
+            Map<String, Object> riskData = DataLoader.loadJson(DATA_DIR + "/risk_check.json");
             @SuppressWarnings("unchecked")
             Map<String, Object> result = (Map<String, Object>) riskData.get(creditCode);
             if (result == null) {
@@ -47,7 +48,7 @@ public class H5DataController {
     @GetMapping("/outreach/{creditCode}")
     public Mono<Map<String, Object>> getOutreachData(@PathVariable String creditCode) {
         return Mono.fromCallable(() -> {
-            Map<String, Object> outreachData = loadJson(DATA_DIR + "/customer_outreach.json");
+            Map<String, Object> outreachData = DataLoader.loadJson(DATA_DIR + "/customer_outreach.json");
             @SuppressWarnings("unchecked")
             Map<String, Object> result = (Map<String, Object>) outreachData.get(creditCode);
             if (result == null) {
@@ -60,7 +61,7 @@ public class H5DataController {
     @GetMapping("/product-recommend/{creditCode}")
     public Mono<Map<String, Object>> getProductRecommend(@PathVariable String creditCode) {
         return Mono.fromCallable(() -> {
-            Map<String, Object> prodData = loadJson(DATA_DIR + "/product_recommendations.json");
+            Map<String, Object> prodData = DataLoader.loadJson(DATA_DIR + "/product_recommendations.json");
             @SuppressWarnings("unchecked")
             Map<String, Object> recs = (Map<String, Object>) prodData.getOrDefault("recommendations", Map.of());
             @SuppressWarnings("unchecked")

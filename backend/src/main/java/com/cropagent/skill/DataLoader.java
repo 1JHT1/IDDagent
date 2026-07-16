@@ -9,8 +9,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -24,17 +26,32 @@ public class DataLoader {
     /*“JSON 文件持久化”的加载入口，通常会在服务启动时（@PostConstruct）被调用，把硬盘上的数据灌进内存缓存。
     * */
     public static Map<String, Object> loadJson(String filePath) {
+        // 1. 尝试从磁盘相对路径加载
         try {
             Path path = Paths.get(filePath);
-            if (!Files.exists(path)) {
-                return Map.of();
+            if (Files.exists(path)) {
+                return mapper.readValue(path.toFile(),
+                        new TypeReference<Map<String, Object>>() {});
             }
-            return mapper.readValue(path.toFile(),
-                    new TypeReference<Map<String, Object>>() {});
         } catch (IOException e) {
-            log.error("Failed to load JSON: {} - {}", filePath, e.getMessage());
-            return Map.of();
+            log.warn("Failed to load JSON from disk: {} - {}", filePath, e.getMessage());
         }
+
+        // 2. 回退到 classpath 加载（兼容不同工作目录）
+        try {
+            ClassPathResource resource = new ClassPathResource(filePath);
+            if (resource.exists()) {
+                try (InputStream is = resource.getInputStream()) {
+                    return mapper.readValue(is,
+                            new TypeReference<Map<String, Object>>() {});
+                }
+            }
+        } catch (IOException e) {
+            log.warn("Failed to load JSON from classpath: {} - {}", filePath, e.getMessage());
+        }
+
+        log.error("JSON file not found on disk or classpath: {}", filePath);
+        return Map.of();
     }
 
     public static String buildBaseUrl() {

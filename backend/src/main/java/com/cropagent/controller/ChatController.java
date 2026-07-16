@@ -165,6 +165,8 @@ public class ChatController {
                                 case "open_corporate_account" -> "account_opening_result";
                                 default -> "risk_check_result";
                             };
+                            // 将 skill_name 注入到结果中，方便前端根据技能类型路由卡片
+                            result.put("_skill_name", skillName);
                             eventFlux = Flux.just(sseEvent(eventType, result, assistantMsgId, null));
                         } else {
                             eventFlux = Flux.empty();

@@ -10,7 +10,7 @@ import {
   deleteConversation as deleteConversationApi,
   checkHealth,
 } from './api/agent';
-import type { ConversationListItem, ChatMessage } from './types';
+import type { ConversationListItem, ChatMessage, ChatAttachment } from './types';
 
 interface UserData {
   id: string;
@@ -116,6 +116,8 @@ const App: React.FC = () => {
           role: m.role as 'user' | 'assistant',
           content: m.content,
           created_at: m.created_at,
+          // 还原消息附件（用户上传的文件）
+          ...(m.attachments && m.attachments.length > 0 ? { attachments: m.attachments } : {}),
         };
         // 如果是助手消息且 content 是 JSON（技能返回结果），解析为 extra 以渲染卡片
         if (m.role === 'assistant' && m.content && m.content.trim().startsWith('{')) {
@@ -155,7 +157,7 @@ const App: React.FC = () => {
   conversationIdRef.current = conversationId;
 
   // 发送消息
-  const handleSend = useCallback(async (content: string) => {
+  const handleSend = useCallback(async (content: string, attachments?: ChatAttachment[]) => {
     let currentConvId = conversationIdRef.current;
     if (!currentConvId) {
       try {
@@ -169,7 +171,7 @@ const App: React.FC = () => {
       }
     }
     console.log('📤 App 发送消息, conversationId:', currentConvId);
-    sendMessage(content, currentConvId);
+    sendMessage(content, currentConvId, attachments);
   }, [sendMessage]);
 
   // ---- 未登录：显示登录页 ----

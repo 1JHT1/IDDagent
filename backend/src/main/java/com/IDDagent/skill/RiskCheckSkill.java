@@ -8,8 +8,8 @@ import java.util.*;
 @Component
 public class RiskCheckSkill {
 
-    private static final String RISK_FILE = "data/risk_check.json";
-    private static final String NAME_INDEX_FILE = "data/company_name_index.json";
+    private static final String RISK_FILE = "data-template/risk_check.json";
+    private static final String NAME_INDEX_FILE = "data-template/company_name_index.json";
     private static final int MIN_AUTO_MATCH_SCORE = 80;
     private static final int MAX_SUGGESTIONS = 3;
 
@@ -78,17 +78,174 @@ public class RiskCheckSkill {
         return resp;
     }
 
+    @SuppressWarnings("unchecked")
     private Map<String, Object> buildResult(Map<String, Object> data) {
         String baseUrl = DataLoader.buildBaseUrl();
         String code = (String) data.get("credit_code");
+        // 模板数据用 enterprise_name，统一映射为 company_name
+        String companyName = (String) data.getOrDefault("company_name", data.get("enterprise_name"));
+        String riskLevel = computeRiskLevel(data);
+        boolean hasRisk = !"low".equals(riskLevel);
+
         Map<String, Object> result = new HashMap<>();
         result.put("action", "result");
         result.put("credit_code", code);
-        result.put("company_name", data.get("company_name"));
-        result.put("has_risk", data.get("has_risk"));
-        result.put("risk_level", data.get("risk_level"));
+        result.put("company_name", companyName);
+        result.put("has_risk", hasRisk);
+        result.put("risk_level", riskLevel);
         result.put("risk_summary", data.get("risk_summary"));
         result.put("h5_url", baseUrl + "/h5/risk-report.html?code=" + code);
+        return result;
+    }
+
+    /**
+     * 根据 details 中的各项指标计算风险等级。
+     * - aml 中 has_risk=true 且 result 为 "异常"/"命中"/"严重" 计为高风险项
+     * - rongan 中 riskLevel="high" 计为高风险项
+     * - aml 中 has_risk=true 且 result 为 "关注" 计为中风险项
+     * - rongan 中 riskLevel="medium" 计为中风险项
+     * - business_info 中 result="命中" 计为中风险项
+     * 高风险项 >=1 → high；中风险项 >=2 → medium；否则 → low
+     */
+    @SuppressWarnings("unchecked")
+    public static String computeRiskLevel(Map<String, Object> data) {
+        Map<String, Object> details = (Map<String, Object>) data.get("details");
+        if (details == null) return "low";
+
+        int highCount = 0;
+        int mediumCount = 0;
+
+        // 反洗钱
+        Map<String, Object> aml = (Map<String, Object>) details.get("aml");
+        if (aml != null) {
+            List<Map<String, Object>> items = (List<Map<String, Object>>) aml.get("items");
+            if (items != null) {
+                for (Map<String, Object> item : items) {
+                    Boolean hasRisk = (Boolean) item.get("has_risk");
+                    if (Boolean.TRUE.equals(hasRisk)) {
+                        String result = (String) item.get("result");
+                        if ("异常".equals(result) || "命中".equals(result) || "严重".equals(result)) {
+                            highCount++;
+                        } else {
+                            mediumCount++;
+                        }
+                    }
+                }
+            }
+        }
+
+        // 融安E信
+        Map<String, Object> rongan = (Map<String, Object>) details.get("rongan");
+        if (rongan != null) {
+            List<Map<String, Object>> items = (List<Map<String, Object>>) rongan.get("items");
+            if (items != null) {
+                for (Map<String, Object> item : items) {
+                    String riskLevel = (String) item.get("riskLevel");
+                    if (riskLevel == null) riskLevel = (String) item.get("risklevel");
+                    if ("high".equalsIgnoreCase(riskLevel)) {
+                        highCount++;
+                    } else if ("medium".equalsIgnoreCase(riskLevel)) {
+                        mediumCount++;
+                    }
+                }
+            }
+        }
+
+        // 工商信息 — 只有特定指标的"命中"才算风险
+        Map<String, Object> businessInfo = (Map<String, Object>) details.get("business_info");
+        if (businessInfo != null) {
+            List<Map<String, Object>> items = (List<Map<String, Object>>) businessInfo.get("items");
+            if (items != null) {
+                for (Map<String, Object> item : items) {
+                    String result = (String) item.get("result");
+                    String name = (String) item.get("name");
+                    if ("命中".equals(result) && name != null &&
+                            (name.contains("一人多企") || name.contains("异常经营") || name.contains("空壳"))) {
+                        mediumCount++;
+                    }
+                }
+            }
+        }
+
+        if (highCount >= 1) return "high";
+        if (mediumCount >= 2) return "medium";
+        return "low";
+    }
+
+    private static final Map<String, String> RONGAN_STATUS_MAP = Map.of(
+            "PENDING", "待处理",
+            "MONITORING", "监控中",
+            "RESOLVED", "已解决",
+            "CLEAR", "正常"
+    );
+    private static final Map<String, String> RONGAN_LEVEL_MAP = Map.of(
+            "high", "高风险",
+            "medium", "中风险",
+            "low", "低风险"
+    );
+
+    /**
+     * 将 data-template/risk_check.json 的原始数据标准化为 H5 页面所需格式。
+     * - enterprise_name → company_name
+     * - 计算 risk_level / has_risk
+     * - rongan items: riskLevel/detectDate/status → result/has_risk/detail
+     * - business_info items: 缺失 has_risk 时根据 result 补全
+     */
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> normalizeForH5(Map<String, Object> raw) {
+        Map<String, Object> result = new LinkedHashMap<>(raw);
+
+        // 企业名称统一
+        if (!result.containsKey("company_name") && result.containsKey("enterprise_name")) {
+            result.put("company_name", result.get("enterprise_name"));
+        }
+
+        // 计算风险等级
+        String riskLevel = computeRiskLevel(raw);
+        result.put("risk_level", riskLevel);
+        result.put("has_risk", !"low".equals(riskLevel));
+
+        // 标准化 details 中各模块的 items
+        Map<String, Object> details = (Map<String, Object>) result.get("details");
+        if (details != null) {
+            for (var entry : details.entrySet()) {
+                if (!(entry.getValue() instanceof Map)) continue;
+                Map<String, Object> module = (Map<String, Object>) entry.getValue();
+                Object itemsObj = module.get("items");
+                if (!(itemsObj instanceof List)) continue;
+                List<Map<String, Object>> items = (List<Map<String, Object>>) itemsObj;
+                List<Map<String, Object>> normalizedItems = new ArrayList<>();
+                for (Map<String, Object> item : items) {
+                    Map<String, Object> ni = new LinkedHashMap<>(item);
+                    // rongan 模块：将 riskLevel/detectDate/status 转为 result/has_risk/detail
+                    if ("rongan".equals(entry.getKey())) {
+                        String rl = (String) ni.getOrDefault("riskLevel", ni.get("risklevel"));
+                        String status = (String) ni.get("status");
+                        String detectDate = (String) ni.get("detectDate");
+                        ni.put("result", RONGAN_LEVEL_MAP.getOrDefault(rl != null ? rl.toLowerCase() : "", rl != null ? rl : "未知"));
+                        ni.put("has_risk", "high".equalsIgnoreCase(rl) || "medium".equalsIgnoreCase(rl));
+                        StringBuilder detail = new StringBuilder();
+                        if (detectDate != null) detail.append("检测日期: ").append(detectDate);
+                        if (status != null) {
+                            if (detail.length() > 0) detail.append("  |  ");
+                            detail.append("状态: ").append(RONGAN_STATUS_MAP.getOrDefault(status, status));
+                        }
+                        ni.put("detail", detail.toString());
+                    }
+                    // business_info 模块：补全缺失的 has_risk（仅特定指标的"命中"算风险）
+                    if ("business_info".equals(entry.getKey())) {
+                        if (!ni.containsKey("has_risk")) {
+                            String r = (String) ni.get("result");
+                            String nm = (String) ni.get("name");
+                            ni.put("has_risk", "命中".equals(r) && nm != null &&
+                                    (nm.contains("一人多企") || nm.contains("异常经营") || nm.contains("空壳")));
+                        }
+                    }
+                    normalizedItems.add(ni);
+                }
+                module.put("items", normalizedItems);
+            }
+        }
         return result;
     }
 

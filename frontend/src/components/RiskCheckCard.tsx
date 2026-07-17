@@ -1,5 +1,5 @@
 import React from 'react'
-import type { RiskCheckResult, RiskAmbiguousOption } from '../types'
+import type { RiskAmbiguousOption } from '../types'
 
 // ============================================================
 // Props

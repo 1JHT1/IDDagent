@@ -1,6 +1,7 @@
 package com.IDDagent.auth;
 
 import com.IDDagent.model.UserInfo;
+import com.IDDagent.service.UserStoreService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
@@ -27,6 +28,7 @@ public class JwtAuthFilter implements WebFilter {
             Pattern.compile("^/api/outreach/.*"),
             Pattern.compile("^/api/product-recommend/.*"),
             Pattern.compile("^/api/account-opening/(upload|process|preview|update|submit|notify|notifications).*"),
+            Pattern.compile("^/api/chat/attachments/[a-f0-9\\-]{36}/.*"),  // 附件下载（通过随机UUID保护）
             Pattern.compile("^/h5/.*"),
             Pattern.compile("^/docs.*"),
             Pattern.compile("^/openapi.*"),
@@ -37,11 +39,11 @@ public class JwtAuthFilter implements WebFilter {
     );
 
     private final JwtUtil jwtUtil;
-    private final UserStore userStore;
+    private final UserStoreService userStoreService;
 
-    public JwtAuthFilter(JwtUtil jwtUtil, UserStore userStore) {
+    public JwtAuthFilter(JwtUtil jwtUtil, UserStoreService userStoreService) {
         this.jwtUtil = jwtUtil;
-        this.userStore = userStore;
+        this.userStoreService = userStoreService;
     }
 
     @Override
@@ -68,13 +70,13 @@ public class JwtAuthFilter implements WebFilter {
                 return exchange.getResponse().setComplete();
             }
 
-            var userOpt = userStore.getUser(userId);
+            var userOpt = userStoreService.getUser(userId);
             if (userOpt.isEmpty()) {
                 exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);
                 return exchange.getResponse().setComplete();
             }
 
-            UserInfo userInfo = userStore.toUserInfo(userOpt.get());
+            UserInfo userInfo = userStoreService.toUserInfo(userOpt.get());
             exchange.getAttributes().put("currentUser", userInfo);
             return chain.filter(exchange);
 

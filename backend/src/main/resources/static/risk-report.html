@@ -173,7 +173,7 @@
     function statusBadge(result, hasRisk) {
       if (hasRisk) return '<span class="status-tag risk">' + result + '</span>';
       var r = result;
-      if (r === '关注' || r === '异常' || r === '疑似异常' || r === '有记录' || r === '命中' || r === '不稳定')
+      if (r === '关注' || r === '异常' || r === '疑似异常' || r === '有记录' || r === '不稳定')
         return '<span class="status-tag warn">' + r + '</span>';
       return '<span class="status-tag safe">' + r + '</span>';
     }
@@ -226,8 +226,11 @@
         + '<div class="center-text"><span class="score-val" style="color:' + lc.stroke + '">' + score + '</span>'
         + '<span class="score-label">风险分值</span></div></div>'
         + '<div class="score-info">'
-        + '<div class="company-name">' + (data.company_name || '未知') + '</div>'
+        + '<div class="company-name">' + (data.company_name || data.enterprise_name || '未知') + '</div>'
         + '<div class="credit-code">' + (data.credit_code || '') + '</div>'
+        + (data.certificate_type || data.certificate_number
+            ? '<div class="credit-code" style="margin-top:2px;">证件类型：' + (data.certificate_type || '—') + '　|　证件号码：' + (data.certificate_number || '—') + '</div>'
+            : '')
         + '<div class="badge-row">'
         + '<span class="level-badge ' + level + '">' + (LEVEL_MAP[level] || level) + '</span>'
         + '</div></div></div>'

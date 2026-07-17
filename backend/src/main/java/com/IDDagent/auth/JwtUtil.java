@@ -19,9 +19,6 @@ public class JwtUtil {
     private final SecretKey secretKey;
     private final int expireHours;
 
-
-
-
     /*
     * 如果配置类里没有写secret，则这里构建一个jwt，但后果是服务重启的一瞬间，系统中所有在线用户的 JWT 令牌全部作废！
     * 前端带着旧的 token 请求接口，后端验签失败，

@@ -1,6 +1,7 @@
 package com.IDDagent.controller;
 
 import com.IDDagent.skill.DataLoader;
+import com.IDDagent.skill.RiskCheckSkill;
 import com.IDDagent.model.UserInfo;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,7 +30,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api")
 public class H5DataController {
 
-    private static final String DATA_DIR = "data";
+    private static final String DATA_DIR = "data-template";
     private static final ObjectMapper mapper = new ObjectMapper();
 
     @GetMapping("/risk-report/{creditCode}")
@@ -41,7 +42,8 @@ public class H5DataController {
             if (result == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到信用代码 " + creditCode + " 的风险信息");
             }
-            return result;
+            // 标准化模板数据：补全 company_name、risk_level、has_risk，统一 rongan/business_info items 结构
+            return RiskCheckSkill.normalizeForH5(result);
         });
     }
 

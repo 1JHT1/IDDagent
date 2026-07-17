@@ -1,12 +1,12 @@
 import React, { useRef, useEffect } from 'react';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, ChatAttachment } from '../types';
 import ChatMessageComponent from './ChatMessage';
 import ChatInput from './ChatInput';
 
 interface ChatContainerProps {
   messages: ChatMessage[];
   isSending: boolean;
-  onSend: (message: string) => void;
+  onSend: (message: string, attachments?: ChatAttachment[]) => void;
 }
 
 const ChatContainer: React.FC<ChatContainerProps> = ({

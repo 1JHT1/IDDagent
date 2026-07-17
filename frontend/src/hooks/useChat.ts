@@ -3,14 +3,14 @@
 // ============================================================
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { ChatMessage, SSEEvent } from '../types';
+import type { ChatMessage, SSEEvent, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
 import { sendMessageStream, checkAccountNotifications } from '../api/agent';
 
 interface UseChatReturn {
   messages: ChatMessage[];
   isSending: boolean;
-  sendMessage: (content: string, overrideConvId?: string) => Promise<void>;
+  sendMessage: (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => Promise<void>;
   clearMessages: () => void;
   setMessages: (messages: ChatMessage[]) => void;
 }
@@ -32,11 +32,12 @@ export function useChat(
   onMessageCompleteRef.current = onMessageComplete;
 
   const sendMessage = useCallback(
-    async (content: string, overrideConvId?: string) => {
+    async (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => {
       const effectiveConvId = overrideConvId ?? conversationIdRef.current;
-      if (!content.trim() || isSendingRef.current) return;
+      const hasAttachments = !!attachments && attachments.length > 0;
+      if ((!content.trim() && !hasAttachments) || isSendingRef.current) return;
 
-      console.log('🚀 useChat.sendMessage 开始, content:', content, 'conversationId:', effectiveConvId);
+      console.log('🚀 useChat.sendMessage 开始, content:', content, 'conversationId:', effectiveConvId, '附件数:', attachments?.length ?? 0);
 
       isSendingRef.current = true;
       setIsSending(true);
@@ -47,6 +48,7 @@ export function useChat(
         role: 'user',
         content: content.trim(),
         created_at: new Date().toISOString(),
+        ...(hasAttachments ? { attachments } : {}),
       };
 
       setMessages((prev) => {
@@ -322,7 +324,8 @@ export function useChat(
           setIsSending(false);
           // 每次 SSE 完成后检查开户提交通知
           pollNotifications();
-        }
+        },
+        attachments
       );
     },
     [onConversationIdChange]

@@ -67,7 +67,26 @@ public class ChatController {
         // 存储用户消息
         String userMsgId = UUID.randomUUID().toString();
         String now = Instant.now().toString();
+
+        // 附件信息：汇总到消息内容中传递给 LLM
+        List<Map<String, Object>> attachments = body.getAttachments();
+        String enhancedMessage = body.getMessage();
+        if (attachments != null && !attachments.isEmpty()) {
+            StringBuilder sb = new StringBuilder(body.getMessage());
+            sb.append("\n\n[用户上传了以下附件：");
+            for (int i = 0; i < attachments.size(); i++) {
+                Map<String, Object> att = attachments.get(i);
+                String name = (String) att.getOrDefault("name", "未知文件");
+                sb.append(i > 0 ? "、" : "").append(name);
+                // 保留 url 等信息供前端展示
+                att.put("id", "att-" + userMsgId + "-" + i);
+            }
+            sb.append("]");
+            enhancedMessage = sb.toString();
+        }
+
         Message userMsg = new Message(userMsgId, "user", body.getMessage(), now);
+        userMsg.setAttachments(attachments);
         conv.getMessages().add(userMsg);
         conv.setUpdatedAt(now);
 
@@ -80,18 +99,19 @@ public class ChatController {
 
         final String convId = conversationId;
         final Conversation finalConv = conv;
+        final String finalMessage = enhancedMessage;
 
         // 立即发送初始事件，保持 SSE 连接活跃（防止代理空闲超时）
         Flux<String> initEvent = Flux.just(sseEvent("thinking",
                 Map.of("content", "正在分析您的问题..."), null, convId));
 
         // 主流程：先调用 coordinator 获取意图，再根据决策生成 SSE 事件流
-        Flux<String> mainFlow = coordinatorService.routeIntent(body.getMessage())
+        Flux<String> mainFlow = coordinatorService.routeIntent(finalMessage)
                 .flatMapMany(decision -> {
                     if ("skill".equals(decision.get("action"))) {
                         return handleSkill(decision, convId, userId, finalConv);
                     } else {
-                        return handleChat(convId, finalConv, body.getMessage());
+                        return handleChat(convId, finalConv, finalMessage);
                     }
                 });
 

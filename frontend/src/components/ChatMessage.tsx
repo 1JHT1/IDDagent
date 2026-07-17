@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { ChatMessage } from '../types';
+import type { ChatMessage, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
 import PotentialCustomerCard from './PotentialCustomerCard';
 import RiskCheckCard from './RiskCheckCard';
@@ -17,11 +17,66 @@ interface ChatMessageProps {
   onSendMessage?: (content: string) => void;
 }
 
+/** 格式化文件大小 */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** 附件列表渲染（用户消息气泡内） */
+const AttachmentList: React.FC<{ attachments: ChatAttachment[] }> = ({ attachments }) => (
+  <div className="flex flex-col gap-2 mt-2">
+    {attachments.map((att, idx) => {
+      const isImage = att.type?.startsWith('image/');
+      if (isImage) {
+        return (
+          <a
+            key={`${att.url}-${idx}`}
+            href={att.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block"
+            title={att.name}
+          >
+            <img
+              src={att.url}
+              alt={att.name}
+              className="max-w-[220px] max-h-[160px] rounded-lg border border-blue-400/40 object-cover"
+            />
+          </a>
+        );
+      }
+      return (
+        <a
+          key={`${att.url}-${idx}`}
+          href={att.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-500/40 hover:bg-blue-500/60
+                     border border-blue-400/40 transition-colors group"
+          title={`点击查看 ${att.name}`}
+        >
+          {/* 文件图标 */}
+          <svg className="w-5 h-5 text-blue-100 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+          </svg>
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-white truncate max-w-[180px]">{att.name}</div>
+            <div className="text-[10px] text-blue-100">{formatSize(att.size)}</div>
+          </div>
+        </a>
+      );
+    })}
+  </div>
+);
+
 const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => {
   const isUser = message.role === 'user';
   const streaming = isStreamingMessage(message);
 
-  const handleRequestDetail = (sourceId: string, sourceName: string) => {
+  const handleRequestDetail = (_sourceId: string, sourceName: string) => {
     onSendMessage?.(`查看${sourceName}的客户详情`);
   };
 
@@ -89,9 +144,16 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
 
     if (isUser) {
       return (
-        <p className="text-sm leading-relaxed whitespace-pre-wrap">
-          {message.content}
-        </p>
+        <>
+          {message.content && (
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">
+              {message.content}
+            </p>
+          )}
+          {message.attachments && message.attachments.length > 0 && (
+            <AttachmentList attachments={message.attachments} />
+          )}
+        </>
       );
     }
 

@@ -14,7 +14,7 @@ public class WebClientConfig {
     @Bean
     public WebClient webClient() {
         HttpClient httpClient = HttpClient.create()
-                .responseTimeout(Duration.ofSeconds(120));
+                .responseTimeout(Duration.ofSeconds(120));//将默认的超时时间从几秒钟延长到了 120 秒。
 
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))

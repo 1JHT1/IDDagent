@@ -5,6 +5,20 @@
 /** 消息角色 */
 export type MessageRole = 'user' | 'assistant';
 
+/** 聊天附件 */
+export interface ChatAttachment {
+  /** 文件名 */
+  name: string;
+  /** 访问地址 */
+  url: string;
+  /** 文件大小（字节） */
+  size: number;
+  /** MIME 类型 */
+  type: string;
+  /** 后端生成的文件 ID */
+  file_id?: string;
+}
+
 /** 单条消息 */
 export interface Message {
   id: string;
@@ -13,6 +27,8 @@ export interface Message {
   created_at: string;
   /** 结构化额外数据（潜客卡片等） */
   extra?: Record<string, unknown>;
+  /** 消息附件 */
+  attachments?: ChatAttachment[];
 }
 
 /** 会话 */
@@ -238,6 +254,8 @@ export interface StreamingMessage {
   isStreaming: boolean;
   created_at: string;
   extra?: Record<string, unknown>;
+  /** 消息附件 */
+  attachments?: ChatAttachment[];
 }
 
 /** 聊天消息联合类型 */

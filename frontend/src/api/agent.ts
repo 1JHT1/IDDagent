@@ -2,7 +2,7 @@
 // 后端 API 封装层
 // ============================================================
 
-import type { ConversationListItem, Conversation, SSEEvent } from '../types';
+import type { ConversationListItem, Conversation, SSEEvent, ChatAttachment } from '../types';
 
 const API_BASE = '/api';
 
@@ -92,6 +92,32 @@ export async function deleteConversation(conversationId: string): Promise<void> 
 }
 
 /**
+ * 上传聊天附件
+ * 返回附件元信息（name/url/size/type/file_id）
+ */
+export async function uploadChatAttachment(file: File): Promise<ChatAttachment> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const headers: Record<string, string> = {};
+  const token = getAuthToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const res = await fetch(`${API_BASE}/chat/attachments`, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ message: '上传附件失败' }));
+    throw new Error(err.message || `上传附件失败 (${res.status})`);
+  }
+  return res.json();
+}
+
+/**
  * 流式发送消息
  * 返回一个 ReadableStream，通过回调处理 SSE 事件
  */
@@ -100,7 +126,8 @@ export async function sendMessageStream(
   conversationId: string | null,
   onEvent: (event: SSEEvent) => void,
   onError: (error: Error) => void,
-  onDone: () => void
+  onDone: () => void,
+  attachments?: ChatAttachment[]
 ): Promise<void> {
   let doneCalled = false;
   const safeDone = () => { if (!doneCalled) { doneCalled = true; onDone(); } };
@@ -112,6 +139,7 @@ export async function sendMessageStream(
       body: JSON.stringify({
         message,
         conversationId: conversationId,
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
       }),
     });
 

@@ -9,6 +9,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -18,11 +20,13 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.springframework.core.io.ClassPathResource;
+
 @Service
 public class FollowUpService {
 
     private static final Logger log = LoggerFactory.getLogger(FollowUpService.class);
-    private static final String WORKFLOW_FILE = "data/follow_up_workflows.md";
+    private static final String WORKFLOW_FILE = "data/follow_up_flows1.md";
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final Pattern JSON_PATTERN = Pattern.compile("\\{[\\s\\S]*\\}");
 
@@ -38,14 +42,37 @@ public class FollowUpService {
     private String loadWorkflow() {
         if (workflowText == null) {
             try {
+                // 1. 优先从磁盘路径读取
                 Path path = Paths.get(WORKFLOW_FILE);
                 if (Files.exists(path)) {
                     workflowText = Files.readString(path);
+                    log.info("FollowUp workflow loaded from disk: {}", path.toAbsolutePath());
                 } else {
-                    workflowText = "";
+                    // 2. 回退到 classpath（data/ 或 data-template/ 目录下）
+                    ClassPathResource resource = new ClassPathResource(WORKFLOW_FILE);
+                    if (resource.exists()) {
+                        try (InputStream is = resource.getInputStream()) {
+                            workflowText = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                            log.info("FollowUp workflow loaded from classpath: {}", WORKFLOW_FILE);
+                        }
+                    } else {
+                        // 3. 也试试 data-template/ 前缀
+                        String altPath = "data-template/" + Paths.get(WORKFLOW_FILE).getFileName().toString();
+                        resource = new ClassPathResource(altPath);
+                        if (resource.exists()) {
+                            try (InputStream is = resource.getInputStream()) {
+                                workflowText = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+                                log.info("FollowUp workflow loaded from classpath alt: {}", altPath);
+                            }
+                        } else {
+                            workflowText = "";
+                            log.warn("FollowUp workflow file not found: {} (disk or classpath)", WORKFLOW_FILE);
+                        }
+                    }
                 }
             } catch (IOException e) {
                 workflowText = "";
+                log.error("Failed to load workflow: {}", e.getMessage());
             }
         }
         return workflowText;

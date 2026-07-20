@@ -23,7 +23,7 @@ public class RiskCheckSkill {
     public void init() {
         registry.register(new Skill(
                 "check_company_risk",
-                "当用户询问查询企业开户风险、风险预查、企业风险筛查、" +
+                "当用户进行风险预查、企业风险筛查、" +
                         "查询xx客户是否存在开户风险、风险预检时调用此技能。" +
                         "根据企业统一信用代码或企业名称查询风险信息，返回风险结论和详细风险报告链接。",
                 this::handle,

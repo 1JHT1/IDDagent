@@ -113,7 +113,7 @@ public class AgentService {
                 .doOnError(e -> log.error("Stream error", e))
                 .onErrorResume(e -> {
                     log.error("Stream error, returning fallback message", e);
-                    return Flux.just("抱歉，我暂时无法回答，请稍后再试。");
+                    return Flux.just("抱歉，服务暂时不可用，我暂时无法回答，请稍后再试。");
                 });
     }
 

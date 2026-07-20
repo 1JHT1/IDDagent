@@ -32,7 +32,7 @@ const RiskCheckCard: React.FC<RiskCheckCardProps> = ({ data, onSendMessage }) =>
                 key={opt.credit_code}
                 onClick={() =>
                   onSendMessage?.(
-                    `查询统一信用代码为${opt.credit_code}的客户的开户风险`
+                    `查询统一信用代码为${opt.credit_code}的客户的风险`
                   )
                 }
                 className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white
@@ -80,7 +80,7 @@ const RiskCheckCard: React.FC<RiskCheckCardProps> = ({ data, onSendMessage }) =>
               key={opt.credit_code}
               onClick={() =>
                 onSendMessage?.(
-                  `查询统一信用代码为${opt.credit_code}的客户的开户风险`
+                  `查询统一信用代码为${opt.credit_code}的客户的风险`
                 )
               }
               className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white

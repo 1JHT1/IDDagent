@@ -1,0 +1,16 @@
+{
+  "499ffe5c-159d-40a4-860f-23b02bc68b3a" : {
+    "password" : "b55f5357739958a5147409936c082f42$ece6cc51ee06a3d27b991a1786f5c7228c4aee0d731cc08116bb6367f5eda09f",
+    "bank_institution" : "湖北分行",
+    "created_at" : "2026-07-17T05:43:54.047073200Z",
+    "id" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
+    "username" : "JHT"
+  },
+  "1d7c4faf-8002-4e44-b1b7-0a958c495d4f" : {
+    "password" : "a8a16ee7c22fa47b39cbbbc0ae30b796$b88008a1ba24ea88b82fa67759c072ba87572701368feb5cdea7afb8edd2494a",
+    "bank_institution" : "湖北分行",
+    "created_at" : "2026-07-16T01:33:27.786973800Z",
+    "id" : "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
+    "username" : "Steve"
+  }
+}

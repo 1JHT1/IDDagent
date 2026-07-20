@@ -1,0 +1,68 @@
+{
+  "d713ea99-9a16-4185-97e1-95788b17e50e": {
+    "sources": {
+      "corp_deposit_agent": [
+        {
+          "name": "北京星河科技有限公司",
+          "credit_code": "91110108MA01B3XK2P",
+          "score": 98.75
+        },
+        {
+          "name": "深圳前海创新金融集团有限公司",
+          "credit_code": "91440300MA5DCTJH8N",
+          "score": 96.20
+        },
+        {
+          "name": "杭州云栖大数据技术有限公司",
+          "credit_code": "91330108MA27XK5B3D",
+          "score": 93.88
+        },
+        {
+          "name": "上海浦江智能装备制造有限公司",
+          "credit_code": "91310115MA1K3L6M9Q",
+          "score": 91.45
+        },
+        {
+          "name": "广州珠江国际贸易有限公司",
+          "credit_code": "91440101MA5AK7T4R2",
+          "score": 88.60
+        },
+        {
+          "name": "成都天府半导体材料有限公司",
+          "credit_code": "91510100MA6C8M2F5W",
+          "score": 85.30
+        },
+        {
+          "name": "武汉光谷生物医药科技有限公司",
+          "credit_code": "91420100MA4KX2L8H1",
+          "score": 82.15
+        },
+        {
+          "name": "南京江宁新能源动力有限公司",
+          "credit_code": "91320115MA1W7J9P3B",
+          "score": 78.90
+        },
+        {
+          "name": "重庆两江新区供应链管理有限公司",
+          "credit_code": "91500000MA5YU6RA4C",
+          "score": 74.55
+        },
+        {
+          "name": "苏州工业园区芯片设计有限公司",
+          "credit_code": "91320594MA1R8T2B6E",
+          "score": 71.20
+        },
+        {
+          "name": "西安高新区航空航天零部件有限公司",
+          "credit_code": "91610131MA6U2F8G8K",
+          "score": 67.80
+        },
+        {
+          "name": "郑州航空港区跨境电子商务有限公司",
+          "credit_code": "91410100MA44N6K3D9",
+          "score": 62.35
+        }
+      ]
+    }
+  }
+}

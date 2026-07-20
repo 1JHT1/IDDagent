@@ -1,0 +1,723 @@
+{
+  "91110108551385082Q": {
+    "credit_code": "91110108551385082Q",
+    "enterprise_name": "小米科技有限责任公司",
+    "certificate_type": "身份证",
+    "risk_summary": "该客户的异常查询中需开展加强型尽职调查！详情见《人民币单位银行结算账户尽职调查管理办法》。",
+    "certificate_number": "41***********590",
+    "details": {
+      "business_info":{
+        "name": "工商信息",
+        "items": [
+          {
+            "name": "企业所属行业",
+            "detail": "其他科技推广服务业"
+          },
+          {"name": "法人一人多企",
+            "result":"命中"
+          },
+          {"name": "异常经营名录",
+            "result":"命中"
+          },
+          {"name": "空壳探查",
+            "result":"未命中",
+            "detail":"该企业存在0项异常特征"
+          },
+          {"name": "企业基本信息",
+            "result":"命中"
+          },
+          {"name": "企业历史变革信息",
+            "detail":"该企业近3个月内无企业历史变更信息"
+          }
+        ]
+      },
+      "aml": {
+        "name": "反洗钱",
+        "items": [
+          {
+            "name": "客户身份识别",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "受益所有人信息不完整"
+          },
+          {
+            "name": "受益所有人识别",
+            "result": "异常",
+            "has_risk": true,
+            "detail": "受益人穿透后为境外公司"
+          },
+          {
+            "name": "交易对手筛查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "关联公司涉及高风险行业"
+          },
+          {
+            "name": "制裁名单筛查",
+            "result": "命中",
+            "has_risk": true,
+            "detail": "命中制裁名单"
+          },
+          {
+            "name": "负面舆情信息",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "有媒体负面报道"
+          },
+          {
+            "name": "可疑交易报送",
+            "result": "有记录",
+            "has_risk": true,
+            "detail": "关联账户有可疑交易记录"
+          },
+          {
+            "name": "跨境交易审查",
+            "result": "关注",
+            "has_risk": true,
+            "detail": "涉及高风险国家跨境交易"
+          },
+          {
+            "name": "客户洗钱风险评估",
+            "result": "高风险",
+            "has_risk": false,
+            "detail": "综合评分高于70分"
+          }
+        ]
+      },
+      "rongan": {
+        "name": "融安E信",
+        "items": [
+          {
+            "name": "失信被执行人",
+            "riskLevel": "high",
+            "detectDate": "2026-06-25",
+            "status": "PENDING"
+          },
+          {
+            "name": "关联企业风险",
+            "riskLevel": "medium",
+            "detectDate": "2026-07-01",
+            "status": "MONITORING"
+          },
+          {
+            "name":"行政处罚",
+            "riskLevel": "MEDIUM",
+            "detectDate": "2026-06-28",
+            "status": "RESOLVED"
+          },
+          {
+            "name":"负面舆情",
+            "riskLevel": "low",
+            "detectDate": "2026-07-05",
+            "status": "MONITORING"
+          }
+        ]
+      }
+    }
+    },
+  "91110108MA01B3XK2P": {
+      "credit_code": "91110108MA01B3XK2P",
+      "enterprise_name": "北京星河科技有限公司",
+      "certificate_type": "身份证",
+      "risk_summary": "该客户存在一定风险，需关注经营异常及关联交易，建议进行强化尽职调查。",
+      "certificate_number": "11***********235",
+      "details": {
+        "business_info": {
+          "name": "工商信息",
+          "items": [
+            {
+              "name": "企业所属行业",
+              "detail": "软件开发与信息技术服务"
+            },
+            {
+              "name": "法人一人多企",
+              "result": "命中"
+            },
+            {
+              "name": "异常经营名录",
+              "result": "未命中"
+            },
+            {
+              "name": "空壳探查",
+              "result": "未命中",
+              "detail": "该企业存在1项异常特征（注册地址与办公地址不一致）"
+            },
+            {
+              "name": "企业基本信息",
+              "result": "命中"
+            },
+            {
+              "name": "企业历史变革信息",
+              "detail": "该企业近6个月内发生经营范围变更"
+            }
+          ]
+        },
+        "aml": {
+          "name": "反洗钱",
+          "items": [
+            {
+              "name": "客户身份识别",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "身份信息完整"
+            },
+            {
+              "name": "受益所有人识别",
+              "result": "关注",
+              "has_risk": true,
+              "detail": "受益所有人为外籍自然人"
+            },
+            {
+              "name": "交易对手筛查",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "未发现高风险对手"
+            },
+            {
+              "name": "制裁名单筛查",
+              "result": "未命中",
+              "has_risk": false,
+              "detail": "未命中制裁名单"
+            },
+            {
+              "name": "负面舆情信息",
+              "result": "关注",
+              "has_risk": true,
+              "detail": "存在少量网络投诉"
+            },
+            {
+              "name": "可疑交易报送",
+              "result": "无记录",
+              "has_risk": false,
+              "detail": "无可疑交易记录"
+            },
+            {
+              "name": "跨境交易审查",
+              "result": "关注",
+              "has_risk": true,
+              "detail": "涉及境外资金往来"
+            },
+            {
+              "name": "客户洗钱风险评估",
+              "result": "中风险",
+              "has_risk": false,
+              "detail": "综合评分52分"
+            }
+          ]
+        },
+        "rongan": {
+          "name": "融安E信",
+          "items": [
+            {
+              "name": "失信被执行人",
+              "riskLevel": "low",
+              "detectDate": "2026-07-10",
+              "status": "CLEAR"
+            },
+            {
+              "name": "关联企业风险",
+              "riskLevel": "medium",
+              "detectDate": "2026-07-12",
+              "status": "MONITORING"
+            },
+            {
+              "name": "行政处罚",
+              "riskLevel": "low",
+              "detectDate": "2026-06-30",
+              "status": "RESOLVED"
+            },
+            {
+              "name": "负面舆情",
+              "riskLevel": "medium",
+              "detectDate": "2026-07-14",
+              "status": "MONITORING"
+            }
+          ]
+        }
+      }
+    },
+  "91440300MA5DCTJH8N": {
+      "credit_code": "91440300MA5DCTJH8N",
+      "enterprise_name": "深圳前海创新金融集团有限公司",
+      "certificate_type": "身份证",
+      "risk_summary": "该客户为高风险等级，涉及金融行业且存在多项异常指标，必须开展加强型尽职调查。",
+      "certificate_number": "44***********678",
+      "details": {
+        "business_info": {
+          "name": "工商信息",
+          "items": [
+            {
+              "name": "企业所属行业",
+              "detail": "金融控股服务"
+            },
+            {
+              "name": "法人一人多企",
+              "result": "命中"
+            },
+            {
+              "name": "异常经营名录",
+              "result": "命中"
+            },
+            {
+              "name": "空壳探查",
+              "result": "命中",
+              "detail": "该企业存在3项异常特征（无实际办公地、无雇员、无业务流水）"
+            },
+            {
+              "name": "企业基本信息",
+              "result": "命中"
+            },
+            {
+              "name": "企业历史变革信息",
+              "detail": "该企业近3个月内多次变更法人和股东"
+            }
+          ]
+        },
+        "aml": {
+          "name": "反洗钱",
+          "items": [
+            {
+              "name": "客户身份识别",
+              "result": "异常",
+              "has_risk": true,
+              "detail": "法人身份无法核实"
+            },
+            {
+              "name": "受益所有人识别",
+              "result": "异常",
+              "has_risk": true,
+              "detail": "受益所有人不明，疑似代持"
+            },
+            {
+              "name": "交易对手筛查",
+              "result": "异常",
+              "has_risk": true,
+              "detail": "多个对手涉及非法集资"
+            },
+            {
+              "name": "制裁名单筛查",
+              "result": "命中",
+              "has_risk": true,
+              "detail": "命中联合国制裁名单"
+            },
+            {
+              "name": "负面舆情信息",
+              "result": "严重",
+              "has_risk": true,
+              "detail": "大量媒体曝光涉嫌诈骗"
+            },
+            {
+              "name": "可疑交易报送",
+              "result": "有记录",
+              "has_risk": true,
+              "detail": "多笔大额可疑交易已上报"
+            },
+            {
+              "name": "跨境交易审查",
+              "result": "异常",
+              "has_risk": true,
+              "detail": "频繁与避税地公司交易"
+            },
+            {
+              "name": "客户洗钱风险评估",
+              "result": "高风险",
+              "has_risk": false,
+              "detail": "综合评分89分"
+            }
+          ]
+        },
+        "rongan": {
+          "name": "融安E信",
+          "items": [
+            {
+              "name": "失信被执行人",
+              "riskLevel": "high",
+              "detectDate": "2026-07-15",
+              "status": "PENDING"
+            },
+            {
+              "name": "关联企业风险",
+              "riskLevel": "high",
+              "detectDate": "2026-07-13",
+              "status": "MONITORING"
+            },
+            {
+              "name": "行政处罚",
+              "riskLevel": "high",
+              "detectDate": "2026-07-01",
+              "status": "PENDING"
+            },
+            {
+              "name": "负面舆情",
+              "riskLevel": "high",
+              "detectDate": "2026-07-16",
+              "status": "MONITORING"
+            }
+          ]
+        }
+      }
+    },
+  "91330108MA27XK5B3D": {
+      "credit_code": "91330108MA27XK5B3D",
+      "enterprise_name": "杭州云栖大数据技术有限公司",
+      "certificate_type": "身份证",
+      "risk_summary": "该客户风险较低，但存在受益所有人识别缺失，建议补充材料后按常规流程处理。",
+      "certificate_number": "33***********891",
+      "details": {
+        "business_info": {
+          "name": "工商信息",
+          "items": [
+            {
+              "name": "企业所属行业",
+              "detail": "数据处理与云计算"
+            },
+            {
+              "name": "法人一人多企",
+              "result": "未命中"
+            },
+            {
+              "name": "异常经营名录",
+              "result": "未命中"
+            },
+            {
+              "name": "空壳探查",
+              "result": "未命中",
+              "detail": "该企业存在0项异常特征"
+            },
+            {
+              "name": "企业基本信息",
+              "result": "命中"
+            },
+            {
+              "name": "企业历史变革信息",
+              "detail": "该企业近3个月内无企业历史变更信息"
+            }
+          ]
+        },
+        "aml": {
+          "name": "反洗钱",
+          "items": [
+            {
+              "name": "客户身份识别",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "身份信息完整"
+            },
+            {
+              "name": "受益所有人识别",
+              "result": "关注",
+              "has_risk": true,
+              "detail": "受益所有人信息不完整"
+            },
+            {
+              "name": "交易对手筛查",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "未发现风险对手"
+            },
+            {
+              "name": "制裁名单筛查",
+              "result": "未命中",
+              "has_risk": false,
+              "detail": "未命中制裁名单"
+            },
+            {
+              "name": "负面舆情信息",
+              "result": "无",
+              "has_risk": false,
+              "detail": "无负面报道"
+            },
+            {
+              "name": "可疑交易报送",
+              "result": "无记录",
+              "has_risk": false,
+              "detail": "无可疑交易"
+            },
+            {
+              "name": "跨境交易审查",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "无跨境交易"
+            },
+            {
+              "name": "客户洗钱风险评估",
+              "result": "低风险",
+              "has_risk": false,
+              "detail": "综合评分28分"
+            }
+          ]
+        },
+        "rongan": {
+          "name": "融安E信",
+          "items": [
+            {
+              "name": "失信被执行人",
+              "riskLevel": "low",
+              "detectDate": "2026-07-11",
+              "status": "CLEAR"
+            },
+            {
+              "name": "关联企业风险",
+              "riskLevel": "low",
+              "detectDate": "2026-07-09",
+              "status": "CLEAR"
+            },
+            {
+              "name": "行政处罚",
+              "riskLevel": "low",
+              "detectDate": "2026-06-25",
+              "status": "RESOLVED"
+            },
+            {
+              "name": "负面舆情",
+              "riskLevel": "low",
+              "detectDate": "2026-07-08",
+              "status": "CLEAR"
+            }
+          ]
+        }
+      }
+    },
+  "91310115MA1K3L6M9Q": {
+      "credit_code": "91310115MA1K3L6M9Q",
+      "enterprise_name": "上海浦江智能装备制造有限公司",
+      "certificate_type": "身份证",
+      "risk_summary": "该客户存在一定的行政处罚和关联风险，需关注合规性，建议加强监控。",
+      "certificate_number": "31***********456",
+      "details": {
+        "business_info": {
+          "name": "工商信息",
+          "items": [
+            {
+              "name": "企业所属行业",
+              "detail": "智能装备制造"
+            },
+            {
+              "name": "法人一人多企",
+              "result": "命中"
+            },
+            {
+              "name": "异常经营名录",
+              "result": "未命中"
+            },
+            {
+              "name": "空壳探查",
+              "result": "未命中",
+              "detail": "该企业存在0项异常特征"
+            },
+            {
+              "name": "企业基本信息",
+              "result": "命中"
+            },
+            {
+              "name": "企业历史变革信息",
+              "detail": "该企业近3个月内无企业历史变更信息"
+            }
+          ]
+        },
+        "aml": {
+          "name": "反洗钱",
+          "items": [
+            {
+              "name": "客户身份识别",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "身份信息完整"
+            },
+            {
+              "name": "受益所有人识别",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "受益所有人明确"
+            },
+            {
+              "name": "交易对手筛查",
+              "result": "关注",
+              "has_risk": true,
+              "detail": "部分供应商涉及环保处罚"
+            },
+            {
+              "name": "制裁名单筛查",
+              "result": "未命中",
+              "has_risk": false,
+              "detail": "未命中制裁名单"
+            },
+            {
+              "name": "负面舆情信息",
+              "result": "关注",
+              "has_risk": true,
+              "detail": "有产品质量投诉"
+            },
+            {
+              "name": "可疑交易报送",
+              "result": "无记录",
+              "has_risk": false,
+              "detail": "无可疑交易"
+            },
+            {
+              "name": "跨境交易审查",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "无跨境交易"
+            },
+            {
+              "name": "客户洗钱风险评估",
+              "result": "中风险",
+              "has_risk": false,
+              "detail": "综合评分45分"
+            }
+          ]
+        },
+        "rongan": {
+          "name": "融安E信",
+          "items": [
+            {
+              "name": "失信被执行人",
+              "riskLevel": "low",
+              "detectDate": "2026-07-02",
+              "status": "CLEAR"
+            },
+            {
+              "name": "关联企业风险",
+              "riskLevel": "medium",
+              "detectDate": "2026-07-10",
+              "status": "MONITORING"
+            },
+            {
+              "name": "行政处罚",
+              "riskLevel": "medium",
+              "detectDate": "2026-06-20",
+              "status": "RESOLVED"
+            },
+            {
+              "name": "负面舆情",
+              "riskLevel": "low",
+              "detectDate": "2026-07-12",
+              "status": "MONITORING"
+            }
+          ]
+        }
+      }
+    },
+  "91440101MA5AK7T4R2": {
+      "credit_code": "91440101MA5AK7T4R2",
+      "enterprise_name": "广州珠江国际贸易有限公司",
+      "certificate_type": "身份证",
+      "risk_summary": "该客户涉及跨境交易及受益人境外公司，风险等级中等，需强化尽职调查。",
+      "certificate_number": "44***********123",
+      "details": {
+        "business_info": {
+          "name": "工商信息",
+          "items": [
+            {
+              "name": "企业所属行业",
+              "detail": "国际贸易代理"
+            },
+            {
+              "name": "法人一人多企",
+              "result": "未命中"
+            },
+            {
+              "name": "异常经营名录",
+              "result": "未命中"
+            },
+            {
+              "name": "空壳探查",
+              "result": "未命中",
+              "detail": "该企业存在0项异常特征"
+            },
+            {
+              "name": "企业基本信息",
+              "result": "命中"
+            },
+            {
+              "name": "企业历史变革信息",
+              "detail": "该企业近3个月内无企业历史变更信息"
+            }
+          ]
+        },
+        "aml": {
+          "name": "反洗钱",
+          "items": [
+            {
+              "name": "客户身份识别",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "身份信息完整"
+            },
+            {
+              "name": "受益所有人识别",
+              "result": "异常",
+              "has_risk": true,
+              "detail": "受益人穿透后为境外信托基金"
+            },
+            {
+              "name": "交易对手筛查",
+              "result": "关注",
+              "has_risk": true,
+              "detail": "涉及高风险国家贸易伙伴"
+            },
+            {
+              "name": "制裁名单筛查",
+              "result": "未命中",
+              "has_risk": false,
+              "detail": "未命中制裁名单"
+            },
+            {
+              "name": "负面舆情信息",
+              "result": "无",
+              "has_risk": false,
+              "detail": "无负面报道"
+            },
+            {
+              "name": "可疑交易报送",
+              "result": "有记录",
+              "has_risk": true,
+              "detail": "存在大额跨境可疑交易记录"
+            },
+            {
+              "name": "跨境交易审查",
+              "result": "异常",
+              "has_risk": true,
+              "detail": "频繁与离岸金融中心交易"
+            },
+            {
+              "name": "客户洗钱风险评估",
+              "result": "中高风险",
+              "has_risk": false,
+              "detail": "综合评分68分"
+            }
+          ]
+        },
+        "rongan": {
+          "name": "融安E信",
+          "items": [
+            {
+              "name": "失信被执行人",
+              "riskLevel": "low",
+              "detectDate": "2026-07-05",
+              "status": "CLEAR"
+            },
+            {
+              "name": "关联企业风险",
+              "riskLevel": "medium",
+              "detectDate": "2026-07-11",
+              "status": "MONITORING"
+            },
+            {
+              "name": "行政处罚",
+              "riskLevel": "low",
+              "detectDate": "2026-06-15",
+              "status": "RESOLVED"
+            },
+            {
+              "name": "负面舆情",
+              "riskLevel": "low",
+              "detectDate": "2026-07-14",
+              "status": "CLEAR"
+            }
+          ]
+        }
+      }
+    }
+}

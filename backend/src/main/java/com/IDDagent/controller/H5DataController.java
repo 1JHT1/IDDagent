@@ -1,6 +1,7 @@
 package com.IDDagent.controller;
 
 import com.IDDagent.skill.DataLoader;
+import com.IDDagent.skill.InformationCheckSkill;
 import com.IDDagent.skill.RiskCheckSkill;
 import com.IDDagent.model.UserInfo;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -44,6 +45,19 @@ public class H5DataController {
             }
             // 标准化模板数据：补全 company_name、risk_level、has_risk，统一 rongan/business_info items 结构
             return RiskCheckSkill.normalizeForH5(result);
+        });
+    }
+
+    @GetMapping("/information-check/{creditCode}")
+    public Mono<Map<String, Object>> getInformationCheck(@PathVariable String creditCode) {
+        return Mono.fromCallable(() -> {
+            Map<String, Object> checkData = DataLoader.loadJson(DATA_DIR + "/information_check.json");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> result = (Map<String, Object>) checkData.get(creditCode);
+            if (result == null) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到信用代码 " + creditCode + " 的信息核实数据");
+            }
+            return InformationCheckSkill.normalizeForH5(result);
         });
     }
 

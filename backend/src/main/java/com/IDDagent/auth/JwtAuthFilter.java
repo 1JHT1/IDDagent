@@ -25,6 +25,7 @@ public class JwtAuthFilter implements WebFilter {
             Pattern.compile("^/api/auth/.*"),
             Pattern.compile("^/api/health.*"),
             Pattern.compile("^/api/risk-report/.*"),
+            Pattern.compile("^/api/information-check/.*"),
             Pattern.compile("^/api/outreach/.*"),
             Pattern.compile("^/api/product-recommend/.*"),
             Pattern.compile("^/api/account-opening/(upload|process|preview|update|submit|notify|notifications).*"),

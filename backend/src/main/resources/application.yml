@@ -10,7 +10,6 @@ spring:
     resources:
       static-locations: classpath:/static/
 
-# DeepSeek API configuration (from .env or system properties)
 app:
   deepseek:
     api-key: ${DEEPSEEK_API_KEY:}

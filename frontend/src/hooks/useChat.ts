@@ -256,6 +256,23 @@ export function useChat(
               );
               break;
 
+            case 'information_check_result':
+              // 信息核实结果
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  isStreamingMessage(msg) && msg.id === assistantMsgId
+                    ? {
+                        id: msg.id,
+                        role: 'assistant' as const,
+                        content: '信息核实',
+                        extra: event.data as unknown as Record<string, unknown>,
+                        created_at: msg.created_at,
+                      }
+                    : msg
+                )
+              );
+              break;
+
             case 'follow_up_suggestion':
               // 追问建议：创建独立追问消息，追加在消息列表末尾
               if (event.content) {

@@ -159,6 +159,8 @@ public class CoordinatorService {
 
                 7. 当用户输入中包含"办理开户"、"协助开户"、"同意开户"、"开始开户"、"开户资料"、"准备开户"等关键词时，必须匹配为 open_corporate_account 技能。
 
+                8. 当用户输入中包含"核实信息"、"信息核实"、"信息核查"、"营业执照核实"、"信息核验"、"营业执照核验"等关键词时，必须匹配为 verify_business_license 技能。
+
                 ## 可用技能
 
                 """ + skillsPrompt + """

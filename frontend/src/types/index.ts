@@ -212,6 +212,26 @@ export interface AccountOpeningResult {
 }
 
 // ============================================================
+// 信息核实数据类型
+// ============================================================
+
+/** 信息核实结果 */
+export interface InformationCheckResult {
+  action: 'result' | 'ambiguous' | 'not_found';
+  credit_code?: string;
+  company_name?: string;
+  details_name?: string;
+  total_count?: number;
+  pass_count?: number;
+  fail_count?: number;
+  none_count?: number;
+  h5_url?: string;
+  message?: string;
+  keyword?: string;
+  options?: RiskAmbiguousOption[];
+}
+
+// ============================================================
 // SSE 事件类型定义
 // ============================================================
 
@@ -229,6 +249,7 @@ export type SSEEventType =
   | 'product_recommend_result'
   | 'product_match_result'
   | 'account_opening_result'
+  | 'information_check_result'
   | 'follow_up_suggestion'
   | 'done'
   | 'error';
@@ -239,7 +260,7 @@ export interface SSEEvent {
   content?: string;
   message_id?: string;
   conversation_id?: string;
-  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | OutreachResult | ProductRecommendResult | ProductMatchResult | AccountOpeningResult;
+  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | OutreachResult | ProductRecommendResult | ProductMatchResult | AccountOpeningResult | InformationCheckResult;
 }
 
 // ============================================================

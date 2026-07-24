@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>营业执照信息核实报告</title>
+  <style>
+    :root {
+      --pass: #389e0d; --pass-bg: #f6ffed; --pass-border: #b7eb8f;
+      --fail: #cf1322; --fail-bg: #fff1f0; --fail-border: #ffa39e;
+      --warn: #d48806; --warn-bg: #fffbe6; --warn-border: #ffe58f;
+      --blue: #1677ff; --gray-50: #fafafa; --gray-100: #f5f5f5; --gray-200: #f0f0f0;
+      --gray-500: #8c8c8c; --gray-700: #434343; --gray-900: #1a1a2e;
+      --radius: 14px; --shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #e8edf5 0%, #f0f2f5 120px);
+      color: var(--gray-900); min-height: 100vh; -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; }
+
+    /* Header */
+    .report-header { text-align: center; padding: 32px 16px 20px; }
+    .report-header .logo { font-size: 36px; margin-bottom: 8px; }
+    .report-header h1 { font-size: 22px; font-weight: 800; letter-spacing: 1px; color: var(--gray-900); }
+    .report-header .meta { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+
+    /* Summary Card */
+    .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; }
+    .card-body { padding: 16px 18px; }
+
+    .summary-row { display: flex; align-items: center; gap: 16px; margin-bottom: 14px; }
+    .summary-circle { width: 80px; height: 80px; border-radius: 50%; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; flex-shrink: 0; color: #fff; font-weight: 700; }
+    .summary-circle.pass { background: linear-gradient(135deg, #52c41a, #389e0d); }
+    .summary-circle.fail { background: linear-gradient(135deg, #ff4d4f, #cf1322); }
+    .summary-circle .big-num { font-size: 28px; line-height: 1; }
+    .summary-circle .small-label { font-size: 10px; opacity: .85; margin-top: 2px; }
+    .summary-info { flex: 1; min-width: 0; }
+    .summary-info .company-name { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
+    .summary-info .credit-code { font-size: 11px; color: var(--gray-500); font-family: 'SF Mono', 'Menlo', monospace; word-break: break-all; }
+    .summary-info .stat-row { display: flex; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+    .stat-badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .stat-badge.pass { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-border); }
+    .stat-badge.fail { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail-border); }
+
+    /* Item Table */
+    .item-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; }
+    .item-header { padding: 15px 18px; border-bottom: 1px solid var(--gray-200); font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .item-header .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+    .item-header .dot.pass { background: var(--pass); }
+    .item-header .dot.fail { background: var(--fail); }
+
+    .item-row { display: flex; align-items: center; padding: 12px 18px; gap: 12px; }
+    .item-row:nth-child(even) { background: var(--gray-50); }
+
+    .item-row .item-icon { flex-shrink: 0; width: 26px; font-size: 16px; text-align: center; }
+    .item-row .item-body { flex: 1; min-width: 0; }
+    .item-row .item-name { font-size: 13px; font-weight: 500; color: #262626; }
+    .item-row .item-value { font-size: 12px; color: var(--gray-700); margin-top: 2px; word-break: break-all; }
+    .item-row .item-result { flex-shrink: 0; }
+    .result-tag { display: inline-block; padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .result-tag.pass { background: var(--pass-bg); color: var(--pass); border: 1px solid var(--pass-border); }
+    .result-tag.fail { background: var(--fail-bg); color: var(--fail); border: 1px solid var(--fail-border); }
+    .result-tag.none { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
+
+    /* Footer */
+    .footer { text-align: center; padding: 20px 0; }
+    .footer .disclaimer { font-size: 11px; color: #bfbfbf; line-height: 1.6; }
+
+    /* Loading & Error */
+    .page-loading { text-align: center; padding: 100px 20px; color: var(--gray-500); }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--gray-200); border-top-color: var(--blue); border-radius: 50%;
+      animation: spin .8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .page-error { text-align: center; padding: 80px 20px; }
+    .page-error .err-icon { font-size: 52px; margin-bottom: 12px; }
+    .page-error .err-msg { font-size: 14px; color: #595959; }
+    .page-error .retry-btn { margin-top: 16px; padding: 8px 24px; border-radius: 20px; border: none; background: var(--blue);
+      color: #fff; font-size: 13px; cursor: pointer; }
+
+    @media print { body { background: #fff; } }
+  </style>
+</head>
+<body>
+  <div class="container" id="app"></div>
+
+  <script>
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var code = params.get('code');
+    var root = document.getElementById('app');
+
+    if (!code) {
+      root.innerHTML = '<div class="page-error"><div class="err-icon">❌</div><div class="err-msg">缺少企业统一信用代码参数</div></div>';
+      return;
+    }
+
+    root.innerHTML = '<div class="page-loading"><div class="spinner"></div><p style="color:#8c8c8c;font-size:13px;">正在加载信息核实报告...</p></div>';
+
+    fetch('/api/information-check/' + encodeURIComponent(code))
+      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(render)
+      .catch(function(e) {
+        root.innerHTML = '<div class="page-error"><div class="err-icon">⚠️</div><div class="err-msg">报告加载失败：' + e.message
+          + '</div><button class="retry-btn" onclick="location.reload()">重新加载</button></div>';
+      });
+
+    function render(data) {
+      var companyName = data.company_name || '';
+      var creditCode = data.credit_code || '';
+      var detailsName = data.details_name || '营业执照信息核实';
+      var items = data.items || [];
+      var passCount = data.pass_count || 0;
+      var failCount = data.fail_count || 0;
+      var now = new Date();
+      var timeStr = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate())
+        + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
+
+      var html = ''
+
+        /* Header */
+        + '<div class="report-header">'
+        + '<div class="logo">📋</div>'
+        + '<h1>' + detailsName + '</h1>'
+        + '<div class="meta">📅 ' + timeStr + '</div></div>';
+
+      /* Summary */
+      var firstBadge = failCount > 0
+        ? '<div class="stat-badge fail">❌ ' + failCount + ' 项核实不通过</div>'
+        : '<div class="stat-badge pass">✅ ' + passCount + ' 项全部通过</div>';
+
+      html += '<div class="card"><div class="card-body">'
+        + '<div class="summary-row">'
+        + '<div class="summary-circle ' + (failCount > 0 ? 'fail' : 'pass') + '">'
+        + '<span class="big-num">' + (failCount > 0 ? failCount : passCount) + '</span>'
+        + '<span class="small-label">' + (failCount > 0 ? '项不通过' : '项通过') + '</span></div>'
+        + '<div class="summary-info">'
+        + '<div class="company-name">' + companyName + '</div>'
+        + '<div class="credit-code">' + creditCode + '</div>'
+        + '<div class="stat-row">'
+        + '<div class="stat-badge pass">✅ ' + passCount + ' 项核实通过</div>'
+        + (failCount > 0 ? '<div class="stat-badge fail">❌ ' + failCount + ' 项核实不通过</div>' : '')
+        + '</div></div></div>'
+        + '</div></div>';
+
+      /* Items */
+      html += '<div class="item-card"><div class="item-header">'
+        + '<span class="dot ' + (failCount > 0 ? 'fail' : 'pass') + '"></span>'
+        + '核实详情（共 ' + items.length + ' 项）</div>';
+
+      items.forEach(function(item) {
+        var name = item.name || '';
+        var value = item.value || '';
+        var pass = item.pass;
+        var label = item.label || '';
+
+        var icon, tagClass, tagText;
+        if (pass === null || pass === undefined || value === '') {
+          icon = '⚪';
+          tagClass = 'none';
+          tagText = '无需核实';
+        } else if (pass === true) {
+          icon = '✅';
+          tagClass = 'pass';
+          tagText = '核实通过';
+        } else {
+          icon = '❌';
+          tagClass = 'fail';
+          tagText = '核实不通过';
+        }
+
+        html += '<div class="item-row">'
+          + '<div class="item-icon">' + icon + '</div>'
+          + '<div class="item-body">'
+          + '<div class="item-name">' + name + '</div>'
+          + '<div class="item-value">' + value + '</div></div>'
+          + '<div class="item-result"><span class="result-tag ' + tagClass + '">' + tagText + '</span></div>'
+          + '</div>';
+      });
+
+      html += '</div>';
+
+      /* Footer */
+      html += '<div class="footer">'
+        + '<div class="disclaimer">本报告由对公存款智能体系统自动生成，数据来源为OCR识别结果与工商公示信息比对。<br>以上内容仅供内部参考。</div>'
+        + '</div>';
+
+      root.innerHTML = html;
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+  })();
+  </script>
+</body>
+</html>

@@ -9,6 +9,7 @@ import OutreachCard from './OutreachCard';
 import ProductRecommendCard from './ProductRecommendCard';
 import ProductMatchCard from './ProductMatchCard';
 import AccountOpeningCard from './AccountOpeningCard';
+import InformationCheckCard from './InformationCheckCard';
 import FollowUpChip from './FollowUpChip';
 
 interface ChatMessageProps {
@@ -30,7 +31,7 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   const label = extra._skill_name
     ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
         recommend_products: '产品智荐', match_products_intelligently: '产品智能匹配',
-        open_corporate_account: '对公账户开户' }[extra._skill_name as string]
+        open_corporate_account: '对公账户开户', verify_business_license: '信息核实' }[extra._skill_name as string]
     : undefined;
   if (label) parts.push(`【${label}】`);
   if (extra.company_name) parts.push(`企业名称：${extra.company_name}`);
@@ -108,7 +109,7 @@ const AttachmentList: React.FC<{ attachments: ChatAttachment[] }> = ({ attachmen
             <img
               src={att.url}
               alt={att.name}
-              className="max-w-[220px] max-h-[160px] rounded-lg border border-blue-400/40 object-cover"
+              className="max-w-[220px] max-h-[160px] rounded-lg border border-blue-400/40 object-contain"
             />
           </a>
         );
@@ -186,6 +187,9 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         if (skillName === 'check_company_risk') {
           return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
+        if (skillName === 'verify_business_license') {
+          return <InformationCheckCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
 
         // 兜底：按字段特征匹配（兼容旧数据）
         if (message.extra.insights_h5_url !== undefined || message.extra.script_h5_url !== undefined) {
@@ -251,9 +255,9 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         {/* 消息内容 */}
         <div
           className={`${
-            message.extra ? 'max-w-[85%]' : 'max-w-[75%]'
+            message.extra ? 'w-full max-w-full' : 'max-w-[75%]'
           } ${isUser
-              ? 'bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-3'
+              ? 'bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-3 overflow-hidden'
               : message.extra
                 ? ''
                 : 'bg-white text-gray-800 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm border border-gray-100'

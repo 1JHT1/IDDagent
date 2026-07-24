@@ -101,25 +101,64 @@ public class ChatController {
         final Conversation finalConv = conv;
         final String finalMessage = enhancedMessage;
 
-        // 立即发送初始事件，保持 SSE 连接活跃（防止代理空闲超时）
-        Flux<String> initEvent = Flux.just(sseEvent("thinking",
-                Map.of("content", "正在分析您的问题..."), null, convId));
+        // 检查是否有待处理技能（上次技能正在等待用户补充信息）
+        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
+        boolean hasPendingSkill = ctx.hasPendingSkill();
 
-        // 主流程：先调用 coordinator 获取意图，再根据决策生成 SSE 事件流
-        Flux<String> mainFlow = coordinatorService.routeIntent(finalMessage)
-                .flatMapMany(decision -> {
-                    if ("skill".equals(decision.get("action"))) {
-                        return handleSkill(decision, convId, userId, finalConv);
-                    } else {
-                        return handleChat(convId, finalConv, finalMessage);
-                    }
-                });
+        // 初始事件：pending skill 无需 LLM 分析，改为更准确的提示
+        String thinkingText = hasPendingSkill ? "正在查询，请稍候..." : "正在分析您的问题...";
+        Flux<String> initEvent = Flux.just(sseEvent("thinking",
+                Map.of("content", thinkingText), null, convId));
+
+        // 主流程
+        Flux<String> mainFlow;
+        if (hasPendingSkill) {
+            // 检查重试上限：防止 pending skill 死循环（如参数丢失导致永不到达 result）
+            if (ctx.pendingSkillRetry >= 3) {
+                log.warn("Pending skill {} exceeded retry limit, clearing and falling back to Coordinator",
+                        ctx.pendingSkillName);
+                contextMemoryService.clearPendingSkill(convId);
+                mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                        .flatMapMany(decision -> {
+                            if ("skill".equals(decision.get("action"))) {
+                                return handleSkill(decision, convId, userId, finalConv);
+                            } else {
+                                return handleChat(convId, finalConv, finalMessage);
+                            }
+                        });
+            } else {
+                ctx.pendingSkillRetry++;
+                log.info("Pending skill {} retry {}/3: {}", ctx.pendingSkillName, ctx.pendingSkillRetry, finalMessage);
+                // 有待处理技能 → 直接路由，跳过 Coordinator/LLM 意图识别
+                String pendingSkill = ctx.pendingSkillName;
+                Map<String, Object> pendingParams = new LinkedHashMap<>(ctx.pendingSkillParams);
+                pendingParams.put("_user_input", finalMessage);
+                Map<String, Object> decision = new LinkedHashMap<>();
+                decision.put("action", "skill");
+                decision.put("skill", pendingSkill);
+                decision.put("params", pendingParams);
+                decision.put("reason", "继续待处理技能: " + pendingSkill);
+                contextMemoryService.clearPendingSkill(convId);
+                log.info("Routing to pending skill: {}, user_input: {}", pendingSkill, finalMessage);
+                mainFlow = handleSkill(decision, convId, userId, finalConv);
+            }
+        } else {
+            // 无待处理技能 → 走 Coordinator 意图识别（携带对话历史以便 LLM 理解上下文）
+            mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                    .flatMapMany(decision -> {
+                        if ("skill".equals(decision.get("action"))) {
+                            return handleSkill(decision, convId, userId, finalConv);
+                        } else {
+                            return handleChat(convId, finalConv, finalMessage);
+                        }
+                    });
+        }
 
         return initEvent.concatWith(mainFlow)
                 // 所有事件流结束后发送 done 事件
                 .concatWith(Flux.just(sseEvent("done", Map.of("conversation_id", convId), null, convId)))
                 .doOnSubscribe(s -> System.out.println("🔵 SSE Flux 被订阅!"))
-                .doOnNext(event -> System.out.println("📤 发送 SSE: " + event.substring(0, Math.min(120, event.length()))))
+                //.doOnNext(event -> System.out.println("📤 发送 SSE: " + event.substring(0, Math.min(120, event.length()))))
                 .doOnComplete(() -> System.out.println("✅ SSE Flux 完成"))
                 .doOnError(e -> log.error("Stream error", e))
                 .onErrorResume(e -> Flux.just(sseEvent("error",
@@ -177,12 +216,40 @@ public class ChatController {
                             eventFlux = Flux.just(sseEvent("potential_customer_summary", result, assistantMsgId, null));
                         } else if ("detail".equals(action)) {
                             eventFlux = Flux.just(sseEvent("potential_customer_detail", result, assistantMsgId, null));
+                        } else if ("candidates".equals(action)) {
+                            result.put("_skill_name", skillName);
+                            eventFlux = Flux.just(sseEvent("company_name_candidates", result, assistantMsgId, null));
+                            // 将技能解析出的 keyword 合并回 skillParams（让下一轮持有企业名上下文）
+                            if (result.containsKey("keyword") && !skillParams.containsKey("company_name")) {
+                                skillParams.put("company_name", result.get("keyword"));
+                            }
+                            // 保存待处理技能上下文，下一条用户消息将直接回到此技能
+                            contextMemoryService.setPendingSkill(convId, skillName, skillParams);
+                            log.info("Pending skill set: {} (candidates)", skillName);
+                        } else if ("info_needed".equals(action)) {
+                            String prompt = (String) result.getOrDefault("message", "");
+                            eventFlux = Flux.just(
+                                    sseEvent("text_delta", Map.of("content", prompt), assistantMsgId, null),
+                                    sseEvent("text_done", Map.of("content", prompt), assistantMsgId, null)
+                            );
+                            // 将技能已解析的参数字段合并回 skillParams（如 company_name, credit_code）
+                            // 避免下一轮参数丢失导致技能重新从阶段一/二开始
+                            if (result.containsKey("company_name")) {
+                                skillParams.put("company_name", result.get("company_name"));
+                            }
+                            if (result.containsKey("credit_code")) {
+                                skillParams.put("credit_code", result.get("credit_code"));
+                            }
+                            // 保存待处理技能上下文，下一条用户消息将直接回到此技能
+                            contextMemoryService.setPendingSkill(convId, skillName, skillParams);
+                            log.info("Pending skill set: {} (info_needed), params: {}", skillName, skillParams);
                         } else if ("result".equals(action) || "ambiguous".equals(action) || "not_found".equals(action)) {
                             String eventType = switch (skillName) {
                                 case "prepare_customer_outreach" -> "outreach_result";
                                 case "recommend_products" -> "product_recommend_result";
                                 case "match_products_intelligently" -> "product_match_result";
                                 case "open_corporate_account" -> "account_opening_result";
+                                case "query_due_diligence_reports" -> "historical_dd_query_result";
                                 default -> "risk_check_result";
                             };
                             // 将 skill_name 注入到结果中，方便前端根据技能类型路由卡片
@@ -198,6 +265,15 @@ public class ChatController {
                                     (String) result.getOrDefault("company_name", ""),
                                     (String) result.get("credit_code"));
                             log.info("Context updated: {} ({})", result.get("company_name"), result.get("credit_code"));
+                        }
+
+                        // 清理待处理技能（技能已完成或未找到结果）
+                        if ("result".equals(action) || "not_found".equals(action)) {
+                            contextMemoryService.clearPendingSkill(convId);
+                        }
+                        // reset或result/not_found时重置重试计数（新技能调用从0开始）
+                        if (!"candidates".equals(action) && !"info_needed".equals(action)) {
+                            ctx.pendingSkillRetry = 0;
                         }
 
                         // 存储助手消息（同步，顺序执行）

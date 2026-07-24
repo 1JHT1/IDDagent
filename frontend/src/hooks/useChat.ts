@@ -256,6 +256,57 @@ export function useChat(
               );
               break;
 
+            case 'historical_dd_query_result':
+              // 历史尽调查询结果
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  isStreamingMessage(msg) && msg.id === assistantMsgId
+                    ? {
+                        id: msg.id,
+                        role: 'assistant' as const,
+                        content: '历史尽调报告',
+                        extra: event.data as unknown as Record<string, unknown>,
+                        created_at: msg.created_at,
+                      }
+                    : msg
+                )
+              );
+              break;
+
+            case 'company_name_candidates':
+              // 候选企业选择器：复用流式消息（替代"正在思考"占位）
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  isStreamingMessage(msg) && msg.id === assistantMsgId
+                    ? {
+                        id: msg.id,
+                        role: 'assistant' as const,
+                        content: '',
+                        extra: { ...(event.data as unknown as Record<string, unknown>), action: 'company_name_candidates' } as unknown as Record<string, unknown>,
+                        created_at: msg.created_at,
+                      }
+                    : msg
+                )
+              );
+              break;
+
+            case 'need_date_range':
+              // 时间区间输入提示：更新流式消息，展示提示文本
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  isStreamingMessage(msg) && msg.id === assistantMsgId
+                    ? {
+                        id: msg.id,
+                        role: 'assistant' as const,
+                        content: '',
+                        extra: { action: 'need_date_range', text: (event.data as unknown as Record<string, unknown>).message || event.content || '' } as unknown as Record<string, unknown>,
+                        created_at: msg.created_at,
+                      }
+                    : msg
+                )
+              );
+              break;
+
             case 'follow_up_suggestion':
               // 追问建议：创建独立追问消息，追加在消息列表末尾
               if (event.content) {

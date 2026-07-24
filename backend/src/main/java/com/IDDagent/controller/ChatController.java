@@ -153,6 +153,23 @@ public class ChatController {
             }
         }
 
+        // 传递最新用户消息中的附件URL给技能
+        if ("verify_business_license".equals(skillName)) {
+            List<Message> msgs = conv.getMessages();
+            if (!msgs.isEmpty()) {
+                Message lastUserMsg = msgs.get(msgs.size() - 1);
+                if ("user".equals(lastUserMsg.getRole()) && lastUserMsg.getAttachments() != null && !lastUserMsg.getAttachments().isEmpty()) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> firstAtt = (Map<String, Object>) lastUserMsg.getAttachments().get(0);
+                    String attUrl = (String) firstAtt.get("url");
+                    if (attUrl != null && !attUrl.isEmpty()) {
+                        skillParams.put("_attachment_url", attUrl);
+                        log.info("Passed attachment URL to skill: {}", attUrl);
+                    }
+                }
+            }
+        }
+
         log.info("Coordinator routed to skill: {}, params: {}", skillName, skillParams);
         skillParams.put("_conversation_id", convId);
 
@@ -183,6 +200,7 @@ public class ChatController {
                                 case "recommend_products" -> "product_recommend_result";
                                 case "match_products_intelligently" -> "product_match_result";
                                 case "open_corporate_account" -> "account_opening_result";
+                                case "verify_business_license" -> "information_check_result";
                                 default -> "risk_check_result";
                             };
                             // 将 skill_name 注入到结果中，方便前端根据技能类型路由卡片

@@ -1,5 +1,18 @@
 # 项目排除路径
 /backend/target/
-backend/src/main/resources/application.yml
+backend/.env
 backend/src/main/resources/application-local.yml
-.env
+
+# 上传的敏感文件（营业执照、身份证等）
+static/uploads/
+
+# Node.js
+node_modules/
+node/
+
+# IDE
+.idea/
+*.iml
+
+# 日志
+*.log

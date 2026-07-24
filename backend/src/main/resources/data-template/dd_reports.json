@@ -1,0 +1,337 @@
+{
+  "reports": {
+    "DD-2025-001": {
+      "report_id": "DD-2025-001",
+      "company_name": "北京星河科技有限公司",
+      "credit_code": "91110108MA01B3XK2P",
+      "institution": "中国工商银行湖北分行",
+      "user_id": "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
+      "status": "completed",
+      "created_at": "2026-07-16T02:34:55.692943100Z",
+      "updated_at": "2026-07-16T02:36:18.461759Z",
+      "submitted_at": "2026-07-16T02:36:18.461759Z",
+      "date_range": {
+        "from": "2026-01-01",
+        "to": "2026-07-16"
+      },
+      "basic_info": {
+        "registered_address": "北京市海淀区中关村南大街5号院1号楼12层",
+        "registered_capital": "5000万元",
+        "legal_representative": "张伟",
+        "legal_rep_id_type": "身份证",
+        "legal_rep_id_number": "44031da2198002157c",
+        "business_scope": "技术开发、技术服务"
+      },
+      "due_diligence": {
+        "opening_purpose": "日常经营结算",
+        "fund_source": "经营收入",
+        "expected_volume": "年交易规模5000万-1亿",
+        "cross_border": "否",
+        "risk_rating": "高风险",
+        "conclusion": "经尽职调查，该企业存在一定风险，建议加强尽调后审慎受理。"
+      },
+      "attachments": [
+        {
+          "file_id": "att-001-001",
+          "name": "营业执照",
+          "type": "image/png",
+          "size": 204800,
+          "uploaded_at": "2026-07-16T02:35:00Z",
+          "path": "attachments/DD-2025-001/att-001-001.png"
+        },
+        {
+          "file_id": "att-001-002",
+          "name": "法定代表人身份证",
+          "type": "image/png",
+          "size": 153600,
+          "uploaded_at": "2026-07-16T02:35:10Z",
+          "path": "attachments/DD-2025-001/att-001-002.png"
+        }
+      ],
+      "products": [
+        "enterprise_online_banking",
+        "bank_enterprise_reconciliation",
+        "enterprise_mobile_banking",
+        "sms_notification"
+      ],
+      "template_type": "标准",
+      "name": "2026-01-01-北京星河科技有限公司-标准"
+    },
+    "DD-2025-002": {
+      "report_id": "DD-2025-002",
+      "company_name": "北京星河科技有限公司",
+      "credit_code": "91110108MA01B3XK2P",
+      "institution": "中国工商银行湖北分行",
+      "user_id": "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
+      "status": "completed",
+      "created_at": "2026-07-16T08:43:36.013999200Z",
+      "updated_at": "2026-07-16T08:43:51.939637Z",
+      "submitted_at": "2026-07-16T08:43:51.939637Z",
+      "date_range": {
+        "from": "2026-04-01",
+        "to": "2026-07-16"
+      },
+      "basic_info": {
+        "registered_address": "北京市海淀区中关村南大街5号院1号楼12层",
+        "registered_capital": "5000万元",
+        "legal_representative": "张伟",
+        "legal_rep_id_type": "身份证",
+        "legal_rep_id_number": "44031da2198002157c",
+        "business_scope": "技术开发、技术服务"
+      },
+      "due_diligence": {
+        "opening_purpose": "日常经营结算",
+        "fund_source": "经营收入",
+        "expected_volume": "年交易规模5000万-1亿",
+        "cross_border": "否",
+        "risk_rating": "高风险",
+        "conclusion": "经尽职调查，该企业存在一定风险，建议加强尽调后审慎受理。"
+      },
+      "attachments": [
+        {
+          "file_id": "att-002-001",
+          "name": "营业执照",
+          "type": "image/png",
+          "size": 204800,
+          "uploaded_at": "2026-07-16T08:43:40Z",
+          "path": "attachments/DD-2025-002/att-002-001.png"
+        },
+        {
+          "file_id": "att-002-002",
+          "name": "法定代表人身份证",
+          "type": "image/png",
+          "size": 153600,
+          "uploaded_at": "2026-07-16T08:43:40Z",
+          "path": "attachments/DD-2025-002/att-002-002.png"
+        }
+      ],
+      "products": [
+        "enterprise_online_banking",
+        "bank_enterprise_reconciliation",
+        "enterprise_mobile_banking",
+        "sms_notification"
+      ],
+      "template_type": "财务分析",
+      "name": "2026-04-01-北京星河科技有限公司-财务分析"
+    },
+    "DD-2025-003": {
+      "report_id": "DD-2025-003",
+      "company_name": "北京星河科技有限公司",
+      "credit_code": "91110108MA01B3XK2P",
+      "institution": "中国工商银行北京分行",
+      "user_id": "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
+      "status": "completed",
+      "created_at": "2026-07-16T08:50:27.524304300Z",
+      "updated_at": "2026-07-16T08:50:49.013027700Z",
+      "submitted_at": "2026-07-16T08:50:49.013027700Z",
+      "date_range": {
+        "from": "2026-06-01",
+        "to": "2026-07-16"
+      },
+      "basic_info": {
+        "registered_address": "北京市海淀区中关村南大街5号院1号楼12层",
+        "registered_capital": "5000万元",
+        "legal_representative": "张伟",
+        "legal_rep_id_type": "身份证",
+        "legal_rep_id_number": "44031da2198002157c",
+        "business_scope": "技术开发、技术服务"
+      },
+      "due_diligence": {
+        "opening_purpose": "日常经营结算",
+        "fund_source": "经营收入",
+        "expected_volume": "年交易规模5000万-1亿",
+        "cross_border": "否",
+        "risk_rating": "高风险",
+        "conclusion": "经尽职调查，该企业存在一定风险，建议加强尽调后审慎受理。"
+      },
+      "attachments": [
+        {
+          "file_id": "att-003-001",
+          "name": "营业执照",
+          "type": "image/png",
+          "size": 204800,
+          "uploaded_at": "2026-07-16T08:50:30Z",
+          "path": "attachments/DD-2025-003/att-003-001.png"
+        },
+        {
+          "file_id": "att-003-002",
+          "name": "法定代表人身份证",
+          "type": "image/png",
+          "size": 153600,
+          "uploaded_at": "2026-07-16T08:50:30Z",
+          "path": "attachments/DD-2025-003/att-003-002.png"
+        }
+      ],
+      "products": [
+        "enterprise_online_banking",
+        "bank_enterprise_reconciliation",
+        "enterprise_mobile_banking",
+        "sms_notification"
+      ],
+      "template_type": "综合风险",
+      "name": "2026-06-01-北京星河科技有限公司-综合风险"
+    },
+    "DD-2025-004": {
+      "report_id": "DD-2025-004",
+      "company_name": "北京星河科技有限公司",
+      "credit_code": "91110108MA01B3XK2P",
+      "institution": "中国工商银行湖北分行",
+      "user_id": "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
+      "status": "incomplete",
+      "created_at": "2026-07-16T02:14:17.842836800Z",
+      "updated_at": "2026-07-16T02:14:17.842836800Z",
+      "submitted_at": null,
+      "date_range": {
+        "from": "2026-06-01",
+        "to": "2026-07-16"
+      },
+      "basic_info": {
+        "registered_address": "",
+        "registered_capital": "",
+        "legal_representative": "",
+        "legal_rep_id_type": "",
+        "legal_rep_id_number": "",
+        "business_scope": ""
+      },
+      "due_diligence": {
+        "opening_purpose": "",
+        "fund_source": "",
+        "expected_volume": "",
+        "cross_border": "",
+        "risk_rating": "",
+        "conclusion": ""
+      },
+      "attachments": [],
+      "products": [],
+      "template_type": "标准",
+      "name": "2026-06-01-北京星河科技有限公司-标准"
+    },
+    "DD-2025-005": {
+      "report_id": "DD-2025-005",
+      "company_name": "小米科技有限公司",
+      "credit_code": "91440300MA5DCTJHQA1",
+      "institution": "中国工商银行湖北分行",
+      "user_id": "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
+      "status": "incomplete",
+      "created_at": "2026-07-16T08:23:36.213411700Z",
+      "updated_at": "2026-07-16T08:23:36.213411700Z",
+      "submitted_at": null,
+      "date_range": {
+        "from": "2026-05-01",
+        "to": "2026-07-16"
+      },
+      "basic_info": {
+        "registered_address": "北京市海淀区清河中街68号华润五彩城写字楼东区15层",
+        "registered_capital": "5000万元",
+        "legal_representative": "张伟",
+        "legal_rep_id_type": "身份证",
+        "legal_rep_id_number": "4403bdbc19800315fa",
+        "business_scope": "技术开发"
+      },
+      "due_diligence": {
+        "opening_purpose": "日常经营结算",
+        "fund_source": "经营收入",
+        "expected_volume": "年交易规模5000万-1亿",
+        "cross_border": "否",
+        "risk_rating": "低风险",
+        "conclusion": "经尽职调查，该企业经营状况正常，风险可控，建议受理。"
+      },
+      "attachments": [
+        {
+          "file_id": "att-005-001",
+          "name": "营业执照",
+          "type": "image/png",
+          "size": 180000,
+          "uploaded_at": "2026-07-16T08:23:40Z",
+          "path": "attachments/DD-2025-005/att-005-001.png"
+        },
+        {
+          "file_id": "att-005-002",
+          "name": "法定代表人身份证",
+          "type": "image/png",
+          "size": 120000,
+          "uploaded_at": "2026-07-16T08:23:40Z",
+          "path": "attachments/DD-2025-005/att-005-002.png"
+        }
+      ],
+      "products": [
+        "enterprise_online_banking",
+        "enterprise_mobile_banking",
+        "sms_notification"
+      ],
+      "template_type": "财务分析",
+      "name": "2026-05-01-小米科技有限公司-财务分析"
+    },
+    "DD-2025-006": {
+      "report_id": "DD-2025-006",
+      "company_name": "深圳前海创新金融集团有限公司",
+      "credit_code": "91440300MA5DCTJH8N",
+      "institution": "中国工商银行湖北分行",
+      "user_id": "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
+      "status": "completed",
+      "created_at": "2026-07-15T08:51:08.389214600Z",
+      "updated_at": "2026-07-15T08:51:49.059897600Z",
+      "submitted_at": "2026-07-15T08:51:49.059897600Z",
+      "date_range": {
+        "from": "2026-03-01",
+        "to": "2026-07-15"
+      },
+      "basic_info": {
+        "registered_address": "深圳市南山区前海深港合作区梦海大道5033号卓越前海壹号A座28层",
+        "registered_capital": "10000万元",
+        "legal_representative": "张明",
+        "legal_rep_id_type": "身份证",
+        "legal_rep_id_number": "440304b0197506156b",
+        "business_scope": "金融创新、投资管理"
+      },
+      "due_diligence": {
+        "opening_purpose": "日常经营结算",
+        "fund_source": "经营收入",
+        "expected_volume": "年交易规模5000万-1亿",
+        "cross_border": "否",
+        "risk_rating": "高风险",
+        "conclusion": "经尽职调查，该企业存在一定风险，建议加强尽调后审慎受理。"
+      },
+      "attachments": [
+        {
+          "file_id": "att-006-001",
+          "name": "营业执照",
+          "type": "image/png",
+          "size": 220000,
+          "uploaded_at": "2026-07-15T08:51:10Z",
+          "path": "attachments/DD-2025-006/att-006-001.png"
+        },
+        {
+          "file_id": "att-006-002",
+          "name": "法定代表人身份证",
+          "type": "image/png",
+          "size": 140000,
+          "uploaded_at": "2026-07-15T08:51:10Z",
+          "path": "attachments/DD-2025-006/att-006-002.png"
+        }
+      ],
+      "products": [
+        "enterprise_online_banking",
+        "bank_enterprise_reconciliation",
+        "enterprise_mobile_banking",
+        "sms_notification"
+      ],
+      "template_type": "综合风险",
+      "name": "2026-03-01-深圳前海创新金融集团有限公司-综合风险"
+    }
+  },
+  "index": {
+    "91110108MA01B3XK2P": [
+      "DD-2025-001",
+      "DD-2025-002",
+      "DD-2025-003",
+      "DD-2025-004"
+    ],
+    "91440300MA5DCTJHQA1": [
+      "DD-2025-005"
+    ],
+    "91440300MA5DCTJH8N": [
+      "DD-2025-006"
+    ]
+  }
+}

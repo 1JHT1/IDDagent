@@ -12,5 +12,12 @@
     "created_at" : "2026-07-16T01:33:27.786973800Z",
     "id" : "1d7c4faf-8002-4e44-b1b7-0a958c495d4f",
     "username" : "Steve"
+  },
+  "fc17c659-99a3-4898-af45-bf86c896dd8c" : {
+    "password" : "a0d095bea4a721fa25cb4bbb5a9117bc$07a7761dc70e486ef7070152bb9198c68c475d66ad58569bcf800f58cb1e6ab0",
+    "bank_institution" : "北京分行",
+    "created_at" : "2026-07-21T02:01:25.662220700Z",
+    "id" : "fc17c659-99a3-4898-af45-bf86c896dd8c",
+    "username" : "1"
   }
 }

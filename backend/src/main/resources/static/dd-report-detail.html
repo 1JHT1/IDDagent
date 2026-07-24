@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>历史尽调报告详情</title>
+  <style>
+    :root {
+      --blue: #1677ff; --green: #52c41a; --gray-50: #fafafa; --gray-100: #f5f5f5;
+      --gray-200: #f0f0f0; --gray-500: #8c8c8c; --gray-700: #434343; --gray-900: #1a1a2e;
+      --radius: 14px; --shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #e8edf5 0%, #f0f2f5 120px);
+      color: var(--gray-900); min-height: 100vh; -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; }
+
+    /* ====== Header ====== */
+    .page-header { text-align: center; padding: 32px 16px 20px; }
+    .page-header .icon { font-size: 36px; margin-bottom: 8px; }
+    .page-header h1 { font-size: 22px; font-weight: 800; letter-spacing: 1px; color: var(--gray-900); }
+    .page-header .meta { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+
+    /* ====== Card ====== */
+    .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; }
+    .card-header {
+      display: flex; align-items: center; gap: 10px; padding: 15px 18px;
+      border-bottom: 1px solid var(--gray-200); font-size: 15px; font-weight: 700;
+    }
+    .card-header .card-icon { font-size: 20px; }
+    .card-body { padding: 16px 18px; }
+
+    /* ====== Info Grid ====== */
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .info-grid .full { grid-column: 1 / -1; }
+    .info-item {}
+    .info-item .label { font-size: 11px; color: var(--gray-500); margin-bottom: 2px; }
+    .info-item .value { font-size: 14px; font-weight: 500; color: var(--gray-900); word-break: break-all; }
+    .info-item .value.empty { color: var(--gray-500); font-weight: 400; font-style: italic; }
+
+    /* ====== Status Badge ====== */
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px;
+      border-radius: 20px; font-size: 13px; font-weight: 700;
+    }
+    .status-badge.completed { background: #f6ffed; color: var(--green); border: 1px solid #b7eb8f; }
+    .status-badge.incomplete { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
+
+    /* ====== Products ====== */
+    .product-tag {
+      display: inline-block; padding: 4px 12px; border-radius: 8px;
+      font-size: 12px; background: #e6f4ff; color: var(--blue); border: 1px solid #91caff;
+      margin: 3px 4px 3px 0;
+    }
+
+    /* ====== Attachments (detail page) ====== */
+    .att-list { display: flex; flex-direction: column; gap: 8px; }
+    .att-item {
+      display: flex; align-items: center; gap: 12px; padding: 10px 14px;
+      background: var(--gray-50); border-radius: 10px; border: 1px solid var(--gray-200);
+    }
+    .att-item .att-icon { font-size: 24px; }
+    .att-item .att-info { flex: 1; min-width: 0; }
+    .att-item .att-name { font-size: 13px; font-weight: 500; color: var(--gray-900); }
+    .att-item .att-meta { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
+
+    /* ====== Loading & Error ====== */
+    .page-loading { text-align: center; padding: 100px 20px; color: var(--gray-500); }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--gray-200); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .page-error { text-align: center; padding: 80px 20px; }
+    .page-error .err-icon { font-size: 52px; margin-bottom: 12px; }
+    .page-error .err-msg { font-size: 14px; color: #595959; }
+    .page-error .retry-btn { margin-top: 16px; padding: 8px 24px; border-radius: 20px; border: none; background: var(--blue); color: #fff; font-size: 13px; cursor: pointer; }
+
+    .back-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--blue); text-decoration: none; padding: 8px 0; }
+    .footer { text-align: center; padding: 20px 0; font-size: 11px; color: #bfbfbf; }
+
+    /* ====== PDF Download Mode ====== */
+    body.pdf-mode .pdf-hidden { display: none !important; }
+    body.pdf-mode { background: #fff; }
+    body.pdf-mode .card { box-shadow: none; border: 1px solid #f0f0f0; break-inside: avoid; }
+    #pdf-loading { display: none; text-align: center; padding: 60px 20px; color: #8c8c8c; }
+    #pdf-loading .spinner { margin: 0 auto 16px; }
+  </style>
+</head>
+<body>
+  <div class="container" id="app"></div>
+  <!-- PDF 生成加载指示器（在 #app 外面，避免被 render 覆盖） -->
+  <div id="pdf-loading" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.92);z-index:9999;text-align:center;padding-top:120px;">
+    <div class="spinner"></div>
+    <p style="color:#8c8c8c;font-size:14px;">正在生成 PDF...</p>
+  </div>
+
+  <script>
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var id = params.get('report_id');
+    var root = document.getElementById('app');
+
+    if (!id) {
+      root.innerHTML = '<div class="page-error"><div class="err-icon">❌</div><div class="err-msg">缺少报告 ID 参数</div></div>';
+      return;
+    }
+
+    var downloadPdf = params.get('download_pdf') === '1';
+    if (downloadPdf) {
+      document.body.className = 'pdf-mode';
+    }
+    root.innerHTML = '<div class="page-loading"><div class="spinner"></div><p style="color:#8c8c8c;font-size:13px;">正在加载报告详情...</p></div>';
+
+    fetch('/api/dd-reports/' + encodeURIComponent(id), { credentials: 'include' })
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(render)
+      .catch(function(e) {
+        root.innerHTML = '<div class="page-error"><div class="err-icon">⚠️</div><div class="err-msg">报告加载失败：' + e.message
+          + '</div><button class="retry-btn" onclick="location.reload()">重新加载</button></div>';
+      });
+
+    var PRODUCT_NAMES = {
+      enterprise_online_banking: '企业网银',
+      enterprise_mobile_banking: '企业手机银行',
+      bank_enterprise_reconciliation: '银企对账',
+      sms_notification: '短信提醒'
+    };
+
+    function formatSize(bytes) {
+      if (!bytes) return '-';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function render() {
+      var data = arguments[0];
+      var now = new Date();
+      var timeStr = now.getFullYear() + '-' + pad(now.getMonth()+1) + '-' + pad(now.getDate())
+        + ' ' + pad(now.getHours()) + ':' + pad(now.getMinutes());
+
+      var isComplete = data.status === 'completed';
+      var basic = data.basic_info || {};
+      var dd = data.due_diligence || {};
+      var attachments = data.attachments || [];
+      var products = data.products || [];
+
+      var html = ''
+
+        /* ====== Header ====== */
+        + '<div class="page-header">'
+        + '<div class="icon">📋</div>'
+        + '<h1>' + (data.name || '历史尽调报告详情') + '</h1>'
+        + '<div class="meta">报告编号：' + (data.report_id || '-') + '　|　' + timeStr + '</div>'
+        + '</div>'
+
+        /* ====== PDF Content ====== */
+        + '<div id="pdf-content">'
+
+        /* ====== 报告状态 ====== */
+        + '<div class="card"><div class="card-body" style="text-align:center;padding:20px;">'
+        + '<span class="status-badge ' + (isComplete ? 'completed' : 'incomplete') + '">'
+        + (isComplete ? '✅ 创建成功' : '⏳ 未完成') + '</span>'
+        + '</div></div>'
+
+        /* ====== 企业基本信息 ====== */
+        + '<div class="card">'
+        + '<div class="card-header"><span class="card-icon">🏢</span>企业基本信息</div>'
+        + '<div class="card-body"><div class="info-grid">'
+        + '<div class="info-item full"><div class="label">企业名称</div><div class="value">' + (data.company_name || '-') + '</div></div>'
+        + '<div class="info-item full"><div class="label">统一信用代码</div><div class="value">' + (data.credit_code || '-') + '</div></div>'
+        + '<div class="info-item full"><div class="label">所属机构</div><div class="value">' + (data.institution || '-') + '</div></div>'
+        + '<div class="info-item full"><div class="label">注册地址</div><div class="value' + (basic.registered_address ? '' : ' empty') + '">' + (basic.registered_address || '暂无数据') + '</div></div>'
+        + '<div class="info-item"><div class="label">注册资本</div><div class="value' + (basic.registered_capital ? '' : ' empty') + '">' + (basic.registered_capital || '暂无数据') + '</div></div>'
+        + '<div class="info-item"><div class="label">法定代表人</div><div class="value' + (basic.legal_representative ? '' : ' empty') + '">' + (basic.legal_representative || '暂无数据') + '</div></div>'
+        + '<div class="info-item"><div class="label">证件类型</div><div class="value' + (basic.legal_rep_id_type ? '' : ' empty') + '">' + (basic.legal_rep_id_type || '暂无数据') + '</div></div>'
+        + '<div class="info-item"><div class="label">证件号码</div><div class="value' + (basic.legal_rep_id_number ? '' : ' empty') + '">' + (basic.legal_rep_id_number || '暂无数据') + '</div></div>'
+        + '<div class="info-item full"><div class="label">经营范围</div><div class="value' + (basic.business_scope ? '' : ' empty') + '">' + (basic.business_scope || '暂无数据') + '</div></div>'
+        + '</div></div></div>'
+
+        /* ====== 尽调信息 ====== */
+        + '<div class="card">'
+        + '<div class="card-header"><span class="card-icon">🔍</span>尽职调查信息</div>'
+        + '<div class="card-body"><div class="info-grid">'
+        + '<div class="info-item full"><div class="label">开户目的</div><div class="value' + (dd.opening_purpose ? '' : ' empty') + '">' + (dd.opening_purpose || '暂无数据') + '</div></div>'
+        + '<div class="info-item full"><div class="label">资金来源</div><div class="value' + (dd.fund_source ? '' : ' empty') + '">' + (dd.fund_source || '暂无数据') + '</div></div>'
+        + '<div class="info-item full"><div class="label">预期交易规模</div><div class="value' + (dd.expected_volume ? '' : ' empty') + '">' + (dd.expected_volume || '暂无数据') + '</div></div>'
+        + '<div class="info-item"><div class="label">跨境业务</div><div class="value' + (dd.cross_border ? '' : ' empty') + '">' + (dd.cross_border || '暂无数据') + '</div></div>'
+        + '<div class="info-item"><div class="label">风险评级</div><div class="value' + (dd.risk_rating ? '' : ' empty') + '">' + (dd.risk_rating || '暂无数据') + '</div></div>'
+        + '<div class="info-item full"><div class="label">尽调结论</div><div class="value' + (dd.conclusion ? '' : ' empty') + '">' + (dd.conclusion || '暂无数据') + '</div></div>'
+        + '</div></div></div>'
+
+        /* ====== 产品签约 ====== */
+        + '<div class="card">'
+        + '<div class="card-header"><span class="card-icon">📦</span>产品签约</div>'
+        + '<div class="card-body">'
+        + (products.length > 0
+          ? products.map(function(k) { return '<span class="product-tag">' + (PRODUCT_NAMES[k] || k) + '</span>'; }).join('')
+          : '<span style="font-size:13px;color:var(--gray-500);font-style:italic;">暂无签约产品</span>')
+        + '</div></div>'
+
+        /* ====== 附件列表 ====== */
+        + '<div class="card">'
+        + '<div class="card-header"><span class="card-icon">📎</span>附件（' + attachments.length + '）</div>'
+        + '<div class="card-body">'
+        + (attachments.length > 0
+          ? '<div class="att-list">' + attachments.map(function(a) {
+              return '<div class="att-item">'
+                + '<span class="att-icon">' + (a.type && a.type.startsWith('image/') ? '🖼️' : '📄') + '</span>'
+                + '<div class="att-info">'
+                + '<div class="att-name">' + (a.name || '未知文件') + '</div>'
+                + '<div class="att-meta">' + formatSize(a.size) + '　|　' + (a.uploaded_at ? a.uploaded_at.replace('T', ' ').substring(0, 16) : '-') + '</div>'
+                + '</div></div>';
+            }).join('') + '</div>'
+          : '<span style="font-size:13px;color:var(--gray-500);font-style:italic;">暂无附件</span>')
+        + '</div></div>'
+
+        /* ====== 时间信息 ====== */
+        + '<div class="card">'
+        + '<div class="card-header"><span class="card-icon">⏱️</span>时间信息</div>'
+        + '<div class="card-body"><div class="info-grid">'
+        + '<div class="info-item"><div class="label">创建时间</div><div style="font-size:13px;">' + (data.created_at ? data.created_at.replace('T', ' ').substring(0, 16) : '-') + '</div></div>'
+        + '<div class="info-item"><div class="label">更新时间</div><div style="font-size:13px;">' + (data.updated_at ? data.updated_at.replace('T', ' ').substring(0, 16) : '-') + '</div></div>'
+        + (data.submitted_at ? '<div class="info-item full"><div class="label">提交时间</div><div style="font-size:13px;">' + data.submitted_at.replace('T', ' ').substring(0, 16) + '</div></div>' : '')
+        + (data.date_range ? '<div class="info-item full"><div class="label">尽调申请时间区间</div><div style="font-size:13px;">' + (data.date_range.from || '-') + ' 至 ' + (data.date_range.to || '-') + '</div></div>' : '')
+        + '</div></div></div>'
+
+        /* ====== Footer ====== */
+        + '</div>'  // end pdf-content
+
+        + '<div class="footer pdf-hidden">'
+        + '<a class="back-link" href="javascript:history.back()">← 返回</a>'
+        + '　'
+        + '<a class="back-link" href="javascript:window.print()" style="cursor:pointer;">🖨️ 打印PDF</a>'
+        + '<div style="margin-top:8px;">本报告由对公存款智能体系统自动生成</div>'
+        + '</div>';
+
+      root.innerHTML = html;
+      // 如果 URL 包含 print=1，渲染完成后自动调出打印对话框
+      if (params.get('print') === '1') {
+        setTimeout(function() { window.print(); }, 500);
+      }
+
+      // 如果 URL 包含 download_pdf=1，自动生成 PDF 并下载
+      if (downloadPdf) {
+        generatePdf(data);
+      }
+    }
+
+    /** PDF 下载入口 */
+    function generatePdf(data) {
+      document.getElementById('pdf-loading').style.display = 'block';
+
+      loadCdnLibs().then(function() {
+        var element = document.getElementById('pdf-content');
+        var reportName = data.name || data.report_id || 'report';
+
+        // 逐页截取避免内容模糊
+        captureToPdf(element).then(function(pdf) {
+          document.getElementById('pdf-loading').style.display = 'none';
+          pdf.save(reportName + '.pdf');
+          setTimeout(function() { window.close(); }, 500);
+        });
+      });
+    }
+
+    /** 加载 CDN 库 */
+    function loadCdnLibs() {
+      return new Promise(function(resolve, reject) {
+        if (window.jspdf && window.html2canvas) { resolve(); return; }
+        var scripts = [
+          'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
+          'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'
+        ];
+        var loaded = 0;
+        scripts.forEach(function(src) {
+          var s = document.createElement('script');
+          s.src = src;
+          s.onload = function() {
+            loaded++;
+            if (loaded === scripts.length) setTimeout(resolve, 200);
+          };
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      });
+    }
+
+    /** 一次渲染全量内容，再从图片切分页面到 PDF */
+    function captureToPdf(element) {
+      return html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        height: element.scrollHeight,
+        width: element.clientWidth,
+        windowHeight: element.scrollHeight,
+        logging: false,
+        backgroundColor: '#ffffff'
+      }).then(function(canvas) {
+        var pdf = new jspdf.jsPDF('p', 'mm', 'a4');
+        var pdfW = 210;
+        var pdfH = 297;
+        // 每页图片宽210mm铺满，高度按 canvas 宽高比算出像素值，使图片在PDF中也铺满
+        var sliceH = canvas.width * pdfH / pdfW;
+        var totalPx = canvas.height;
+        var totalPages = Math.ceil(totalPx / sliceH);
+
+        for (var i = 0; i < totalPages; i++) {
+          if (i > 0) pdf.addPage();
+          var sy = i * sliceH;
+          var sh = Math.min(sliceH, totalPx - sy);
+
+          // 从全量 canvas 中截取当前页区域
+          var pageCanvas = document.createElement('canvas');
+          pageCanvas.width = canvas.width;
+          pageCanvas.height = sh;
+          var ctx = pageCanvas.getContext('2d');
+          ctx.drawImage(canvas, 0, sy, canvas.width, sh, 0, 0, canvas.width, sh);
+
+          // 非末页铺满 A4，末页按实际高度（避免拉伸）
+          var imgH = sh < sliceH ? pdfW * sh / canvas.width : pdfH;
+          pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pdfW, imgH);
+        }
+        return pdf;
+      });
+    }
+  })();
+  </script>
+</body>
+</html>

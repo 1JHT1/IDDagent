@@ -9,6 +9,8 @@ import OutreachCard from './OutreachCard';
 import ProductRecommendCard from './ProductRecommendCard';
 import ProductMatchCard from './ProductMatchCard';
 import AccountOpeningCard from './AccountOpeningCard';
+import HistoricalDDQueryCard from './HistoricalDDQueryCard';
+import CompanyNameSelector from './CompanyNameSelector';
 import FollowUpChip from './FollowUpChip';
 
 interface ChatMessageProps {
@@ -30,7 +32,8 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   const label = extra._skill_name
     ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
         recommend_products: '产品智荐', match_products_intelligently: '产品智能匹配',
-        open_corporate_account: '对公账户开户' }[extra._skill_name as string]
+        open_corporate_account: '对公账户开户',
+        query_due_diligence_reports: '历史尽调报告' }[extra._skill_name as string]
     : undefined;
   if (label) parts.push(`【${label}】`);
   if (extra.company_name) parts.push(`企业名称：${extra.company_name}`);
@@ -41,6 +44,7 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   if (extra.needs_summary) parts.push(`需求摘要：${extra.needs_summary}`);
   if (extra.message) parts.push(`说明：${extra.message}`);
   if (extra.keyword) parts.push(`关键词：${extra.keyword}`);
+  if (extra.total_count) parts.push(`查询结果：共 ${extra.total_count} 条记录`);
   return parts.join('\n');
 }
 
@@ -186,6 +190,9 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         if (skillName === 'check_company_risk') {
           return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
+        if (skillName === 'query_due_diligence_reports') {
+          return <HistoricalDDQueryCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
 
         // 兜底：按字段特征匹配（兼容旧数据）
         if (message.extra.insights_h5_url !== undefined || message.extra.script_h5_url !== undefined) {
@@ -201,6 +208,35 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
           return <AccountOpeningCard data={message.extra} onSendMessage={onSendMessage} />;
         }
         return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
+      }
+
+      // 候选企业选择器
+      if (extraAction === 'company_name_candidates') {
+        const options = message.extra.options as { credit_code: string; company_name: string }[] | undefined;
+        if (options && options.length > 0) {
+          return (
+            <CompanyNameSelector
+              options={options}
+              message={message.extra.message as string}
+              keyword={message.extra.keyword as string}
+              onSendMessage={onSendMessage}
+            />
+          );
+        }
+      }
+
+      // 时间区间输入提示
+      if (extraAction === 'need_date_range') {
+        const text = message.extra.text as string || '请提供尽调申请的时间区间。例如：2025-01-01 到 2025-12-31';
+        return (
+          <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl border border-blue-200 overflow-hidden">
+            <div className="p-4">
+              <p className="text-sm text-gray-600 leading-relaxed">
+                📅 {text}
+              </p>
+            </div>
+          </div>
+        );
       }
 
       // 潜客推荐卡片

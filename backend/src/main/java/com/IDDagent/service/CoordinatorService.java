@@ -1,6 +1,7 @@
 package com.IDDagent.service;
 
 import com.IDDagent.config.AppConfig;
+import com.IDDagent.model.Message;
 import com.IDDagent.skill.SkillRegistry;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,11 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class CoordinatorService {
@@ -34,11 +34,19 @@ public class CoordinatorService {
     }
 
     /**
-     * 路由意图（非阻塞响应式）
-     * @param userMessage 用户输入
-     * @return Mono<Map<String, Object>> 决策结果
+     * 路由意图（无历史消息，基础版）
      */
     public Mono<Map<String, Object>> routeIntent(String userMessage) {
+        return routeIntent(userMessage, List.of());
+    }
+
+    /**
+     * 路由意图（携带对话历史，非阻塞响应式）
+     * @param userMessage 用户当前输入
+     * @param messages    最近对话消息列表（用于 LLM 理解上下文）
+     * @return Mono<Map<String, Object>> 决策结果
+     */
+    public Mono<Map<String, Object>> routeIntent(String userMessage, List<Message> messages) {
         String systemPrompt = buildSystemPrompt();
         String apiKey = config.getDeepseek().getApiKey();
         String baseUrl = config.getDeepseek().getBaseUrl();
@@ -50,12 +58,28 @@ public class CoordinatorService {
             return Mono.just(fallbackMap("API key not configured"));
         }
 
-        // 构建请求体
+        // 构建请求体：包含对话历史以帮助 LLM 理解上下文
+        List<Map<String, Object>> chatMessages = new ArrayList<>();
+        chatMessages.add(Map.of("role", "system", "content", systemPrompt));
+
+        // 添加最近对话历史（最多最近 6 条，取最后 3 对 user/assistant）
+        if (messages != null && !messages.isEmpty()) {
+            int startIdx = Math.max(0, messages.size() - 6);
+            for (int i = startIdx; i < messages.size(); i++) {
+                Message msg = messages.get(i);
+                chatMessages.add(Map.of(
+                        "role", msg.getRole(),
+                        "content", msg.getContent()
+                ));
+            }
+        }
+
+        // 当前用户消息
+        chatMessages.add(Map.of("role", "user", "content", userMessage));
+
         Map<String, Object> requestBody = new LinkedHashMap<>();
         requestBody.put("model", model);
-        requestBody.put("messages", List.of(
-                Map.of("role", "system", "content", systemPrompt),
-                Map.of("role", "user", "content", userMessage)));
+        requestBody.put("messages", chatMessages);
         requestBody.put("temperature", 0.1);
         requestBody.put("max_tokens", 300);
 
@@ -136,10 +160,16 @@ public class CoordinatorService {
     private String buildSystemPrompt() {
         String skillsPrompt = skillRegistry.getSkillsPrompt();
         return """
-                你是一个任务规划主控智能体。分析用户输入，判断意图并做出路由决策。
+                你是一个任务规划主控智能体。分析用户输入（含对话历史上下文），判断意图并做出路由决策。
 
                 ## 上下文记忆
                 系统维护了当前会话的上下文记忆（最近操作的企业主体）。即使用户没有在当前消息中明确提及企业名称，只要意图明确（如「帮我准备拓户材料」「推荐产品」「查下风险」），你仍然应该路由到对应的技能。系统会自动从上下文记忆中补充缺失的企业参数。
+
+                ## 对话历史
+                以下是当前会话的最近对话历史（user/assistant 消息）。请结合历史消息理解用户意图：
+                - 如果用户说"换一家"、"再看另一家"、"查另一家"等 → 表示想切换企业，应匹配到最近使用的同类型技能
+                - 如果用户说"再查2024年的"、"换个时间"等 → 表示想变更查询条件，应匹配到最近使用的同类型技能
+                - 如果用户说的内容与最近的技能不相关 → 按正常规则判断为新意图
 
                 ## 决策规则（严格遵守）
 
@@ -158,6 +188,8 @@ public class CoordinatorService {
                 6. 当用户输入中**描述了具体的资金需求场景**（如包含具体金额、期限、用途等描述），必须匹配为 match_products_intelligently 技能。
 
                 7. 当用户输入中包含"办理开户"、"协助开户"、"同意开户"、"开始开户"、"开户资料"、"准备开户"等关键词时，必须匹配为 open_corporate_account 技能。
+
+                8. 当用户输入中包含"历史尽调"、"查询历史"、"尽调记录"、"历史报告"、"查一下之前"、"以往的尽调"、"历史查询"、"查看历史"、"尽调历史"、"以前的报告"等关键词时，必须匹配为 query_due_diligence_reports 技能。
 
                 ## 可用技能
 

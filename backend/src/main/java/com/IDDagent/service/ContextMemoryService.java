@@ -20,6 +20,17 @@ public class ContextMemoryService {
         if (creditCode != null && !creditCode.isEmpty()) ctx.creditCode = creditCode;
     }
 
+    public void updateAttachment(String conversationId, String attachmentUrl) {
+        if (attachmentUrl == null || attachmentUrl.isEmpty()) return;
+        ConversationContext ctx = store.computeIfAbsent(conversationId, k -> new ConversationContext());
+        ctx.attachmentUrl = attachmentUrl;
+    }
+
+    public void clearAttachment(String conversationId) {
+        ConversationContext ctx = store.get(conversationId);
+        if (ctx != null) ctx.attachmentUrl = "";
+    }
+
     public void clear(String conversationId) {
         store.remove(conversationId);
     }
@@ -27,6 +38,7 @@ public class ContextMemoryService {
     public static class ConversationContext {
         public String companyName = "";
         public String creditCode = "";
+        public String attachmentUrl = "";
 
         public boolean isEmpty() {
             return (companyName == null || companyName.isEmpty())

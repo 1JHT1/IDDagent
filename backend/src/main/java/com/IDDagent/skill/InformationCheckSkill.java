@@ -60,6 +60,15 @@ public class InformationCheckSkill {
             return resp;
         }
 
+        // 检查是否有上传附件
+        String attachmentUrl = ((String) params.getOrDefault("_attachment_url", "")).trim();
+        if (attachmentUrl.isEmpty()) {
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("action", "not_found");
+            resp.put("message", "请上传该企业的营业执照图片以进行信息核实。");
+            return resp;
+        }
+
         // 加载参考数据（预设的"正确答案"）
         Map<String, Object> checkData = DataLoader.loadJson(INFO_CHECK_FILE);
         Map<String, Object> raw = (Map<String, Object>) checkData.get(creditCode);

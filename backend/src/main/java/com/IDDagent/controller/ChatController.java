@@ -153,20 +153,25 @@ public class ChatController {
             }
         }
 
-        // 传递最新用户消息中的附件URL给技能
+        // 传递附件URL给技能
         if ("verify_business_license".equals(skillName)) {
+            String attachmentUrl = "";
             List<Message> msgs = conv.getMessages();
             if (!msgs.isEmpty()) {
                 Message lastUserMsg = msgs.get(msgs.size() - 1);
                 if ("user".equals(lastUserMsg.getRole()) && lastUserMsg.getAttachments() != null && !lastUserMsg.getAttachments().isEmpty()) {
                     @SuppressWarnings("unchecked")
                     Map<String, Object> firstAtt = (Map<String, Object>) lastUserMsg.getAttachments().get(0);
-                    String attUrl = (String) firstAtt.get("url");
-                    if (attUrl != null && !attUrl.isEmpty()) {
-                        skillParams.put("_attachment_url", attUrl);
-                        log.info("Passed attachment URL to skill: {}", attUrl);
-                    }
+                    attachmentUrl = (String) firstAtt.get("url");
                 }
+            }
+            // 当前消息无附件时，尝试从上下文记忆中取（如用户点击选项后没有重传图片的情况）
+            if ((attachmentUrl == null || attachmentUrl.isEmpty()) && ctx.attachmentUrl != null && !ctx.attachmentUrl.isEmpty()) {
+                attachmentUrl = ctx.attachmentUrl;
+                log.info("Using attachment URL from context memory: {}", attachmentUrl);
+            }
+            if (attachmentUrl != null && !attachmentUrl.isEmpty()) {
+                skillParams.put("_attachment_url", attachmentUrl);
             }
         }
 
@@ -210,12 +215,22 @@ public class ChatController {
                             eventFlux = Flux.empty();
                         }
 
-                        // 更新上下文记忆（若返回了企业信息）
+                        // 更新上下文记忆（若返回了企业信息或待选企业）
                         if ("result".equals(action) && result.get("credit_code") != null) {
                             contextMemoryService.update(convId,
                                     (String) result.getOrDefault("company_name", ""),
                                     (String) result.get("credit_code"));
                             log.info("Context updated: {} ({})", result.get("company_name"), result.get("credit_code"));
+                        }
+                        // 保存附件URL到上下文，用户后续点击选项时可以继续使用
+                        String attUrl = (String) skillParams.get("_attachment_url");
+                        if (attUrl != null && !attUrl.isEmpty() && ("ambiguous".equals(action) || "not_found".equals(action))) {
+                            contextMemoryService.updateAttachment(convId, attUrl);
+                            log.info("Saved attachment URL to context for later use: {}", attUrl);
+                        }
+                        // 核实成功后清除附件记忆，避免影响下一次提问
+                        if ("result".equals(action)) {
+                            contextMemoryService.clearAttachment(convId);
                         }
 
                         // 存储助手消息（同步，顺序执行）

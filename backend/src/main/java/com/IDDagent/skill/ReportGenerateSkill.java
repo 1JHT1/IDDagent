@@ -36,10 +36,11 @@ public class ReportGenerateSkill {
 
     private Map<String, Object> handle(String userId, Map<String, Object> params) {
         String templateId = (String) params.getOrDefault("template_id", "");
+        String organization = (String) params.getOrDefault("organization", "");
 
-        // 没有模板ID → 返回模板列表让用户选择
+        // 没有模板ID → 返回模板列表让用户选择（按机构过滤）
         if (templateId.isEmpty()) {
-            return showTemplates();
+            return showTemplates(organization);
         }
 
         // 有模板ID → 返回跳转信息
@@ -68,15 +69,26 @@ public class ReportGenerateSkill {
     }
 
     @SuppressWarnings("unchecked")
-    private Map<String, Object> showTemplates() {
+    private Map<String, Object> showTemplates(String organization) {
         Map<String, Object> data = DataLoader.loadJson(TEMPLATES_FILE);
         List<Map<String, Object>> templates = (List<Map<String, Object>>) data.getOrDefault("templates", List.of());
+
+        // 按机构过滤：只返回匹配机构或无机构的模板
+        if (organization != null && !organization.isEmpty()) {
+            templates = templates.stream()
+                    .filter(t -> {
+                        String org = (String) t.getOrDefault("organization", "");
+                        return org.isEmpty() || organization.equals(org);
+                    })
+                    .toList();
+        }
 
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("action", "result");
         resp.put("_skill_name", "generate_report");
         resp.put("stage", "templates");
         resp.put("templates", templates);
+        resp.put("organization", organization);
         resp.put("message", "请选择需要生成的报告模板");
         return resp;
     }

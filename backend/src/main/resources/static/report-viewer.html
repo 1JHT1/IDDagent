@@ -87,6 +87,19 @@
   .report-content blockquote { border-left: 4px solid #93c5fd; background: #f8fafc; padding: 10px 16px; margin: 12px 0; border-radius: 4px; color: #475569; font-size: 14px; }
   .report-content ul, .report-content ol { padding-left: 24px; margin: 8px 0 16px; }
 
+  /* === 模板浏览模式 === */
+  #phaseBrowse { display: none; }
+  .browse-header { text-align: center; padding: 32px 16px 8px; }
+  .browse-header h1 { font-size: 22px; color: #111827; }
+  .browse-header p { font-size: 13px; color: #6b7280; margin-top: 4px; }
+  .browse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; padding: 16px; }
+  .browse-card { background: white; border-radius: 12px; border: 1px solid #e5e7eb; padding: 20px; cursor: pointer; transition: all 0.2s; }
+  .browse-card:hover { border-color: #1a56db; box-shadow: 0 4px 12px rgba(26,86,219,0.12); }
+  .browse-card .icon { font-size: 28px; margin-bottom: 8px; }
+  .browse-card .name { font-size: 15px; font-weight: 600; color: #111827; margin-bottom: 6px; }
+  .browse-card .desc { font-size: 12px; color: #6b7280; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .browse-empty { text-align: center; padding: 80px 16px; color: #9ca3af; }
+
   .state-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; text-align: center; }
   .state-container .state-title { font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 8px; }
   .state-container .state-desc { font-size: 14px; color: #9ca3af; }
@@ -263,6 +276,19 @@
     </div>
   </div>
 
+  <!-- === 阶段3：模板浏览 === -->
+  <div id="phaseBrowse" style="display:none">
+    <div class="browse-header">
+      <h1 id="browseTitle">模板库</h1>
+      <p id="browseSubtitle">请选择模板开始生成报告</p>
+    </div>
+    <div id="browseGrid" class="browse-grid"></div>
+    <div id="browseEmpty" class="browse-empty" style="display:none">
+      <p style="font-size:16px;margin-bottom:8px;">暂无可用模板</p>
+      <p style="font-size:13px;">当前机构下没有可用的报告模板</p>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -270,6 +296,8 @@
   const reportId = params.get('reportId');
   const templateId = params.get('templateId');
   const templateName = params.get('templateName');
+  const mode = params.get('mode');
+  const browseOrg = params.get('organization');
   // 将对话 ID 存入 sessionStorage，跳转回聊天页时携带
   const conversationId = params.get('conversationId');
   if (conversationId) {
@@ -298,12 +326,15 @@
   let currentFieldMeta = [];
   let allTemplates = [];  // 缓存模板列表，供 selectTemplate 查找 sourceFile
 
-  if (reportId) {
+  if (mode === 'browse') {
+    // 模板浏览模式
+    showBrowseTemplates(browseOrg);
+  } else if (reportId) {
     // 已有 reportId → 直接进入编辑/查看流程
     init();
   } else if (templateId) {
     // 有 templateId → 跳过模板选择，直接进入上传
-    selectedTemplate = { id: templateId, name: templateName || '报告', icon: '📄', sourceFile: '' };
+    selectedTemplate = { id: templateId, name: templateName || '报告', icon: '📄', sourceFile: '', organization: '' };
     document.getElementById('uploadTemplateName').textContent = '上传附件 - ' + (templateName || '报告');
     phaseTemplates.style.display = 'none';
     phaseUpload.style.display = 'block';
@@ -313,6 +344,7 @@
       if (tpl) {
         selectedTemplate.sourceFile = tpl.source_file || '';
         selectedTemplate.icon = tpl.icon || selectedTemplate.icon;
+        selectedTemplate.organization = tpl.organization || selectedTemplate.organization;
       }
     }).catch(() => {});
     updateStartBtn();
@@ -346,6 +378,71 @@
     }
   }
 
+  /** 模板浏览模式 */
+  async function showBrowseTemplates(organization) {
+    document.getElementById('reportMeta').textContent = '模板库';
+    document.querySelector('.toolbar-left .title').textContent = '模板库';
+    document.querySelector('.toolbar-left .subtitle').textContent = organization ? '当前机构：' + organization : '全部模板';
+    phaseTemplates.style.display = 'none';
+    phaseUpload.style.display = 'none';
+    phaseEditor.style.display = 'none';
+    phaseReport.style.display = 'none';
+    document.getElementById('phaseBrowse').style.display = 'block';
+
+    const grid = document.getElementById('browseGrid');
+    const empty = document.getElementById('browseEmpty');
+    grid.innerHTML = '<div class="browse-empty" style="grid-column:1/-1"><div class="spinner"></div><p>加载模板中...</p></div>';
+    empty.style.display = 'none';
+
+    try {
+      const url = organization
+        ? '/api/generate-report/templates?organization=' + encodeURIComponent(organization)
+        : '/api/generate-report/templates';
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const templates = await res.json();
+      if (!templates || templates.length === 0) {
+        grid.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+      let html = '';
+      templates.forEach(t => {
+        const icon = t.icon || '📄';
+        const desc = t.description || '';
+        html += '<div class="browse-card" onclick="openEditor(\'' + escAttr(t.id) + '\',\'' + escAttr(t.name) + '\',\'' + escAttr(icon) + '\')">'
+          + '<div class="icon">' + icon + '</div>'
+          + '<div class="name">' + escHtml(t.name) + '</div>'
+          + '<div class="desc">' + escHtml(desc) + '</div>'
+          + '</div>';
+      });
+      grid.innerHTML = html;
+    } catch (err) {
+      grid.innerHTML = '<div class="browse-empty" style="grid-column:1/-1"><div class="state-title">加载失败</div><div class="state-desc">' + err.message + '</div></div>';
+    }
+  }
+
+  /** 从模板浏览模式跳转到编辑器 */
+  function openEditor(tplId, tplName, tplIcon) {
+    const baseUrl = window.location.origin + window.location.pathname;
+    const p = new URLSearchParams();
+    p.set('templateId', tplId);
+    p.set('templateName', tplName);
+    if (conversationId) p.set('conversationId', conversationId);
+    if (browseOrg) p.set('organization', browseOrg);
+    window.location.href = baseUrl + '?' + p.toString();
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function escAttr(str) {
+    if (!str) return '';
+    return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+
   function renderTemplates(templates) {
     let html = '<div class="divide-y divide-gray-100" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">';
     templates.forEach(t => {
@@ -364,7 +461,7 @@
 
   function selectTemplate(id, name, icon) {
     const tpl = allTemplates.find(t => t.id === id);
-    selectedTemplate = { id, name, icon, sourceFile: tpl ? (tpl.source_file || '') : '' };
+    selectedTemplate = { id, name, icon, sourceFile: tpl ? (tpl.source_file || '') : '', organization: tpl ? (tpl.organization || '') : '' };
     document.getElementById('uploadTemplateName').textContent = '上传附件 - ' + name;
     phaseTemplates.style.display = 'none';
     phaseUpload.style.display = 'block';
@@ -488,6 +585,7 @@
           companyName: companyName,
           creditCode: creditCode,
           sourceFile: selectedTemplate.sourceFile || '',
+          organization: selectedTemplate.organization || browseOrg || '',
           attachmentNames: succeeded.map(f => f.name),
           attachmentFileIds: succeeded.map(f => f.fileId)
         })
@@ -656,6 +754,7 @@
     phaseEditor.style.display = 'none';
     phaseReport.style.display = 'block';
     document.getElementById('reportMeta').textContent = '报告加载中...';
+    window._reportId = rid;
 
     const bar = document.getElementById('reportStatusBar');
     bar.innerHTML = `
@@ -726,6 +825,7 @@
     phaseReport.style.display = 'block';
     renderReport(data);
     addEditButton(reportId);
+    window._reportId = reportId;
   }
 
   function addEditButton(rid) {
@@ -820,7 +920,21 @@
 
   function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
   function escAttr(str) { return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-  function printReport() { window.print(); }
+  function printReport() {
+    // 打印完成后记录日志到 data/report.json
+    window.onafterprint = function() {
+      var rid = window._reportId || '';
+      if (rid) {
+        fetch('/api/generate-report/' + rid + '/print-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}'
+        }).catch(function(err) { console.error('打印记录失败:', err); });
+      }
+      window.onafterprint = null;
+    };
+    window.print();
+  }
 </script>
 </body>
 </html>

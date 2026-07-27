@@ -3,6 +3,7 @@
     {
       "id": "financial_analysis",
       "name": "借款人财务分析报告",
+      "organization": "湖北分行",
       "description": "基于企业财务报表数据，自动生成借款人财务分析报告，涵盖财务审计情况、财务指标分析、还款来源预测等模块",
       "icon": "📊",
       "accepted_types": [".pdf", ".docx", ".xlsx", ".xls", ".md"],
@@ -28,6 +29,7 @@
     {
       "id": "due_diligence_brief",
       "name": "尽调简报",
+      "organization": "湖北分行",
       "description": "快速生成企业尽职调查简报，涵盖企业基本信息、财务概览、经营风险提示、关联交易等核心内容",
       "icon": "📋",
       "accepted_types": [".pdf", ".docx", ".xlsx", ".xls", ".md"],
@@ -46,6 +48,7 @@
     {
       "id": "credit_evaluation",
       "name": "授信评估报告",
+      "organization": "湖北分行",
       "description": "综合评估企业信用状况和还款能力，生成授信评估报告，包括财务分析、行业前景、担保评估等",
       "icon": "🏦",
       "accepted_types": [".pdf", ".docx", ".xlsx", ".xls", ".md"],
@@ -63,6 +66,7 @@
     {
       "id": "business_license_analysis",
       "name": "营业执照信息解析",
+      "organization": "湖北分行",
       "description": "上传营业执照图片，自动识别并提取统一信用代码、企业名称、法人代表、经营范围等核心信息，生成企业基础档案",
       "icon": "📇",
       "accepted_types": [".pdf", ".docx", ".xlsx", ".xls", ".md", ".png", ".jpg", ".jpeg"],

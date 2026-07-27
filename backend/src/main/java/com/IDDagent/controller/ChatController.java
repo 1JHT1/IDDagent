@@ -113,7 +113,7 @@ public class ChatController {
         Flux<String> mainFlow = coordinatorService.routeIntent(finalMessage, historyForCoord)
                 .flatMapMany(decision -> {
                     if ("skill".equals(decision.get("action"))) {
-                        return handleSkill(decision, convId, userId, finalConv);
+                        return handleSkill(decision, convId, userId, finalConv, currentUser);
                     } else {
                         return handleChat(convId, finalConv, finalMessage);
                     }
@@ -134,7 +134,7 @@ public class ChatController {
      * 处理技能分支（非阻塞）
      */
     private Flux<String> handleSkill(Map<String, Object> decision, String convId,
-                                     String userId, Conversation conv) {
+                                     String userId, Conversation conv, UserInfo currentUser) {
         String skillName = (String) decision.getOrDefault("skill", "");
         @SuppressWarnings("unchecked")
         Map<String, Object> skillParams = new LinkedHashMap<>(
@@ -181,6 +181,15 @@ public class ChatController {
 
         log.info("Coordinator routed to skill: {}, params: {}", skillName, skillParams);
         skillParams.put("_conversation_id", convId);
+
+        // 为 generate_report 技能注入当前用户的机构信息，用于模板过滤
+        if ("generate_report".equals(skillName)) {
+            String bankInstitution = currentUser.getBankInstitution();
+            if (bankInstitution != null && !bankInstitution.isEmpty()) {
+                skillParams.put("organization", bankInstitution);
+                log.info("Injected organization '{}' for generate_report", bankInstitution);
+            }
+        }
 
         String assistantMsgId = UUID.randomUUID().toString();
 

@@ -27,6 +27,7 @@ public class ReportTaskStore {
         private final String creditCode;
         private final String userId;
         private final String sourceFile;
+        private final String organization;
         private final List<String> attachmentNames;
         private final List<String> attachmentFileIds;
         private volatile String status;          // generating / completed / failed
@@ -40,6 +41,7 @@ public class ReportTaskStore {
 
         public ReportTask(String templateId, String templateName, String companyName,
                           String creditCode, String userId, String sourceFile,
+                          String organization,
                           List<String> attachmentNames, List<String> attachmentFileIds) {
             this.reportId = UUID.randomUUID().toString();
             this.templateId = templateId;
@@ -48,6 +50,7 @@ public class ReportTaskStore {
             this.creditCode = creditCode;
             this.userId = userId;
             this.sourceFile = sourceFile != null ? sourceFile : "";
+            this.organization = organization != null ? organization : "";
             this.attachmentNames = attachmentNames != null ? new CopyOnWriteArrayList<>(attachmentNames) : new CopyOnWriteArrayList<>();
             this.attachmentFileIds = attachmentFileIds != null ? new CopyOnWriteArrayList<>(attachmentFileIds) : new CopyOnWriteArrayList<>();
             this.status = "generating";
@@ -67,6 +70,7 @@ public class ReportTaskStore {
         public String getCreditCode() { return creditCode; }
         public String getUserId() { return userId; }
         public String getSourceFile() { return sourceFile; }
+        public String getOrganization() { return organization; }
         public List<String> getAttachmentNames() { return attachmentNames; }
         public List<String> getAttachmentFileIds() { return attachmentFileIds; }
         public String getStatus() { return status; }
@@ -91,9 +95,11 @@ public class ReportTaskStore {
     /** 创建报告任务 */
     public ReportTask createTask(String templateId, String templateName, String companyName,
                                  String creditCode, String userId, String sourceFile,
+                                 String organization,
                                  List<String> attachmentNames, List<String> attachmentFileIds) {
         ReportTask task = new ReportTask(templateId, templateName, companyName,
-                creditCode, userId, sourceFile, attachmentNames, attachmentFileIds);
+                creditCode, userId, sourceFile, organization,
+                attachmentNames, attachmentFileIds);
         tasks.put(task.getReportId(), task);
         log.info("报告任务已创建: reportId={}, template={}, company={}, sourceFile={}",
                 task.getReportId(), templateName, companyName, sourceFile);

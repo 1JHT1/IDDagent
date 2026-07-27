@@ -2,6 +2,7 @@ package com.IDDagent.controller;
 
 import com.IDDagent.service.FileParserService;
 import com.IDDagent.service.LLMFieldExtractor;
+import com.IDDagent.service.ReportStoreService;
 import com.IDDagent.service.ReportTaskStore;
 import com.IDDagent.service.ReportTaskStore.ReportTask;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -50,16 +51,18 @@ public class ReportController {
         log.info("============================================");
     }
 
-    public ReportController(ReportTaskStore taskStore, FileParserService fileParser, LLMFieldExtractor llmFieldExtractor) {
+    public ReportController(ReportTaskStore taskStore, FileParserService fileParser,
+                            LLMFieldExtractor llmFieldExtractor) {
         this.taskStore = taskStore;
         this.fileParser = fileParser;
         this.llmFieldExtractor = llmFieldExtractor;
         try { Files.createDirectories(UPLOAD_DIR); } catch (Exception ignored) {}
     }
 
-    /** 获取报告模板列表（供 H5 页面使用） */
+    /** 获取报告模板列表（供 H5 页面使用），支持按机构过滤 */
     @GetMapping(value = "/templates", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<List<Map<String, Object>>> getTemplates() {
+    public ResponseEntity<List<Map<String, Object>>> getTemplates(
+            @RequestParam(value = "organization", required = false) String organization) {
         try {
             String json = loadJsonFile("data/report_templates.json");
             if (json == null) json = loadJsonFile("data-template/report_templates.json");
@@ -71,6 +74,15 @@ public class ReportController {
             Map<String, Object> root = mapper.readValue(json, Map.class);
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> templates = (List<Map<String, Object>>) root.getOrDefault("templates", List.of());
+            // 按机构过滤：只返回匹配机构或无机构的模板
+            if (organization != null && !organization.isEmpty()) {
+                templates = templates.stream()
+                        .filter(t -> {
+                            String org = (String) t.getOrDefault("organization", "");
+                            return org.isEmpty() || organization.equals(org);
+                        })
+                        .toList();
+            }
             return ResponseEntity.ok(templates);
         } catch (Exception e) {
             log.error("加载模板列表失败", e);
@@ -121,6 +133,7 @@ public class ReportController {
         String creditCode = (String) body.getOrDefault("creditCode", "");
         String userId = (String) body.getOrDefault("userId", "unknown");
         String sourceFile = (String) body.getOrDefault("sourceFile", "");
+        String organization = (String) body.getOrDefault("organization", "");
 
         @SuppressWarnings("unchecked")
         List<String> attachmentNames = (List<String>) body.getOrDefault("attachmentNames", List.of());
@@ -140,7 +153,7 @@ public class ReportController {
         }
 
         ReportTask task = taskStore.createTask(templateId, templateName, companyName,
-                creditCode, userId, sourceFile, attachmentNames, attachmentFileIds);
+                creditCode, userId, sourceFile, organization, attachmentNames, attachmentFileIds);
 
         // 在 boundedElastic 线程中阻塞解析 LLM，不阻塞 Netty 事件循环
         return Mono.fromCallable(() -> {
@@ -215,6 +228,20 @@ public class ReportController {
         result.put("createdAt", task.getCreatedAt().toString());
         result.put("completedAt", task.getCompletedAt().toString());
         return ResponseEntity.ok(result);
+    }
+
+    /** 记录打印日志（用户打印报告后保存到 data/report.json） */
+    @PostMapping(value = "/{reportId}/print-log", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> recordPrintLog(@PathVariable String reportId) {
+        ReportTask task = taskStore.getTask(reportId);
+        if (task == null) {
+            return ResponseEntity.status(404).body(Map.of("error", "报告不存在"));
+        }
+        ReportStoreService.savePrintLog(
+                task.getCompanyName(),
+                task.getTemplateName(),
+                task.getOrganization() != null ? task.getOrganization() : "");
+        return ResponseEntity.ok(Map.of("success", true));
     }
 
     /** 获取报告可编辑数据字段（返回模板全部字段，已解析的和未解析的都展示） */

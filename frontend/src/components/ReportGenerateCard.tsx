@@ -13,13 +13,24 @@ function getBaseH5Url(): string {
   return `${window.location.protocol}//${window.location.hostname}:${port}/h5/report-viewer.html`;
 }
 
+/** 【新增】获取浏览器存储中的 organization */
+function getStoredOrganization(): string {
+  try {
+    return localStorage.getItem('userOrganization') || '';
+  } catch { return ''; }
+}
+
 // ============================================================
 // 模板选择
 // ============================================================
 const TemplateGrid: React.FC<{
   templates: ReportTemplate[];
+  organization?: string;
   onSelect: (t: ReportTemplate) => void;
-}> = ({ templates, onSelect }) => (
+}> = ({ templates, onSelect, organization }) => {
+  const baseUrl = getBaseH5Url();
+  const libUrl = `${baseUrl}?mode=browse${organization ? '&organization=' + encodeURIComponent(organization) : ''}`;
+  return (
   <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
     <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
       <div className="flex items-center gap-2">
@@ -50,8 +61,23 @@ const TemplateGrid: React.FC<{
         </button>
       ))}
     </div>
+    {/* 查看模板库按钮 */}
+    <a
+      href={libUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-sm text-blue-600 font-medium
+                 border-t border-gray-100 hover:bg-blue-50 transition-colors"
+    >
+      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+      </svg>
+      查看模板库
+    </a>
   </div>
 );
+};
 
 // ============================================================
 // 跳转卡片（展示模板名称 + 跳转 H5）
@@ -69,6 +95,8 @@ const RedirectCard: React.FC<{
   urlParams.set('templateId', templateId);
   urlParams.set('templateName', templateName);
   if (convId) urlParams.set('conversationId', convId);
+  const org = getStoredOrganization();
+  if (org) urlParams.set('organization', org);
   const h5Url = `${baseUrl}?${urlParams.toString()}`;
   return (
     <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
@@ -152,22 +180,18 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
     return () => { stopped = true; clearInterval(timer); };
   }, [fetchStatus]);
 
-  const handleDownload = async () => {
-    try {
-      const res = await fetch(`/api/generate-report/${reportId}/content`);
-      if (!res.ok) return;
-      const data = await res.json();
-      const content = data.content || '';
-      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${status?.companyName || 'report'}_尽调报告.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('下载失败:', err);
-    }
+  const handleViewReport = () => {
+    const baseUrl = getBaseH5Url();
+    const org = getStoredOrganization();
+    const url = org ? `${baseUrl}?reportId=${reportId}&organization=${encodeURIComponent(org)}` : `${baseUrl}?reportId=${reportId}`;
+    window.open(url, '_blank');
+  };
+
+  const handlePrint = () => {
+    const baseUrl = getBaseH5Url();
+    const org = getStoredOrganization();
+    const url = org ? `${baseUrl}?reportId=${reportId}&organization=${encodeURIComponent(org)}` : `${baseUrl}?reportId=${reportId}`;
+    window.open(url, '_blank');
   };
 
   const isCompleted = status?.status === 'completed';
@@ -213,19 +237,36 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
           <span className="text-xs text-gray-400">{status?.progress || 0}%</span>
         </div>
 
-        {/* 下载按钮 */}
+        {/* 完成按钮组 */}
         {isCompleted && (
-          <button
-            onClick={handleDownload}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue-600
-                       text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            下载报告
-          </button>
+          <div className="mt-3 flex gap-2">
+            <button
+              onClick={handleViewReport}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600
+                         text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              查看报告
+            </button>
+            <button
+              onClick={handlePrint}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600
+                         text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M6 14h12v8H6z" />
+              </svg>
+              打印
+            </button>
+          </div>
         )}
 
         {/* 失败提示 */}
@@ -258,6 +299,7 @@ const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMes
     return (
       <TemplateGrid
         templates={templates}
+        organization={data.organization as string || getStoredOrganization()}
         onSelect={(t) => {
           // 直接在前端生成跳转卡片，不走后端协调器（避免LLM提取template_id失败）
           if (onAddMessage) {

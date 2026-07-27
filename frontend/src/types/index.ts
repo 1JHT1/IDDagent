@@ -134,81 +134,49 @@ export interface OutreachResult {
 }
 
 // ============================================================
-// 产品智荐数据类型
+// 报告生成数据类型
 // ============================================================
 
-/** 推荐产品 */
-export interface RecommendedProduct {
-  product_name: string;
-  category: string;
-  priority: 'high' | 'medium' | 'low';
-  priority_label: string;
-  reason: string;
-  expected_amount: string;
-  features: string[];
-  application_period: string;
+/** 报告模板 */
+export interface ReportTemplate {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  accepted_types: string[];
+  required_fields: string[];
+  output_type: string;
+  source_file: string;
 }
 
-/** 产品推荐结果 */
-export interface ProductRecommendResult {
-  action: 'result' | 'ambiguous' | 'not_found';
-  credit_code?: string;
-  company_name?: string;
-  analysis_summary?: string;
-  products?: RecommendedProduct[];
-  detail_h5_url?: string;
-  total_count?: number;
+/** 报告生成结果 */
+export interface ReportGenerateResult {
+  action: 'result' | 'not_found';
+  _skill_name: 'generate_report';
+  stage: 'templates' | 'upload' | 'generating' | 'done';
+  report_id?: string;
   message?: string;
-  keyword?: string;
-  options?: RiskAmbiguousOption[];
-}
 
-// ============================================================
-// 产品智能匹配数据类型
-// ============================================================
+  // stage=templates
+  templates?: ReportTemplate[];
 
-/** 匹配产品 */
-export interface MatchedProduct {
-  product_key: string;
-  product_name: string;
-  category: string;
-  match_score: number;
-  reason: string;
-  highlights: string[];
-  estimated_return: string;
-  features: string[];
-  application_period: string;
-}
+  // stage=upload
+  template_id?: string;
+  template_name?: string;
+  template_icon?: string;
+  template_description?: string;
+  required_fields?: string[];
+  accepted_types?: string[];
 
-/** 产品智能匹配结果 */
-export interface ProductMatchResult {
-  action: 'result';
-  needs_summary: string;
-  needs_detail?: Record<string, unknown>;
-  matches: MatchedProduct[];
+  // stage=generating
+  status?: 'generating' | 'completed' | 'failed';
+  progress?: number;
   company_name?: string;
-  credit_code?: string;
-  total_count: number;
-}
 
-// ============================================================
-// 对公账户开户数据类型
-// ============================================================
-
-/** 开户申请结果 */
-export interface AccountOpeningResult {
-  action: 'result' | 'ambiguous' | 'not_found';
-  app_id?: string;
-  company_name?: string;
-  credit_code?: string;
-  status?: 'upload' | 'processing' | 'preview' | 'submitted';
-  upload_url?: string;
-  preview_url?: string;
-  submitted_url?: string;
-  required_documents?: string[];
-  message?: string;
-  keyword?: string;
-  options?: RiskAmbiguousOption[];
+  // stage=done
+  report_name?: string;
+  view_url?: string;
+  download_url?: string;
 }
 
 // ============================================================
@@ -242,10 +210,9 @@ export type SSEEventType =
   | 'text_start'
   | 'text_delta'
   | 'text_done'
-  | 'potential_customer_summary'
-  | 'potential_customer_detail'
   | 'risk_check_result'
   | 'outreach_result'
+  | 'report_generate_result'
   | 'product_recommend_result'
   | 'product_match_result'
   | 'account_opening_result'
@@ -260,6 +227,7 @@ export interface SSEEvent {
   content?: string;
   message_id?: string;
   conversation_id?: string;
+  data?: RiskCheckResult | OutreachResult | ReportGenerateResult;
   data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | OutreachResult | ProductRecommendResult | ProductMatchResult | AccountOpeningResult | InformationCheckResult;
 }
 

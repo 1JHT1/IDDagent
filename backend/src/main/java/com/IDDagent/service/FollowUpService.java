@@ -124,7 +124,7 @@ public class FollowUpService {
                         companySkillsDone);
         //TODO 对公修改        
         String systemPrompt = """
-                你是一个银行对公客户经理的智能助手。你的任务是在完成当前应答后，主动预测用户的下一步需求。
+                你是一个银行尽职调查调客户经理的智能助手。你的任务是在完成当前应答后，主动预测用户的下一步需求。
 
                 ## 标准业务流程
 
@@ -151,11 +151,12 @@ public class FollowUpService {
             requestBody.put("messages", List.of(
                     Map.of("role", "system", "content", systemPrompt),
                     Map.of("role", "user", "content", userPrompt)));
+            requestBody.put("thinking", Map.of("type", "disabled"));
             requestBody.put("temperature", 0.3);
             requestBody.put("max_tokens", 150);
 
             String response = webClient.post()
-                    .uri(baseUrl + "/v1/chat/completions")
+                    .uri(baseUrl + "/chat/completions")
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
                     .bodyValue(requestBody)

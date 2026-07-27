@@ -8,7 +8,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -19,8 +22,12 @@ import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -71,59 +78,6 @@ public class H5DataController {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到信用代码 " + creditCode + " 的拓户准备数据");
             }
             return result;
-        });
-    }
-
-    @GetMapping("/product-recommend/{creditCode}")
-    public Mono<Map<String, Object>> getProductRecommend(@PathVariable String creditCode) {
-        return Mono.fromCallable(() -> {
-            Map<String, Object> prodData = DataLoader.loadJson(DATA_DIR + "/product_recommendations.json");
-            @SuppressWarnings("unchecked")
-            Map<String, Object> recs = (Map<String, Object>) prodData.getOrDefault("recommendations", Map.of());
-            @SuppressWarnings("unchecked")
-            Map<String, Object> result = (Map<String, Object>) recs.get(creditCode);
-            if (result == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "未找到信用代码 " + creditCode + " 的产品推荐数据");
-            }
-
-            @SuppressWarnings("unchecked")
-            Map<String, Object> productPool = (Map<String, Object>) prodData.getOrDefault("products", Map.of());
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> recList = (List<Map<String, Object>>) result.getOrDefault("recommendations", List.of());
-
-            List<Map<String, Object>> sorted = new ArrayList<>(recList);
-            Map<String, Integer> priorityOrder = Map.of("high", 0, "medium", 1, "low", 2);
-            sorted.sort((a, b) -> {
-                String pa = (String) a.getOrDefault("priority", "low");
-                String pb = (String) b.getOrDefault("priority", "low");
-                return Integer.compare(priorityOrder.getOrDefault(pa, 99), priorityOrder.getOrDefault(pb, 99));
-            });
-
-            Map<String, String> priorityLabel = Map.of("high", "高优先级", "medium", "中优先级", "low", "低优先级");
-            List<Map<String, Object>> products = new ArrayList<>();
-            for (Map<String, Object> r : sorted) {
-                String key = (String) r.get("key");
-                @SuppressWarnings("unchecked")
-                Map<String, Object> prod = (Map<String, Object>) productPool.getOrDefault(key, Map.of());
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("product_name", prod.getOrDefault("product_name", key));
-                item.put("category", prod.getOrDefault("category", ""));
-                item.put("priority", r.get("priority"));
-                item.put("priority_label", priorityLabel.getOrDefault(r.get("priority"), ""));
-                item.put("reason", r.getOrDefault("reason", ""));
-                item.put("expected_amount", r.getOrDefault("expected_amount", ""));
-                item.put("features", prod.getOrDefault("features", List.of()));
-                item.put("application_period", prod.getOrDefault("application_period", ""));
-                products.add(item);
-            }
-
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("credit_code", result.get("credit_code"));
-            response.put("company_name", result.get("company_name"));
-            response.put("analysis_summary", result.getOrDefault("analysis_summary", ""));
-            response.put("products", products);
-            response.put("total_count", products.size());
-            return response;
         });
     }
 
@@ -315,6 +269,55 @@ public class H5DataController {
         });
     }
 
+    // ============================================================
+    // Markdown 文件渲染 API（供 md-viewer.html 调用）
+    // ============================================================
+
+    @GetMapping(value = "/h5/markdown", produces = "text/markdown; charset=utf-8")
+    public Mono<String> getMarkdown(@RequestParam("file") String fileName) {
+        return Mono.fromCallable(() -> {
+            // 安全校验：防止路径穿越
+            if (fileName.contains("..") || fileName.contains("/") || fileName.contains("\\")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "非法的文件名");
+            }
+            String diskPath = "data/" + fileName;
+            // 1. 尝试从磁盘 data/ 读取
+            Path path = Paths.get(diskPath);
+            if (Files.exists(path) && Files.isRegularFile(path)) {
+                log.info("Loading markdown from disk: {}", path.toAbsolutePath());
+                return Files.readString(path);
+            }
+            // 2. 回退到 classpath data/ 目录
+            try {
+                ClassPathResource resource = new ClassPathResource(diskPath);
+                if (resource.exists()) {
+                    log.info("Loading markdown from classpath: {}", diskPath);
+                    try (InputStream is = resource.getInputStream()) {
+                        return new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))
+                                .lines().collect(Collectors.joining("\n"));
+                    }
+                }
+            } catch (IOException ignored) {}
+            // 3. 尝试 data-template/ 目录
+            String altPath = "data-template/" + fileName;
+            try {
+                ClassPathResource altResource = new ClassPathResource(altPath);
+                if (altResource.exists()) {
+                    log.info("Loading markdown from classpath alt: {}", altPath);
+                    try (InputStream is = altResource.getInputStream()) {
+                        return new BufferedReader(new InputStreamReader(is, StandardCharsets.UTF_8))
+                                .lines().collect(Collectors.joining("\n"));
+                    }
+                }
+            } catch (IOException ignored) {}
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "文件 " + fileName + " 不存在");
+        });
+    }
+
+    // ============================================================
+    // Helper
+    // ============================================================
+
     private Map<String, Object> loadJson(String filePath) {
         try {
             Path path = Paths.get(filePath);
@@ -325,5 +328,5 @@ public class H5DataController {
         }
     }
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(H5DataController.class);
+    private static final Logger log = LoggerFactory.getLogger(H5DataController.class);
 }

@@ -106,7 +106,11 @@ public class ChatController {
                 Map.of("content", "正在分析您的问题..."), null, convId));
 
         // 主流程：先调用 coordinator 获取意图，再根据决策生成 SSE 事件流
-        Flux<String> mainFlow = coordinatorService.routeIntent(finalMessage)
+        // 传入对话历史（不含当前刚加入的用户消息），让协调器感知多轮上下文
+        List<Message> historyForCoord = conv.getMessages().size() > 1
+                ? conv.getMessages().subList(0, conv.getMessages().size() - 1)
+                : List.of();
+        Flux<String> mainFlow = coordinatorService.routeIntent(finalMessage, historyForCoord)
                 .flatMapMany(decision -> {
                     if ("skill".equals(decision.get("action"))) {
                         return handleSkill(decision, convId, userId, finalConv);
@@ -119,7 +123,7 @@ public class ChatController {
                 // 所有事件流结束后发送 done 事件
                 .concatWith(Flux.just(sseEvent("done", Map.of("conversation_id", convId), null, convId)))
                 .doOnSubscribe(s -> System.out.println("🔵 SSE Flux 被订阅!"))
-                .doOnNext(event -> System.out.println("📤 发送 SSE: " + event.substring(0, Math.min(120, event.length()))))
+                //.doOnNext(event -> System.out.println("📤 发送 SSE: " + event.substring(0, Math.min(120, event.length()))))
                 .doOnComplete(() -> System.out.println("✅ SSE Flux 完成"))
                 .doOnError(e -> log.error("Stream error", e))
                 .onErrorResume(e -> Flux.just(sseEvent("error",
@@ -195,16 +199,10 @@ public class ChatController {
                         );
                     } else {
                         String action = (String) result.getOrDefault("action", "");
-                        if ("summary".equals(action)) {
-                            eventFlux = Flux.just(sseEvent("potential_customer_summary", result, assistantMsgId, null));
-                        } else if ("detail".equals(action)) {
-                            eventFlux = Flux.just(sseEvent("potential_customer_detail", result, assistantMsgId, null));
-                        } else if ("result".equals(action) || "ambiguous".equals(action) || "not_found".equals(action)) {
+                        if ("result".equals(action) || "ambiguous".equals(action) || "not_found".equals(action)) {
                             String eventType = switch (skillName) {
                                 case "prepare_customer_outreach" -> "outreach_result";
-                                case "recommend_products" -> "product_recommend_result";
-                                case "match_products_intelligently" -> "product_match_result";
-                                case "open_corporate_account" -> "account_opening_result";
+                                case "generate_report" -> "report_generate_result";
                                 case "verify_business_license" -> "information_check_result";
                                 default -> "risk_check_result";
                             };

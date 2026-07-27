@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title id="pageTitle">文档查看</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js">
+  </script>
+  <style>
+    :root {
+      --blue: #1677ff;
+      --blue-light: #e6f4ff;
+      --gray-50: #fafafa;
+      --gray-100: #f5f5f5;
+      --gray-200: #f0f0f0;
+      --gray-300: #d9d9d9;
+      --gray-500: #8c8c8c;
+      --gray-700: #434343;
+      --gray-900: #1a1a2e;
+      --radius: 14px;
+      --shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    }
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+      background: linear-gradient(180deg, #e8edf5 0%, #f0f2f5 120px);
+      color: var(--gray-900);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      padding-bottom: 40px;
+    }
+    .container {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      padding: 32px 16px 20px;
+    }
+    .header .icon {
+      font-size: 36px;
+      margin-bottom: 8px;
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--gray-900);
+    }
+    .header .meta {
+      font-size: 12px;
+      color: var(--gray-500);
+      margin-top: 6px;
+    }
+
+    /* Loading / Error */
+    .status-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 80px 20px;
+      text-align: center;
+    }
+    .status-box .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--gray-200);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+    .status-box .status-text {
+      margin-top: 16px;
+      font-size: 14px;
+      color: var(--gray-500);
+    }
+    .status-box .status-text.error {
+      color: #cf1322;
+    }
+
+    /* Markdown 渲染区 */
+    .md-content {
+      background: #fff;
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-200);
+      line-height: 1.8;
+      font-size: 15px;
+      word-wrap: break-word;
+    }
+
+    /* 标题 */
+    .md-content h1,
+    .md-content h2,
+    .md-content h3,
+    .md-content h4 {
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-top: 1.4em;
+      margin-bottom: 0.6em;
+      line-height: 1.4;
+    }
+    .md-content h1 {
+      font-size: 24px;
+      border-bottom: 2px solid var(--blue);
+      padding-bottom: 8px;
+      margin-top: 0;
+    }
+    .md-content h2 {
+      font-size: 20px;
+      padding-left: 12px;
+      border-left: 4px solid var(--blue);
+    }
+    .md-content h3 {
+      font-size: 17px;
+    }
+    .md-content h4 {
+      font-size: 15px;
+    }
+
+    /* 段落与列表 */
+    .md-content p {
+      margin-bottom: 0.8em;
+    }
+    .md-content ul,
+    .md-content ol {
+      margin: 0.5em 0;
+      padding-left: 1.5em;
+    }
+    .md-content li {
+      margin-bottom: 0.3em;
+    }
+
+    /* 引用块 */
+    .md-content blockquote {
+      border-left: 4px solid var(--blue);
+      background: var(--gray-50);
+      padding: 10px 16px;
+      margin: 12px 0;
+      border-radius: 0 8px 8px 0;
+      color: var(--gray-700);
+      font-size: 14px;
+    }
+
+    /* 表格 */
+    .md-content table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      font-size: 13px;
+      overflow: auto;
+      display: block;
+    }
+    .md-content thead {
+      background: var(--blue-light);
+    }
+    .md-content th {
+      font-weight: 700;
+      color: var(--gray-900);
+      padding: 10px 12px;
+      border: 1px solid var(--gray-300);
+      text-align: center;
+      white-space: nowrap;
+    }
+    .md-content td {
+      padding: 8px 12px;
+      border: 1px solid var(--gray-300);
+      text-align: center;
+    }
+    .md-content tbody tr:nth-child(even) {
+      background: var(--gray-50);
+    }
+    .md-content tbody tr:hover {
+      background: var(--blue-light);
+    }
+
+    /* 代码 */
+    .md-content code {
+      font-family: 'SF Mono', 'Menlo', 'Consolas', monospace;
+      background: var(--gray-100);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+      color: #cf1322;
+    }
+    .md-content pre {
+      background: #1e1e2e;
+      border-radius: 10px;
+      padding: 16px 20px;
+      overflow-x: auto;
+      margin: 12px 0;
+    }
+    .md-content pre code {
+      background: none;
+      padding: 0;
+      color: #cdd6f4;
+      font-size: 13px;
+    }
+
+    /* 分割线 */
+    .md-content hr {
+      border: none;
+      height: 1px;
+      background: var(--gray-200);
+      margin: 20px 0;
+    }
+
+    /* 强调文字（如 ※ 开头的说明） */
+    .md-content em {
+      font-style: normal;
+      color: var(--gray-500);
+      font-size: 13px;
+    }
+
+    /* 图片 */
+    .md-content img {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 8px 0;
+    }
+
+    /* 链接 */
+    .md-content a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+    .md-content a:hover {
+      text-decoration: underline;
+    }
+
+    /* 小屏适配 */
+    @media (max-width: 600px) {
+      .md-content {
+        padding: 16px 16px;
+        font-size: 14px;
+      }
+      .md-content table {
+        font-size: 12px;
+      }
+      .md-content th,
+      .md-content td {
+        padding: 6px 8px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="icon">📄</div>
+      <h1 id="fileTitle">财务分析报告</h1>
+      <div class="meta" id="fileMeta">加载中...</div>
+    </div>
+
+    <div id="loadingBox" class="status-box">
+      <div class="spinner"></div>
+      <div class="status-text">正在加载文档...</div>
+    </div>
+
+    <div id="mdContent" class="md-content" style="display:none"></div>
+  </div>
+
+  <script>
+    // 从 URL 获取文件名
+    const params = new URLSearchParams(window.location.search);
+    const fileName = params.get('file');
+
+    if (!fileName) {
+      document.getElementById('loadingBox').innerHTML =
+        '<div class="status-text error">请指定 ?file= 参数，如 ?file=财务分析报告模板.md</div>';
+    } else {
+      // 更新标题
+      const displayName = fileName.replace(/\.md$/i, '').replace(/[_-]/g, ' ');
+      document.getElementById('pageTitle').textContent = displayName;
+      document.getElementById('fileTitle').textContent = displayName;
+      document.getElementById('fileMeta').textContent = '文件：' + fileName;
+
+      // 设置 marked 选项
+      marked.setOptions({
+        breaks: true,
+        gfm: true,
+      });
+
+      // 获取 Markdown 内容
+      fetch('/api/h5/markdown?file=' + encodeURIComponent(fileName))
+        .then(function(res) {
+          if (!res.ok) {
+            if (res.status === 404) throw new Error('文件不存在');
+            throw new Error('请求失败 (' + res.status + ')');
+          }
+          return res.text();
+        })
+        .then(function(rawMarkdown) {
+          var html = marked.parse(rawMarkdown);
+
+          // 美化表格：给所有 table 加 thead/tbody 区分
+          var rendered = document.getElementById('mdContent');
+          rendered.innerHTML = html;
+
+          // 自动给表格添加响应式包装
+          var tables = rendered.querySelectorAll('table');
+          tables.forEach(function(table) {
+            var wrapper = document.createElement('div');
+            wrapper.style.overflowX = 'auto';
+            wrapper.style.margin = '12px 0';
+            table.parentNode.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+          });
+
+          document.getElementById('loadingBox').style.display = 'none';
+          rendered.style.display = 'block';
+
+          // 更新页面元信息
+          var h1 = rendered.querySelector('h1');
+          if (h1) {
+            document.getElementById('pageTitle').textContent = h1.textContent;
+            document.getElementById('fileTitle').textContent = h1.textContent;
+          }
+          document.getElementById('fileMeta').textContent =
+            '文件：' + fileName + ' ｜ ' + new Date().toLocaleString('zh-CN');
+        })
+        .catch(function(err) {
+          document.getElementById('loadingBox').innerHTML =
+            '<div class="status-text error">❌ ' + err.message + '</div>';
+        });
+    }
+  </script>
+</body>
+</html>

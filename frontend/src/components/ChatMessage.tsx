@@ -3,13 +3,13 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
-import PotentialCustomerCard from './PotentialCustomerCard';
 import RiskCheckCard from './RiskCheckCard';
 import OutreachCard from './OutreachCard';
 import ProductRecommendCard from './ProductRecommendCard';
 import ProductMatchCard from './ProductMatchCard';
 import AccountOpeningCard from './AccountOpeningCard';
 import InformationCheckCard from './InformationCheckCard';
+import ReportGenerateCard from './ReportGenerateCard';
 import FollowUpChip from './FollowUpChip';
 
 interface ChatMessageProps {
@@ -30,8 +30,7 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   const parts: string[] = [];
   const label = extra._skill_name
     ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
-        recommend_products: '产品智荐', match_products_intelligently: '产品智能匹配',
-        open_corporate_account: '对公账户开户', verify_business_license: '信息核实' }[extra._skill_name as string]
+        generate_report: '报告生成' }[extra._skill_name as string]
     : undefined;
   if (label) parts.push(`【${label}】`);
   if (extra.company_name) parts.push(`企业名称：${extra.company_name}`);
@@ -175,46 +174,25 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         if (skillName === 'prepare_customer_outreach') {
           return <OutreachCard data={message.extra} onSendMessage={onSendMessage} />;
         }
-        if (skillName === 'recommend_products') {
-          return <ProductRecommendCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (skillName === 'match_products_intelligently') {
-          return <ProductMatchCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (skillName === 'open_corporate_account') {
-          return <AccountOpeningCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
         if (skillName === 'check_company_risk') {
           return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
         if (skillName === 'verify_business_license') {
           return <InformationCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
+        if (skillName === 'generate_report') {
+          return <ReportGenerateCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
 
         // 兜底：按字段特征匹配（兼容旧数据）
         if (message.extra.insights_h5_url !== undefined || message.extra.script_h5_url !== undefined) {
           return <OutreachCard data={message.extra} onSendMessage={onSendMessage} />;
         }
-        if (message.extra.detail_h5_url !== undefined || message.extra.products !== undefined) {
-          return <ProductRecommendCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (message.extra.needs_summary !== undefined || message.extra.matches !== undefined) {
-          return <ProductMatchCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (message.extra.upload_url !== undefined || message.extra.app_id !== undefined) {
-          return <AccountOpeningCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
         return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
       }
 
-      // 潜客推荐卡片
-      return (
-        <PotentialCustomerCard
-          data={message.extra}
-          onRequestDetail={handleRequestDetail}
-          onSendMessage={onSendMessage}
-        />
-      );
+      // 无匹配卡片时回退到 Markdown 渲染
+      return null;
     }
 
     if (isUser) {

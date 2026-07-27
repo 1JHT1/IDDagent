@@ -2,7 +2,7 @@
 // useChat - 聊天核心逻辑 Hook
 // ============================================================
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import type { ChatMessage, SSEEvent, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
 import { sendMessageStream, checkAccountNotifications } from '../api/agent';
@@ -12,7 +12,7 @@ interface UseChatReturn {
   isSending: boolean;
   sendMessage: (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => Promise<void>;
   clearMessages: () => void;
-  setMessages: (messages: ChatMessage[]) => void;
+  setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
 
 export function useChat(
@@ -137,40 +137,6 @@ export function useChat(
               );
               break;
 
-            case 'potential_customer_summary':
-              // 潜客汇总卡片
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  isStreamingMessage(msg) && msg.id === assistantMsgId
-                    ? {
-                        id: msg.id,
-                        role: 'assistant' as const,
-                        content: '潜客清单',
-                        extra: event.data as unknown as Record<string, unknown>,
-                        created_at: msg.created_at,
-                      }
-                    : msg
-                )
-              );
-              break;
-
-            case 'potential_customer_detail':
-              // 潜客详情卡片
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  isStreamingMessage(msg) && msg.id === assistantMsgId
-                    ? {
-                        id: msg.id,
-                        role: 'assistant' as const,
-                        content: '客户详情',
-                        extra: event.data as unknown as Record<string, unknown>,
-                        created_at: msg.created_at,
-                      }
-                    : msg
-                )
-              );
-              break;
-
             case 'risk_check_result':
               // 风险预查结果
               setMessages((prev) =>
@@ -205,49 +171,15 @@ export function useChat(
               );
               break;
 
-            case 'product_recommend_result':
-              // 产品智荐结果
+            case 'report_generate_result':
+              // 报告生成结果
               setMessages((prev) =>
                 prev.map((msg) =>
                   isStreamingMessage(msg) && msg.id === assistantMsgId
                     ? {
                         id: msg.id,
                         role: 'assistant' as const,
-                        content: '产品推荐',
-                        extra: event.data as unknown as Record<string, unknown>,
-                        created_at: msg.created_at,
-                      }
-                    : msg
-                )
-              );
-              break;
-
-            case 'product_match_result':
-              // 产品智能匹配结果
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  isStreamingMessage(msg) && msg.id === assistantMsgId
-                    ? {
-                        id: msg.id,
-                        role: 'assistant' as const,
-                        content: '产品智能匹配',
-                        extra: event.data as unknown as Record<string, unknown>,
-                        created_at: msg.created_at,
-                      }
-                    : msg
-                )
-              );
-              break;
-
-            case 'account_opening_result':
-              // 对公账户开户结果
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  isStreamingMessage(msg) && msg.id === assistantMsgId
-                    ? {
-                        id: msg.id,
-                        role: 'assistant' as const,
-                        content: '对公账户开户',
+                        content: '智能尽调报告生成',
                         extra: event.data as unknown as Record<string, unknown>,
                         created_at: msg.created_at,
                       }

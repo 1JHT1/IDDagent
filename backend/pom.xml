@@ -62,6 +62,13 @@
             <version>5.2.5</version>
         </dependency>
 
+        <!-- PDFBox for PDF -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.1</version>
+        </dependency>
+
         <!-- Dotenv (load .env files) -->
         <dependency>
             <groupId>io.github.cdimascio</groupId>

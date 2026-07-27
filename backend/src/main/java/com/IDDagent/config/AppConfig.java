@@ -20,7 +20,6 @@ public class AppConfig {
     private Model model = new Model();
     private Jwt jwt = new Jwt();
     private Data data = new Data();
-    private Upload upload = new Upload();
 
     @Getter @Setter
     public static class DeepSeek {
@@ -31,8 +30,8 @@ public class AppConfig {
     @Getter @Setter
     public static class Model {
         private String name = "deepseek-v4-flash";
-        private String coordinator = "deepseek-chat";
-        private String followUp = "deepseek-chat";
+        private String coordinator = "deepseek-v4-flash";
+        private String followUp = "deepseek-v4-flash";
     }
 
     @Getter @Setter
@@ -48,10 +47,5 @@ public class AppConfig {
     @Getter @Setter
     public static class Data {
         private String dir = "data";
-    }
-
-    @Getter @Setter
-    public static class Upload {
-        private String dir = "static/uploads/account_opening";
     }
 }

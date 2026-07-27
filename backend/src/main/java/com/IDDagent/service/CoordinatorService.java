@@ -1,6 +1,7 @@
 package com.IDDagent.service;
 
 import com.IDDagent.config.AppConfig;
+import com.IDDagent.model.Message;
 import com.IDDagent.skill.SkillRegistry;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,9 +38,10 @@ public class CoordinatorService {
     /**
      * 路由意图（非阻塞响应式）
      * @param userMessage 用户输入
+     * @param history 当前会话历史消息（不含当前消息），用于多轮语境理解
      * @return Mono<Map<String, Object>> 决策结果
      */
-    public Mono<Map<String, Object>> routeIntent(String userMessage) {
+    public Mono<Map<String, Object>> routeIntent(String userMessage, List<Message> history) {
         String systemPrompt = buildSystemPrompt();
         String apiKey = config.getDeepseek().getApiKey();
         String baseUrl = config.getDeepseek().getBaseUrl();
@@ -50,18 +53,45 @@ public class CoordinatorService {
             return Mono.just(fallbackMap("API key not configured"));
         }
 
+        // 构建消息列表：system + 对话历史 + 当前用户消息
+        List<Map<String, String>> messages = new ArrayList<>();
+        messages.add(Map.of("role", "system", "content", systemPrompt));
+
+        // 追加最近的历史消息（限最近 8 条，避免 token 溢出）
+        if (history != null && !history.isEmpty()) {
+            List<Message> recentHistory = history.size() > 8
+                    ? history.subList(history.size() - 8, history.size())
+                    : history;
+            for (Message msg : recentHistory) {
+                String content = msg.getContent();
+                if (content == null || content.isEmpty()) continue;
+                // 技能返回的 JSON 过大，用简短摘要替代
+                if (content.startsWith("{")) {
+                    content = "[系统返回了结构化卡片结果]";
+                }
+                // 限制单条消息长度
+                if (content.length() > 500) {
+                    content = content.substring(0, 500) + "...(截断)";
+                }
+                messages.add(Map.of("role", msg.getRole(), "content", content));
+            }
+        }
+
+        // 追加当前用户消息
+        messages.add(Map.of("role", "user", "content", userMessage));
+
         // 构建请求体
         Map<String, Object> requestBody = new LinkedHashMap<>();
         requestBody.put("model", model);
-        requestBody.put("messages", List.of(
-                Map.of("role", "system", "content", systemPrompt),
-                Map.of("role", "user", "content", userMessage)));
+        requestBody.put("messages", messages);
+        // 关闭思考模式，确保 temperature 生效且输出可预测
+        requestBody.put("thinking", Map.of("type", "disabled"));
         requestBody.put("temperature", 0.1);
         requestBody.put("max_tokens", 300);
 
         // 打印调试信息（非阻塞）
         try {
-            System.out.println("===== 完整请求 URL: " + baseUrl + "/v1/chat/completions");
+            System.out.println("===== 完整请求 URL: " + baseUrl + "/chat/completions");
             System.out.println("===== 请求体 JSON: " + mapper.writeValueAsString(requestBody));
             System.out.println("===== Authorization 头: Bearer " + apiKey.substring(0, 10) + "...");
         } catch (Exception e) {
@@ -70,7 +100,7 @@ public class CoordinatorService {
 
         // 发起非阻塞调用，并处理结果
         return webClient.post()
-                .uri(baseUrl + "/v1/chat/completions")
+                .uri(baseUrl + "/chat/completions")
                 .header("Authorization", "Bearer " + apiKey)
                 .header("Content-Type", "application/json")
                 .bodyValue(requestBody)
@@ -112,6 +142,13 @@ public class CoordinatorService {
                     log.info("Coordinator intent: {}, reason: {}", decision.get("action"), decision.getOrDefault("reason", "unknown"));
                     return decision;
                 }
+                // 兼容：LLM 直接将技能名作为 action（如 {"action":"verify_business_license"}）
+                if (skillRegistry.get(action) != null) {
+                    decision.put("action", "skill");
+                    decision.put("skill", action);
+                    log.info("Coerced action from '{}' to skill", action);
+                    return decision;
+                }
             }
             // 未匹配到合法 JSON 或 action 不正确
             log.warn("No valid decision JSON found in response: {}", text);
@@ -143,23 +180,32 @@ public class CoordinatorService {
 
                 ## 决策规则（严格遵守）
 
-                1. **技能匹配优先**：如果用户意图与以下任一技能匹配，必须返回：
-                   {"action": "skill", "skill": "<技能名>", "params": {}, "reason": "<中文理由>"}
+                1. **除非意图明确匹配，否则一律 chat**：**只有**当用户输入中的关键词明确且唯一地指向某个技能时，才路由到该技能。如果意图模糊、不确定、或仅包含企业名称/人名/简短词语，则一律返回 chat。
+                   - 路由到技能时返回格式：{"action": "skill", "skill": "<技能名>", "params": {}, "reason": "<中文理由>"}
+                   - 路由到聊天时返回格式：{"action": "chat", "reason": "<中文理由>"}
 
-                2. 当用户输入中包含"拓户"、"潜客"、"开户客户清单"、"推荐客户"、"客户详情"、"客户清单"、"上传客户清单"、"上传清单"、"导入客户"、"上传Excel"、"导入清单"、"上传客户"等关键词时，必须匹配为 recommend_corporate_customers 技能。
+                2. 当用户输入中包含"风险"、"风险识别"、"企业风险"、"风险预查"、"开户风险"等关键词时，必须匹配为 check_company_risk 技能。
 
-                3. 当用户输入中包含"查询"、"风险"、"开户风险"、"风险预查"等关键词时，必须匹配为 check_company_risk 技能。
-
-                4. 如果是普通聊天、开户咨询、或其他非技能类对话，返回：
+                3. 如果是普通聊天、意图不明确、仅含公司名或其他非技能类对话，一律返回：
                    {"action": "chat", "reason": "<中文理由>"}
+                   不要将{"action": "chat"}写成其他格式。
 
-                5. 当用户输入中包含"推荐产品"、"产品推荐"、"产品智荐"、"适合什么产品"、"产品匹配"、"推荐金融产品"等关键词，且**未描述具体资金需求场景**时，必须匹配为 recommend_products 技能。
+                4. 当用户输入中包含"推荐产品"、"产品推荐"、"产品智荐"、"适合什么产品"、"产品匹配"、"推荐金融产品"等关键词，且**未描述具体资金需求场景**时，必须匹配为 recommend_products 技能。
 
-                6. 当用户输入中**描述了具体的资金需求场景**（如包含具体金额、期限、用途等描述），必须匹配为 match_products_intelligently 技能。
+                5. 当用户输入中包含"生成报告"、"尽调报告"、"财务分析报告"、"授信评估"、"报告模板"、"生成尽调"、"智能尽调"、"上传资料生成报告"等关键词时，必须匹配为 generate_report 技能。
 
-                7. 当用户输入中包含"办理开户"、"协助开户"、"同意开户"、"开始开户"、"开户资料"、"准备开户"等关键词时，必须匹配为 open_corporate_account 技能。
+                6. generate_report 技能的多轮交互参数提取：
+                   a. 当用户选择了模板（消息中包含"选择"+"模板"、"使用"+"模板"或"(ID:"），从模板名称或ID中提取 template_id。如果消息中有"(ID:xxx)"格式，则 xxx 即为 template_id，无需从模板名称映射。如果只有模板名称没有ID，则从名称映射到ID（financial_analysis=借款人财务分析报告, due_diligence_brief=尽调简报, credit_evaluation=授信评估报告, business_license_analysis=营业执照信息解析）
+                   b. 当用户触发生成（消息中包含"为"+"生成"），提取 template_id（同规则a）、company_name（"为"和"生成"之间的企业名称），并设置 action="generate"
+                   c. 如果消息中包含"附件文件ID:"，提取逗号分隔的文件ID列表填充到 attachment_file_ids 参数（字符串数组）
+                   d. 如果消息中包含"统一信用代码:"，提取紧跟在后面的信用代码（到")"或末尾），填充到 credit_code 参数
 
-                8. 当用户输入中包含"核实信息"、"信息核实"、"信息核查"、"营业执照核实"、"信息核验"、"营业执照核验"等关键词时，必须匹配为 verify_business_license 技能。
+                7. 当用户输入中包含"核实信息"、"信息核实"、"信息核查"、"营业执照核实"、"信息核验"、"营业执照核验"等关键词时，必须匹配为 verify_business_license 技能。
+
+                8. **多轮对话路由**：你收到的消息包含完整对话历史。判断意图时必须结合**上一轮交互语境**：
+                    a. 如果上一轮助手消息是技能结果（标注为[系统返回了结构化卡片结果]），且当前用户输入简短（如仅为企业名称、确认词等），则应该路由到**上一轮相同的技能**，并将用户输入作为参数补充。例如：上轮路由到 verify_business_license 并返回了卡片询问企业名称，本轮用户输入"小米公司"，应继续路由到 verify_business_license，传递 company_name="小米公司"。
+                    b. 如果上轮路由为 chat（普通对话），则按正常规则判断本轮意图。
+                    c. 如果用户明确表达了新的意图（无论上轮是什么），按新意图路由。
 
                 ## 可用技能
 

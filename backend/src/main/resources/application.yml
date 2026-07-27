@@ -3,7 +3,7 @@ server:
 
 spring:
   profiles:
-    include: local
+    active: template
   webflux:
     static-path-pattern: /h5/**
   web:
@@ -16,8 +16,8 @@ app:
     base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
   model:
     name: ${MODEL_NAME:deepseek-v4-flash}
-    coordinator: ${COORDINATOR_MODEL:deepseek-chat}
-    follow-up: ${FOLLOW_UP_MODEL:deepseek-chat}
+    coordinator: ${COORDINATOR_MODEL:deepseek-v4-flash}
+    follow-up: ${FOLLOW_UP_MODEL:deepseek-v4-flash}
   jwt:
     secret: ${JWT_SECRET:}
     expire-hours: 24

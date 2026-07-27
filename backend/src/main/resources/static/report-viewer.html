@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>智能尽调报告</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif; background: #f0f2f5; color: #333; line-height: 1.8; }
+
+  /* 顶部工具栏 */
+  .toolbar { position: sticky; top: 0; z-index: 100; background: linear-gradient(135deg, #1a56db, #1e40af); color: white; padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+  .toolbar-left { display: flex; align-items: center; gap: 12px; }
+  .toolbar-left .title { font-size: 16px; font-weight: 600; }
+  .toolbar-left .subtitle { font-size: 12px; opacity: 0.85; }
+  .toolbar-right { display: flex; gap: 8px; }
+  .toolbar button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 18px; border: 1px solid rgba(255,255,255,0.3); border-radius: 6px; background: rgba(255,255,255,0.12); color: white; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+  .toolbar button:hover { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); }
+  .toolbar button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .toolbar button.btn-green { background: #059669; border-color: #059669; }
+  .toolbar button.btn-green:hover { background: #047857; }
+
+  /* 进度条 */
+  .status-bar { display: flex; align-items: center; gap: 8px; justify-content: center; margin-bottom: 16px; }
+  .step { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #9ca3af; }
+  .step.active { color: #1a56db; font-weight: 600; }
+  .step.done { color: #059669; }
+  .step-dot { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; }
+  .step.active .step-dot { background: #1a56db; color: white; }
+  .step.done .step-dot { background: #059669; color: white; }
+  .step .step-dot { background: #e5e7eb; color: #9ca3af; }
+  .step-line { width: 48px; height: 2px; background: #e5e7eb; }
+  .step.done + .step-line { background: #059669; }
+
+  .meta-bar { background: white; border-bottom: 1px solid #e5e7eb; padding: 12px 24px; display: flex; flex-wrap: wrap; gap: 20px; font-size: 13px; color: #6b7280; }
+  .meta-bar .meta-item { display: flex; align-items: center; gap: 6px; }
+  .meta-bar .meta-item .label { color: #9ca3af; }
+  .meta-bar .meta-item .value { color: #374151; font-weight: 500; }
+  .status-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+  .status-badge.completed { background: #d1fae5; color: #059669; }
+  .status-badge.generating { background: #fef3c7; color: #d97706; }
+
+  .container { max-width: 900px; margin: 16px auto; padding: 0 16px; }
+
+  /* === 阶段1：数据编辑面板 === */
+  #phaseEditor { display: none; }
+  .editor-card { background: white; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 16px; }
+  .editor-card .header { padding: 16px 24px; border-bottom: 1px solid #e5e7eb; background: #f9fafb; display: flex; align-items: center; justify-content: space-between; }
+  .editor-card .header h2 { font-size: 15px; font-weight: 600; color: #111827; display: flex; align-items: center; gap: 8px; }
+  .editor-card .header .hint { font-size: 12px; color: #6b7280; }
+  .editor-card .body { padding: 24px; }
+  .section-title { font-size: 14px; font-weight: 600; color: #1e40af; border-left: 4px solid #1a56db; padding-left: 10px; margin: 20px 0 14px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 12px; font-weight: 500; color: #374151; margin-bottom: 4px; }
+  .form-group label .tag { display: inline-block; font-size: 10px; background: #dbeafe; color: #1e40af; padding: 0 6px; border-radius: 4px; margin-left: 6px; font-weight: normal; }
+  .form-group input, .form-group textarea { padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 13px; color: #111827; outline: none; transition: border-color 0.2s; font-family: inherit; }
+  .form-group input:focus, .form-group textarea:focus { border-color: #1a56db; box-shadow: 0 0 0 3px rgba(26,86,219,0.12); }
+  .form-group input.pre-filled { border-color: #a7f3d0; background: #f0fdf4; }
+  .form-group textarea { min-height: 56px; resize: vertical; }
+  .form-group .empty-badge { font-size: 11px; color: #f59e0b; padding-left: 2px; }
+
+  .editor-footer { padding: 16px 24px; border-top: 1px solid #e5e7eb; display: flex; justify-content: flex-end; gap: 10px; }
+  .editor-footer button { display: inline-flex; align-items: center; gap: 6px; padding: 10px 28px; border-radius: 8px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.2s; }
+  .editor-footer .btn-primary { background: #1a56db; color: white; }
+  .editor-footer .btn-primary:hover { background: #1e40af; }
+  .editor-footer .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .editor-footer .btn-success { background: #059669; color: white; }
+  .editor-footer .btn-success:hover { background: #047857; }
+
+  .empty-prompt { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 10px; padding: 14px 20px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: #92400e; }
+  .empty-prompt .icon { font-size: 18px; }
+
+  /* === 阶段2：报告展示 === */
+  #phaseReport { display: none; }
+  .report-content { background: white; border-radius: 12px; padding: 48px 56px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); min-height: 400px; }
+  .report-content h1 { font-size: 26px; color: #111827; border-bottom: 2px solid #1a56db; padding-bottom: 12px; margin-bottom: 24px; }
+  .report-content h2 { font-size: 20px; color: #1e40af; margin-top: 32px; margin-bottom: 16px; padding-left: 10px; border-left: 4px solid #1a56db; }
+  .report-content h3 { font-size: 16px; color: #374151; margin-top: 24px; margin-bottom: 12px; }
+  .report-content p { margin-bottom: 12px; text-align: justify; }
+  .report-content table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
+  .report-content th, .report-content td { border: 1px solid #e5e7eb; padding: 10px 14px; text-align: left; }
+  .report-content th { background: #f0f4ff; font-weight: 600; color: #1e40af; }
+  .report-content tr:nth-child(even) { background: #f9fafb; }
+  .report-content blockquote { border-left: 4px solid #93c5fd; background: #f8fafc; padding: 10px 16px; margin: 12px 0; border-radius: 4px; color: #475569; font-size: 14px; }
+  .report-content ul, .report-content ol { padding-left: 24px; margin: 8px 0 16px; }
+
+  .state-container { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 24px; text-align: center; }
+  .state-container .state-title { font-size: 18px; font-weight: 600; color: #374151; margin-bottom: 8px; }
+  .state-container .state-desc { font-size: 14px; color: #9ca3af; }
+  .spinner { width: 36px; height: 36px; border: 3px solid #e5e7eb; border-top-color: #1a56db; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 16px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); background: #059669; color: white; padding: 10px 24px; border-radius: 8px; font-size: 14px; z-index: 999; box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; transition: opacity 0.3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #dc2626; }
+
+  @media print { .toolbar, .meta-bar, .status-bar, #phaseEditor { display: none !important; } body { background: white; } #phaseReport { display: block !important; } .container { max-width: 100%; margin: 0; } .report-content { box-shadow: none; border-radius: 0; padding: 20px 30px; } }
+  @media (max-width: 640px) { .form-grid { grid-template-columns: 1fr; } .report-content { padding: 24px 16px; } .editor-card .body { padding: 16px; } .toolbar { padding: 10px 16px; } }
+
+  /* 普通input也显示empty标记行内 */
+  .form-group .val-status { float: right; font-size: 10px; font-weight: normal; }
+  .form-group label .from-parse { color: #059669; }
+  .form-group label .need-input { color: #f59e0b; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div>
+      <div class="title" id="reportTitle">智能尽调报告</div>
+      <div class="subtitle" id="reportMeta">加载中...</div>
+    </div>
+  </div>
+  <div class="toolbar-right" id="toolbarRight">
+    <button onclick="printReport()">
+      <svg viewBox="0 0 24 24"><path d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
+      打印
+    </button>
+  </div>
+</div>
+
+<toast class="toast" id="toast"></toast>
+
+<div class="meta-bar" id="metaBar" style="display:none">
+  <div class="meta-item"><span class="label">企业</span><span class="value" id="metaCompany">-</span></div>
+  <div class="meta-item"><span class="label">模板</span><span class="value" id="metaTemplate">-</span></div>
+</div>
+
+<div class="container">
+
+  <!-- ========== 阶段0：模板选择 ========== -->
+  <div id="phaseTemplates">
+    <div class="status-bar">
+      <div class="step active"><div class="step-dot">1</div>选择模板</div>
+      <div class="step-line"></div>
+      <div class="step"><div class="step-dot">2</div>上传附件</div>
+      <div class="step-line"></div>
+      <div class="step"><div class="step-dot">3</div>数据确认</div>
+      <div class="step-line"></div>
+      <div class="step"><div class="step-dot">4</div>报告生成</div>
+    </div>
+    <div class="editor-card">
+      <div class="header">
+        <h2>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+          选择报告模板
+        </h2>
+        <div class="hint">请选择一种报告模板，然后上传附件并生成报告</div>
+      </div>
+      <div class="body">
+        <div id="templateList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 阶段1：上传附件 ========== -->
+  <div id="phaseUpload" style="display:none">
+    <div class="status-bar">
+      <div class="step done" style="cursor:pointer" onclick="backToTemplates()" title="返回选择模板"><div class="step-dot">✓</div>选择模板 ←</div>
+      <div class="step-line"></div>
+      <div class="step active"><div class="step-dot">2</div>上传附件</div>
+      <div class="step-line"></div>
+      <div class="step"><div class="step-dot">3</div>数据确认</div>
+      <div class="step-line"></div>
+      <div class="step"><div class="step-dot">4</div>报告生成</div>
+    </div>
+    <div class="editor-card">
+      <div class="header">
+        <h2>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+          <span id="uploadTemplateName">上传附件</span>
+        </h2>
+        <div class="hint">上传资料文件并填写企业信息</div>
+      </div>
+      <div class="body">
+        <div class="form-group">
+          <label>企业名称 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（必填）</span></label>
+          <input type="text" id="uploadCompanyName" placeholder="请输入企业名称" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:100%;outline:none" />
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;margin:12px 0">
+          <div style="flex:1;border-top:1px solid #e5e7eb"></div>
+          <span style="font-size:12px;color:#9ca3af">或</span>
+          <div style="flex:1;border-top:1px solid #e5e7eb"></div>
+        </div>
+        <div class="form-group">
+          <label>统一社会信用代码 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（选填）</span></label>
+          <input type="text" id="uploadCreditCode" placeholder="请输入统一信用代码" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:100%;outline:none" />
+        </div>
+        <div style="margin-top:16px">
+          <label style="font-size:12px;font-weight:500;color:#374151;display:block;margin-bottom:6px">上传资料文件 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（支持 PDF、DOCX、XLSX、MD）</span></label>
+          <div id="uploadDropZone" style="border:2px dashed #d1d5db;border-radius:12px;padding:24px;text-align:center;cursor:pointer;transition:all 0.2s"
+               onmouseover="this.style.borderColor='#60a5fa';this.style.background='#f0f7ff'" onmouseout="this.style.borderColor='#d1d5db';this.style.background=''">
+            <input type="file" id="fileInput" multiple accept=".pdf,.docx,.xlsx,.xls,.md,.png,.jpg,.jpeg" style="display:none" />
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5"><path d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+            <p style="font-size:13px;color:#9ca3af;margin-top:8px">点击选择文件或拖拽文件到此区域</p>
+            <p style="font-size:11px;color:#d1d5db;margin-top:4px">支持 .pdf, .docx, .xlsx, .md 格式</p>
+          </div>
+          <div id="uploadFileList" style="margin-top:12px"></div>
+        </div>
+        <button id="startGenerateBtn" disabled
+          style="width:100%;margin-top:20px;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;transition:all 0.2s;background:#e5e7eb;color:#9ca3af"
+          onclick="handleStartGeneration()">
+          请上传文件并填写企业名称
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 阶段2：数据编辑 ========== -->
+  <div id="phaseEditor" style="display:none">
+    <div id="editorStatusBar" class="status-bar">
+      <div class="step done"><div class="step-dot">✓</div>选择模板</div>
+      <div class="step-line"></div>
+      <div class="step done" style="cursor:pointer" onclick="backToUpload()" title="返回上传附件"><div class="step-dot">✓</div>上传附件 ←</div>
+      <div class="step-line"></div>
+      <div class="step active"><div class="step-dot">3</div>数据确认</div>
+      <div class="step-line"></div>
+      <div class="step"><div class="step-dot">4</div>报告生成</div>
+    </div>
+    <div class="editor-card">
+      <div class="header">
+        <h2>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a56db" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          编辑报告数据
+        </h2>
+        <div class="hint">🔍 系统已从附件中提取部分数据（标绿色字段），请补充剩余字段后生成报告</div>
+      </div>
+      <div class="body">
+        <div id="emptyNotice" class="empty-prompt" style="display:none">
+          <span class="icon">⚠️</span>
+          <span>附件中未提取到财务数据，请手动填写下方的所有字段</span>
+        </div>
+        <div id="editorForm"></div>
+      </div>
+      <div class="editor-footer">
+        <button id="generateBtn" class="btn-success" onclick="handleGenerate()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          确认并生成报告
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="phaseReport" style="display:none">
+    <div class="status-bar" id="reportStatusBar">
+      <div class="step done"><div class="step-dot">✓</div>选择模板</div>
+      <div class="step-line"></div>
+      <div class="step done"><div class="step-dot">✓</div>上传附件</div>
+      <div class="step-line"></div>
+      <div class="step done" style="cursor:pointer" onclick="backToEditor()" title="返回编辑数据"><div class="step-dot">✓</div>数据确认 ←</div>
+      <div class="step-line"></div>
+      <div class="step active"><div class="step-dot">4</div>报告生成</div>
+    </div>
+    <div class="report-content" id="reportContent">
+      <div class="state-container" id="loadingState">
+        <div class="spinner"></div>
+        <div class="state-title">正在加载报告...</div>
+        <div class="state-desc">请稍候</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const reportId = params.get('reportId');
+  const templateId = params.get('templateId');
+  const templateName = params.get('templateName');
+  // 将对话 ID 存入 sessionStorage，跳转回聊天页时携带
+  const conversationId = params.get('conversationId');
+  if (conversationId) {
+    sessionStorage.setItem('currentConversationId', conversationId);
+  }
+
+  const phaseTemplates = document.getElementById('phaseTemplates');
+  const phaseUpload = document.getElementById('phaseUpload');
+  const phaseEditor = document.getElementById('phaseEditor');
+  const phaseReport = document.getElementById('phaseReport');
+
+  const reportContent = document.getElementById('reportContent');
+  const editorForm = document.getElementById('editorForm');
+  const emptyNotice = document.getElementById('emptyNotice');
+  const toolbarRight = document.getElementById('toolbarRight');
+  const toast = document.getElementById('toast');
+  const templateList = document.getElementById('templateList');
+  const uploadDropZone = document.getElementById('uploadDropZone');
+  const fileInput = document.getElementById('fileInput');
+  const uploadFileList = document.getElementById('uploadFileList');
+  const startBtn = document.getElementById('startGenerateBtn');
+
+  let selectedTemplate = null;
+  let uploadedFiles = [];
+  let currentFields = {};
+  let currentFieldMeta = [];
+  let allTemplates = [];  // 缓存模板列表，供 selectTemplate 查找 sourceFile
+
+  if (reportId) {
+    // 已有 reportId → 直接进入编辑/查看流程
+    init();
+  } else if (templateId) {
+    // 有 templateId → 跳过模板选择，直接进入上传
+    selectedTemplate = { id: templateId, name: templateName || '报告', icon: '📄', sourceFile: '' };
+    document.getElementById('uploadTemplateName').textContent = '上传附件 - ' + (templateName || '报告');
+    phaseTemplates.style.display = 'none';
+    phaseUpload.style.display = 'block';
+    // 异步加载模板详情（获取 sourceFile）
+    fetch('/api/generate-report/templates').then(r => r.json()).then(templates => {
+      const tpl = templates.find(t => t.id === templateId);
+      if (tpl) {
+        selectedTemplate.sourceFile = tpl.source_file || '';
+        selectedTemplate.icon = tpl.icon || selectedTemplate.icon;
+      }
+    }).catch(() => {});
+    updateStartBtn();
+  } else {
+    // 无任何参数 → 显示模板选择
+    showTemplates();
+  }
+
+  // ========== 阶段0：模板选择 ==========
+  async function showTemplates() {
+    phaseTemplates.style.display = 'block';
+    phaseUpload.style.display = 'none';
+    phaseEditor.style.display = 'none';
+    phaseReport.style.display = 'none';
+    document.getElementById('reportMeta').textContent = '选择模板...';
+
+    templateList.innerHTML = '<div class="state-container"><div class="spinner"></div><div class="state-title">加载模板中...</div></div>';
+
+    try {
+      const res = await fetch('/api/generate-report/templates');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const templates = await res.json();
+      allTemplates = templates;  // 缓存供后续查找
+      if (!templates || templates.length === 0) {
+        templateList.innerHTML = '<div class="state-container"><div class="state-title">暂无可用模板</div></div>';
+        return;
+      }
+      renderTemplates(templates);
+    } catch (err) {
+      templateList.innerHTML = '<div class="state-container"><div class="state-title">加载模板失败</div><div class="state-desc">' + err.message + '</div></div>';
+    }
+  }
+
+  function renderTemplates(templates) {
+    let html = '<div class="divide-y divide-gray-100" style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden">';
+    templates.forEach(t => {
+      html += '<div class="template-item" style="display:flex;align-items:center;gap:12px;padding:14px 18px;cursor:pointer;transition:background 0.15s"'
+        + ' onmouseover="this.style.background=\'#f0f7ff\'" onmouseout="this.style.background=\'\'"'
+        + ' onclick="selectTemplate(\'' + escAttr(t.id) + '\',\'' + escAttr(t.name) + '\',\'' + escAttr(t.icon || '📄') + '\')">';
+      html += '<span style="width:10px;height:10px;border-radius:50%;background:#60a5fa;flex-shrink:0"></span>';
+      html += '<span style="font-size:14px;font-weight:500;color:#374151">' + esc(t.name) + '</span>';
+      html += '<span style="font-size:12px;color:#9ca3af;margin-left:auto">' + esc(t.description || '') + '</span>';
+      html += '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><path d="M9 5l7 7-7 7"/></svg>';
+      html += '</div>';
+    });
+    html += '</div>';
+    templateList.innerHTML = html;
+  }
+
+  function selectTemplate(id, name, icon) {
+    const tpl = allTemplates.find(t => t.id === id);
+    selectedTemplate = { id, name, icon, sourceFile: tpl ? (tpl.source_file || '') : '' };
+    document.getElementById('uploadTemplateName').textContent = '上传附件 - ' + name;
+    phaseTemplates.style.display = 'none';
+    phaseUpload.style.display = 'block';
+    updateStartBtn();
+  }
+
+  // ========== 阶段1：上传附件 ==========
+  uploadDropZone.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', (e) => {
+    const files = Array.from(e.target.files || []);
+    files.forEach(f => uploadedFiles.push({ name: f.name, size: f.size, file: f, status: 'ready', fileId: null }));
+    renderFileList();
+    updateStartBtn();
+    fileInput.value = '';
+  });
+
+  function renderFileList() {
+    if (uploadedFiles.length === 0) { uploadFileList.innerHTML = ''; return; }
+    let html = '';
+    uploadedFiles.forEach((f, idx) => {
+      const statusIcon = f.status === 'uploading' ? '<span style="color:#f59e0b">⟳</span>'
+        : f.status === 'error' ? '<span style="color:#ef4444">✕</span>'
+        : f.fileId ? '<span style="color:#059669">✓</span>'
+        : '<span style="color:#3b82f6">📄</span>';
+      const statusText = f.status === 'uploading' ? '上传中...'
+        : f.status === 'error' ? '上传失败'
+        : f.fileId ? '已上传'
+        : formatSize(f.size);
+      html += '<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;margin-bottom:6px;border-radius:8px;background:#f9fafb;border:1px solid #e5e7eb">'
+        + '<span>' + statusIcon + '</span>'
+        + '<span style="flex:1;font-size:13px;color:#374151">' + esc(f.name) + '</span>'
+        + '<span style="font-size:11px;color:#9ca3af">' + statusText + '</span>'
+        + (f.status !== 'uploading' ? '<span style="cursor:pointer;color:#9ca3af;font-size:14px" onclick="removeFile(' + idx + ')">✕</span>' : '')
+        + '</div>';
+    });
+    uploadFileList.innerHTML = html;
+  }
+
+  function removeFile(idx) {
+    uploadedFiles.splice(idx, 1);
+    renderFileList();
+    updateStartBtn();
+  }
+
+  function updateStartBtn() {
+    const hasName = document.getElementById('uploadCompanyName').value.trim().length > 0;
+    const hasCode = document.getElementById('uploadCreditCode').value.trim().length > 0;
+    const hasFiles = uploadedFiles.length > 0 && uploadedFiles.some(f => f.fileId || f.file);
+    const uploading = uploadedFiles.some(f => f.status === 'uploading');
+    const enabled = (hasName || hasCode) && hasFiles && !uploading;
+
+    if (enabled) {
+      startBtn.disabled = false;
+      startBtn.style.background = '#1a56db';
+      startBtn.style.color = 'white';
+      startBtn.textContent = uploading ? '正在上传文件...' : '开始生成报告';
+    } else {
+      startBtn.disabled = true;
+      startBtn.style.background = '#e5e7eb';
+      startBtn.style.color = '#9ca3af';
+      if (!hasName && !hasCode) startBtn.textContent = '请填写企业名称或信用代码';
+      else if (!hasFiles) startBtn.textContent = '请上传资料文件';
+      else startBtn.textContent = '请上传文件并填写企业名称';
+    }
+  }
+
+  document.getElementById('uploadCompanyName').addEventListener('input', updateStartBtn);
+  document.getElementById('uploadCreditCode').addEventListener('input', updateStartBtn);
+
+  async function handleStartGeneration() {
+    if (startBtn.disabled) return;
+
+    // 上传文件，获取 fileId
+    const fileIds = [];
+    for (let i = 0; i < uploadedFiles.length; i++) {
+      const f = uploadedFiles[i];
+      if (f.fileId) { fileIds.push({ name: f.name, fileId: f.fileId }); continue; }
+      if (!f.file) continue;
+
+      f.status = 'uploading';
+      renderFileList();
+      updateStartBtn();
+
+      try {
+        const formData = new FormData();
+        formData.append('file', f.file);
+        const res = await fetch('/api/generate-report/upload-file', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          f.fileId = data.fileId;
+          f.status = 'done';
+          fileIds.push({ name: f.name, fileId: data.fileId });
+        } else {
+          f.status = 'error';
+        }
+      } catch {
+        f.status = 'error';
+      }
+      renderFileList();
+      updateStartBtn();
+    }
+
+    const succeeded = fileIds.filter(f => f.fileId);
+    if (succeeded.length === 0) return;
+
+    const companyName = document.getElementById('uploadCompanyName').value.trim();
+    const creditCode = document.getElementById('uploadCreditCode').value.trim();
+
+    // 调用后端创建报告任务
+    startBtn.disabled = true;
+    startBtn.textContent = '正在创建报告任务...';
+    startBtn.style.background = '#9ca3af';
+
+    try {
+      const res = await fetch('/api/generate-report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateId: selectedTemplate.id,
+          templateName: selectedTemplate.name,
+          companyName: companyName,
+          creditCode: creditCode,
+          sourceFile: selectedTemplate.sourceFile || '',
+          attachmentNames: succeeded.map(f => f.name),
+          attachmentFileIds: succeeded.map(f => f.fileId)
+        })
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error('HTTP ' + res.status + ': ' + errText);
+      }
+      const result = await res.json();
+      const newReportId = result.reportId;
+
+      // 跳转到编辑/查看流程
+      showEditorPhase(newReportId);
+    } catch (err) {
+      showToast('创建报告失败: ' + err.message, true);
+      startBtn.disabled = false;
+      updateStartBtn();
+    }
+  }
+
+  // ========== 阶段2：数据编辑 ==========
+  async function showEditorPhase(rid) {
+    phaseTemplates.style.display = 'none';
+    phaseUpload.style.display = 'none';
+    phaseEditor.style.display = 'block';
+    phaseReport.style.display = 'none';
+    document.getElementById('reportMeta').textContent = '数据编辑中...';
+
+    try {
+      const res = await fetch('/api/generate-report/' + rid + '/data');
+      if (!res.ok) { editorForm.innerHTML = '<div class="state-container"><div class="state-title">加载数据失败</div></div>'; return; }
+      const data = await res.json();
+      currentFieldMeta = Array.isArray(data.fields) ? data.fields : [];
+      currentFields = {};
+      currentFieldMeta.forEach(f => { currentFields[f.name] = f.value; });
+
+      document.getElementById('metaBar').style.display = 'flex';
+      document.getElementById('metaCompany').textContent = currentFields['企业名称'] || data.companyName || '-';
+      document.getElementById('metaTemplate').textContent = data.templateName || '-';
+
+      renderEditor(currentFields);
+
+      window._reportId = rid;
+      document.getElementById('generateBtn').onclick = () => handleGenerate(rid);
+    } catch (err) {
+      editorForm.innerHTML = '<div class="state-container"><div class="state-title">请求失败: ' + err.message + '</div></div>';
+    }
+  }
+
+  function renderEditor(fields) {
+    const keys = Object.keys(fields);
+    // 🔍 调试日志
+    console.log('[renderEditor] keys数量:', keys.length, '前5个:', keys.slice(0,5));
+    const samples = {};
+    keys.slice(0,5).forEach(k => { samples[k] = fields[k]; });
+    console.log('[renderEditor] 前5个值:', JSON.stringify(samples));
+    if (keys.length === 0) {
+      editorForm.innerHTML = '<div class="state-container"><div class="state-title">暂无可编辑的数据字段</div></div>';
+      return;
+    }
+
+    const labelMap = {};
+    const parsedMap = {};
+    currentFieldMeta.forEach(f => {
+      labelMap[f.name] = f.label || f.name;
+      parsedMap[f.name] = f.parsed === true;
+    });
+
+    const basicFields = ['企业名称', '统一信用代码', '公司名称', 'company_name'];
+    const dataKeys = keys.filter(k => !basicFields.includes(k));
+    const emptyKeys = dataKeys.filter(k => !fields[k] || String(fields[k]).trim() === '');
+    if (emptyKeys.length === dataKeys.length && dataKeys.length > 0) {
+      emptyNotice.style.display = 'flex';
+    }
+
+    const groups = [
+      { title: '企业基本信息', fields: [] },
+      { title: '财务指标（营业收入/成本/利润）', fields: [] },
+      { title: '资产负债指标', fields: [] },
+      { title: '货币资金明细', fields: [] },
+      { title: '应收账款明细', fields: [] },
+      { title: '预付账款明细', fields: [] },
+      { title: '其他应收款明细', fields: [] },
+      { title: '预测数据与描述', fields: [] },
+      { title: '授信评估（如适用）', fields: [] },
+      { title: '其他字段', fields: [] }
+    ];
+
+    keys.forEach(key => {
+      const lower = key.toLowerCase();
+      if (basicFields.includes(key)) { groups[0].fields.push(key); return; }
+      if (lower.includes('营业') || lower.includes('利润') || lower.includes('成本') || lower.includes('收入')) { groups[1].fields.push(key); return; }
+      if (lower.includes('资产') || lower.includes('负债') || lower.includes('比率') || lower.includes('权益')) { groups[2].fields.push(key); return; }
+      if (lower.startsWith('货币资金')) { groups[3].fields.push(key); return; }
+      if (lower.startsWith('应收账款')) { groups[4].fields.push(key); return; }
+      if (lower.startsWith('预付账款')) { groups[5].fields.push(key); return; }
+      if (lower.startsWith('其他应收款')) { groups[6].fields.push(key); return; }
+      if (lower.includes('预测') || lower.includes('描述') || lower.includes('组成') || lower.includes('覆盖') || lower.includes('来源') || lower.includes('说明')) { groups[7].fields.push(key); return; }
+      if (lower.includes('评分') || lower.includes('授信') || lower.includes('担保') || lower.includes('等级') || lower.includes('偿债')) { groups[8].fields.push(key); return; }
+      groups[9].fields.push(key);
+    });
+
+    let html = '';
+    groups.forEach(group => {
+      if (group.fields.length === 0) return;
+      html += '<div class="section-title">' + group.title + '</div><div class="form-grid">';
+      group.fields.forEach(key => {
+        const val = fields[key] || '';
+        const displayLabel = labelMap[key] || key;
+        const isEmpty = !val || String(val).trim() === '';
+        const isParsed = parsedMap[key] === true;
+        const isTextarea = key.includes('描述') || key.includes('组成') || key.includes('来源') || key.includes('说明') || key.includes('结论');
+        html += '<div class="form-group' + (isTextarea ? ' full' : '') + '">';
+        html += '<label>' + esc(displayLabel)
+          + (isParsed ? ' <span class="tag">已提取</span>' : '')
+          + (!isParsed && !basicFields.includes(key) ? ' <span style="font-size:10px;color:#f59e0b">待填写</span>' : '')
+          + '</label>';
+        if (isTextarea) {
+          html += '<textarea name="' + key.replace(/"/g,'&quot;') + '" rows="3"' + (isParsed ? ' class="pre-filled"' : '') + '>' + esc(val) + '</textarea>';
+        } else {
+          html += '<input type="text" name="' + key.replace(/"/g,'&quot;') + '" value="' + esc(val) + '"' + (isParsed ? ' class="pre-filled"' : '') + ' />';
+        }
+        html += '</div>';
+      });
+      html += '</div>';
+    });
+
+    editorForm.innerHTML = html;
+  }
+
+  async function handleGenerate(rid) {
+    const inputs = editorForm.querySelectorAll('input, textarea');
+    const fields = {};
+    inputs.forEach(el => { fields[el.name] = el.value; });
+
+    const btn = document.getElementById('generateBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;display:inline-block;vertical-align:middle;border-color:white;border-top-color:transparent;"></span> 正在提交...';
+
+    try {
+      const res = await fetch('/api/generate-report/' + rid + '/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: fields })
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.message || err.error); }
+
+      showToast('报告生成已启动，正在返回对话...');
+      // 直接跳转到聊天页并携带 reportId 和 conversationId
+      setTimeout(() => {
+        const chatOrigin = window.location.protocol + '//' + window.location.hostname + ':3000';
+        const convId = sessionStorage.getItem('currentConversationId') || '';
+        const params = new URLSearchParams();
+        params.set('reportId', rid);
+        if (convId) params.set('convId', convId);
+        window.location.href = chatOrigin + '?' + params.toString();
+      }, 800);
+    } catch (err) {
+      showToast('操作失败: ' + err.message, true);
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> 确认并生成报告';
+    }
+  }
+
+  async function switchToReportPhase(rid) {
+    phaseEditor.style.display = 'none';
+    phaseReport.style.display = 'block';
+    document.getElementById('reportMeta').textContent = '报告加载中...';
+
+    const bar = document.getElementById('reportStatusBar');
+    bar.innerHTML = `
+      <div class="step done"><div class="step-dot">✓</div>选择模板</div>
+      <div class="step-line"></div>
+      <div class="step done"><div class="step-dot">✓</div>上传附件</div>
+      <div class="step-line"></div>
+      <div class="step done" style="cursor:pointer" onclick="backToEditor()" title="返回编辑数据"><div class="step-dot">✓</div>数据确认 ←</div>
+      <div class="step-line"></div>
+      <div class="step done"><div class="step-dot">✓</div>报告生成</div>
+    `;
+
+    reportContent.innerHTML = '<div class="state-container"><div class="spinner"></div><div class="state-title">加载报告中...</div></div>';
+
+    try {
+      const contentRes = await fetch('/api/generate-report/' + rid + '/content');
+      if (contentRes.ok) {
+        const data = await contentRes.json();
+        renderReport(data);
+        addEditButton(rid);
+      } else {
+        pollForCompletion(rid);
+      }
+    } catch (err) {
+      reportContent.innerHTML = '<div class="state-container"><div class="state-title">加载失败</div><div class="state-desc">' + err.message + '</div></div>';
+    }
+  }
+
+  async function pollForCompletion(rid) {
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch('/api/generate-report/' + rid + '/status');
+        if (!res.ok) return;
+        const status = await res.json();
+        if (status.status === 'completed') {
+          clearInterval(poll);
+          const contentRes = await fetch('/api/generate-report/' + rid + '/content');
+          if (contentRes.ok) {
+            const data = await contentRes.json();
+            renderReport(data);
+            addEditButton(rid);
+          }
+        } else if (status.status === 'failed') {
+          clearInterval(poll);
+          reportContent.innerHTML = '<div class="state-container"><div class="state-title">生成失败</div><div class="state-desc">' + (status.errorMessage || '报告生成过程中发生错误') + '</div></div>';
+          showToast('报告生成失败', true);
+        } else {
+          const progress = status.progress || 0;
+          const msg = status.errorMessage || '';
+          reportContent.innerHTML = `
+            <div class="state-container">
+              <div class="spinner"></div>
+              <div class="state-title">报告生成中... ${progress}%</div>
+              <div class="state-desc">${msg}</div>
+              <div style="width:240px;height:4px;background:#e5e7eb;border-radius:2px;margin-top:12px;overflow:hidden">
+                <div style="width:${progress}%;height:100%;background:#1a56db;border-radius:2px;transition:width 0.5s"></div>
+              </div>
+            </div>
+          `;
+        }
+      } catch (e) {}
+    }, 2000);
+  }
+
+  // ========== 阶段3：报告展示 ==========
+  function showReportPhase(data) {
+    phaseEditor.style.display = 'none';
+    phaseReport.style.display = 'block';
+    renderReport(data);
+    addEditButton(reportId);
+  }
+
+  function addEditButton(rid) {
+    if (toolbarRight.querySelector('[data-editbtn]')) return;
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-green';
+    editBtn.setAttribute('data-editbtn', '1');
+    editBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> 编辑数据';
+    editBtn.onclick = function() {
+      phaseReport.style.display = 'none';
+      phaseEditor.style.display = 'block';
+      document.getElementById('reportMeta').textContent = '数据编辑中...';
+      showEditorPhase(rid);
+    };
+    toolbarRight.appendChild(editBtn);
+  }
+
+  function renderReport(data) {
+    document.getElementById('reportTitle').textContent = data.templateName || '智能尽调报告';
+    document.getElementById('reportMeta').textContent = '已完成';
+    document.getElementById('metaBar').style.display = 'flex';
+    document.getElementById('metaCompany').textContent = data.companyName || '-';
+    document.getElementById('metaTemplate').textContent = data.templateName || '-';
+    document.getElementById('reportStatusBar').innerHTML = `
+      <div class="step done"><div class="step-dot">✓</div>选择模板</div>
+      <div class="step-line"></div>
+      <div class="step done"><div class="step-dot">✓</div>上传附件</div>
+      <div class="step-line"></div>
+      <div class="step done" style="cursor:pointer" onclick="backToEditor()" title="返回编辑数据"><div class="step-dot">✓</div>数据确认 ←</div>
+      <div class="step-line"></div>
+      <div class="step done"><div class="step-dot">✓</div>报告生成</div>
+    `;
+    if (data.content) {
+      reportContent.innerHTML = marked.parse(data.content);
+    } else {
+      reportContent.innerHTML = '<div class="state-container"><div class="state-title">报告内容为空</div></div>';
+    }
+  }
+
+  // ========== 旧版：带 reportId 直接进入 ==========
+  async function init() {
+    try {
+      const contentRes = await fetch('/api/generate-report/' + reportId + '/content');
+      if (contentRes.ok) {
+        const data = await contentRes.json();
+        showReportPhase(data);
+      } else if (contentRes.status === 400) {
+        showEditorPhase(reportId);
+      } else {
+        reportContent.innerHTML = '<div class="state-container"><div class="state-title">加载失败</div><div class="state-desc">服务器返回 ' + contentRes.status + '</div></div>';
+        phaseReport.style.display = 'block';
+      }
+    } catch (err) {
+      reportContent.innerHTML = '<div class="state-container"><div class="state-title">网络错误</div><div class="state-desc">' + err.message + '</div></div>';
+      phaseReport.style.display = 'block';
+    }
+  }
+
+  // ========== 通用工具 ==========
+  function backToTemplates() {
+    phaseUpload.style.display = 'none';
+    phaseEditor.style.display = 'none';
+    phaseReport.style.display = 'none';
+    showTemplates();
+  }
+
+  function backToUpload() {
+    phaseEditor.style.display = 'none';
+    phaseReport.style.display = 'none';
+    phaseUpload.style.display = 'block';
+    updateStartBtn();
+  }
+
+  function backToEditor() {
+    phaseReport.style.display = 'none';
+    if (window._reportId) {
+      showEditorPhase(window._reportId);
+    }
+  }
+
+  function showToast(msg, isError) {
+    toast.textContent = msg;
+    toast.className = 'toast' + (isError ? ' error' : '') + ' show';
+    setTimeout(() => { toast.className = 'toast'; }, 2500);
+  }
+
+  function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  }
+
+  function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
+  function escAttr(str) { return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+  function printReport() { window.print(); }
+</script>
+</body>
+</html>

@@ -2,13 +2,14 @@ server:
   port: ${PORT:8000}
 
 spring:
+  profiles:
+    active: template
   webflux:
     static-path-pattern: /h5/**
   web:
     resources:
       static-locations: classpath:/static/
 
-# DeepSeek API configuration (from .env or system properties)
 app:
   deepseek:
     api-key: sk-23afa0615c24426283f0da1583d246bd
@@ -22,6 +23,8 @@ app:
     expire-hours: 24
   data:
     dir: data
+  upload:
+    dir: static/uploads/account_opening
 
 logging:
   level:

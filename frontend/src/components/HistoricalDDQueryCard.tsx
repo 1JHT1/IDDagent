@@ -6,7 +6,7 @@ interface HistoricalDDQueryCardProps {
   onSendMessage?: (content: string) => void
 }
 
-const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data, onSendMessage }) => {
+const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data }) => {
   const action = data.action as string | undefined
   const companyName = (data.company_name as string) || ''
   const creditCode = (data.credit_code as string) || ''

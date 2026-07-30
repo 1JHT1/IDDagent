@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>编辑报告数据</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans SC", sans-serif;
+    background: #f0f2f5;
+    color: #333;
+    line-height: 1.6;
+  }
+  .toolbar {
+    position: sticky; top: 0; z-index: 100;
+    background: linear-gradient(135deg, #1a56db, #1e40af);
+    color: white;
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .toolbar-left { display: flex; align-items: center; gap: 12px; }
+  .toolbar-left .title { font-size: 16px; font-weight: 600; }
+  .toolbar-left .subtitle { font-size: 12px; opacity: 0.85; }
+  .toolbar-right { display: flex; gap: 8px; }
+  .toolbar button {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 6px; background: rgba(255,255,255,0.12);
+    color: white; font-size: 13px; cursor: pointer;
+    transition: all 0.2s;
+  }
+  .toolbar button:hover { background: rgba(255,255,255,0.25); border-color: rgba(255,255,255,0.5); }
+  .toolbar button svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; }
+  .toolbar button.btn-save { background: #059669; border-color: #059669; }
+  .toolbar button.btn-save:hover { background: #047857; }
+
+  .container { max-width: 800px; margin: 24px auto; padding: 0 16px; }
+  .card {
+    background: white; border-radius: 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 24px; border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb; font-size: 15px; font-weight: 600;
+    color: #111827; display: flex; align-items: center; gap: 8px;
+  }
+  .card-header .icon { color: #1a56db; }
+  .card-body { padding: 24px; }
+
+  /* 表单 */
+  .form-section { margin-bottom: 24px; }
+  .form-section:last-child { margin-bottom: 0; }
+  .section-title {
+    font-size: 14px; font-weight: 600; color: #1e40af;
+    border-left: 4px solid #1a56db; padding-left: 10px;
+    margin-bottom: 16px;
+  }
+  .form-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  .form-group { display: flex; flex-direction: column; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label {
+    font-size: 13px; font-weight: 500; color: #374151; margin-bottom: 4px;
+  }
+  .form-group label .desc {
+    font-size: 11px; color: #9ca3af; font-weight: normal; margin-left: 6px;
+  }
+  .form-group input, .form-group textarea, .form-group select {
+    padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px;
+    font-size: 13px; color: #111827; outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+  }
+  .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
+    border-color: #1a56db;
+    box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.12);
+  }
+  .form-group textarea { min-height: 80px; resize: vertical; }
+
+  /* 状态 */
+  .state-container { text-align: center; padding: 64px 24px; }
+  .spinner {
+    width: 36px; height: 36px; border: 3px solid #e5e7eb;
+    border-top-color: #1a56db; border-radius: 50%;
+    animation: spin 0.8s linear infinite; margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .state-title { font-size: 16px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+  .state-desc { font-size: 14px; color: #9ca3af; }
+  .toast {
+    position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+    background: #059669; color: white; padding: 10px 24px; border-radius: 8px;
+    font-size: 14px; z-index: 999; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0; transition: opacity 0.3s; pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+  .toast.error { background: #dc2626; }
+
+  @media (max-width: 640px) {
+    .form-grid { grid-template-columns: 1fr; }
+    .toolbar { padding: 10px 16px; }
+    .card-body { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div class="toolbar-left">
+    <div>
+      <div class="title" id="pageTitle">编辑报告数据</div>
+      <div class="subtitle" id="pageMeta">加载中...</div>
+    </div>
+  </div>
+  <div class="toolbar-right">
+    <button onclick="viewReport()">
+      <svg viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+      查看报告
+    </button>
+    <button class="btn-save" onclick="saveData()">
+      <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+      保存并重新生成
+    </button>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<div class="container">
+  <div class="card">
+    <div id="contentArea">
+      <div class="state-container">
+        <div class="spinner"></div>
+        <div class="state-title">正在加载报告数据...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const params = new URLSearchParams(window.location.search);
+  const reportId = params.get('reportId');
+  const contentArea = document.getElementById('contentArea');
+  const toast = document.getElementById('toast');
+
+  if (!reportId) {
+    contentArea.innerHTML = '<div class="state-container"><div class="state-title">参数缺失</div><div class="state-desc">URL 中缺少 reportId 参数</div></div>';
+  } else {
+    loadReportData();
+  }
+
+  async function loadReportData() {
+    try {
+      const res = await fetch('/api/generate-report/' + reportId + '/data');
+      if (res.status === 404) {
+        contentArea.innerHTML = '<div class="state-container"><div class="state-title">报告不存在</div><div class="state-desc">该报告未找到</div></div>';
+        return;
+      }
+      const data = await res.json();
+      document.getElementById('pageTitle').textContent = '编辑报告数据';
+      document.getElementById('pageMeta').textContent = data.templateName + ' - ' + data.companyName;
+      // 新格式：data.fields 是数组 [{name, value, parsed, label}, ...]
+      const fieldsArray = Array.isArray(data.fields) ? data.fields : [];
+      const fields = {};
+      fieldsArray.forEach(f => { fields[f.name] = f.value; });
+      renderForm(fields, fieldsArray);
+    } catch (err) {
+      contentArea.innerHTML = '<div class="state-container"><div class="state-title">加载失败</div><div class="state-desc">' + err.message + '</div></div>';
+    }
+  }
+
+  function renderForm(fields, meta) {
+    const keys = Object.keys(fields);
+    if (keys.length === 0) {
+      contentArea.innerHTML = '<div class="state-container"><div class="state-title">无数据字段</div><div class="state-desc">该报告暂无可用编辑数据</div></div>';
+      return;
+    }
+
+    // 从元数据构建 label 和 parsed 映射表
+    const labelMap = {};
+    const parsedMap = {};
+    (meta || []).forEach(f => {
+      labelMap[f.name] = f.label || f.name;
+      parsedMap[f.name] = f.parsed === true;
+    });
+
+    // 字段分组
+    const groups = [
+      { title: '企业基本信息', fields: [] },
+      { title: '财务指标（营业收入/成本/利润）', fields: [] },
+      { title: '资产负债指标', fields: [] },
+      { title: '货币资金明细', fields: [] },
+      { title: '应收账款明细', fields: [] },
+      { title: '预付账款明细', fields: [] },
+      { title: '其他应收款明细', fields: [] },
+      { title: '预测数据与描述', fields: [] },
+      { title: '授信评估（如适用）', fields: [] },
+      { title: '其他字段', fields: [] }
+    ];
+
+    keys.forEach(key => {
+      const lower = key.toLowerCase();
+      if (['企业名称', '统一信用代码', '公司名称', 'company_name'].includes(key)) {
+        groups[0].fields.push(key);
+      } else if (lower.includes('营业') || lower.includes('利润') || lower.includes('成本')) {
+        groups[1].fields.push(key);
+      } else if (lower.includes('资产') || lower.includes('负债') || lower.includes('比率')) {
+        groups[2].fields.push(key);
+      } else if (lower.startsWith('货币资金')) {
+        groups[3].fields.push(key);
+      } else if (lower.startsWith('应收账款')) {
+        groups[4].fields.push(key);
+      } else if (lower.startsWith('预付账款')) {
+        groups[5].fields.push(key);
+      } else if (lower.startsWith('其他应收款')) {
+        groups[6].fields.push(key);
+      } else if (lower.includes('预测') || lower.includes('描述') || lower.includes('组成') || lower.includes('覆盖') || lower.includes('来源')) {
+        groups[7].fields.push(key);
+      } else if (lower.includes('评分') || lower.includes('授信') || lower.includes('担保') || lower.includes('等级')) {
+        groups[8].fields.push(key);
+      } else {
+        groups[9].fields.push(key);
+      }
+    });
+
+    let html = '';
+    groups.forEach(group => {
+      if (group.fields.length === 0) return;
+      html += '<div class="card-body">';
+      html += '<div class="section-title">' + group.title + '</div>';
+      html += '<div class="form-grid">';
+      group.fields.forEach(key => {
+        const isTextarea = key.includes('描述') || key.includes('组成') || key.includes('来源');
+        const val = fields[key] || '';
+        const displayLabel = labelMap[key] || key;
+        html += '<div class="form-group' + (isTextarea ? ' full' : '') + '">';
+        html += '<label>' + escapeHtml(displayLabel) + '<span class="desc">' + (isTextarea ? '多行文本' : '') + '</span></label>';
+        if (isTextarea) {
+          html += '<textarea name="' + key + '" rows="3">' + escapeHtml(val) + '</textarea>';
+        } else {
+          html += '<input type="text" name="' + key + '" value="' + escapeHtml(val) + '" />';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+
+    contentArea.innerHTML = html;
+  }
+
+  async function saveData() {
+    const formElements = contentArea.querySelectorAll('input, textarea');
+    const fields = {};
+    formElements.forEach(el => {
+      fields[el.name] = el.value;
+    });
+
+    try {
+      const res = await fetch('/api/generate-report/' + reportId + '/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: fields })
+      });
+      if (res.ok) {
+        showToast('数据已保存，报告已重新生成');
+        // 等待后端处理完成后跳转
+        setTimeout(() => { window.location.href = window.location.origin + ':' + window.location.port + '/h5/report-viewer.html?reportId=' + reportId; }, 500);
+      } else {
+        const err = await res.json();
+        showToast(err.error || '保存失败', true);
+      }
+    } catch (err) {
+      showToast('保存失败: ' + err.message, true);
+    }
+  }
+
+  function viewReport() {
+    window.location.href = window.location.origin + ':' + window.location.port + '/h5/report-viewer.html?reportId=' + reportId;
+  }
+
+  function showToast(msg, isError) {
+    toast.textContent = msg;
+    toast.className = 'toast' + (isError ? ' error' : '') + ' show';
+    setTimeout(() => { toast.className = 'toast'; }, 2500);
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+</script>
+</body>
+</html>

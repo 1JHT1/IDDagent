@@ -44,6 +44,16 @@ public class ContextMemoryService {
             ctx.pendingSkillParams.clear();
         }
     }
+    public void updateAttachment(String conversationId, String attachmentUrl) {
+        if (attachmentUrl == null || attachmentUrl.isEmpty()) return;
+        ConversationContext ctx = store.computeIfAbsent(conversationId, k -> new ConversationContext());
+        ctx.attachmentUrl = attachmentUrl;
+    }
+
+    public void clearAttachment(String conversationId) {
+        ConversationContext ctx = store.get(conversationId);
+        if (ctx != null) ctx.attachmentUrl = "";
+    }
 
     public void clear(String conversationId) {
         store.remove(conversationId);
@@ -58,6 +68,7 @@ public class ContextMemoryService {
         public Map<String, Object> pendingSkillParams = new LinkedHashMap<>();
         /** 待处理技能连续重试次数（防死循环） */
         public int pendingSkillRetry = 0;
+        public String attachmentUrl = "";
 
         public boolean isEmpty() {
             return (companyName == null || companyName.isEmpty())

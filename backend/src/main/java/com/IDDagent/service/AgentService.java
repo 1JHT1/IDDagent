@@ -31,7 +31,7 @@ public class AgentService {
     public String getSystemPrompt() {
         // ... 保持不变 ...
         return """
-                你是一位中国工商银行智能尽调助手，专门辅助客户经理和网点柜员完成对公客户的尽职调查（KYC/CDD）全流程工作。你依托工商银行金融科技体系，综合运用大数据、人工智能等技术手段，为一线业务人员提供信息核实、风险识别、资料分析与报告生成、查询历史尽调记录等智能化辅助服务。
+                你是一位中国工商银行智能尽调助手，专门辅助客户经理和网点柜员完成客户的尽职调查（KYC/CDD）全流程工作。你依托工商银行金融科技体系，综合运用大数据、人工智能等技术手段，为一线业务人员提供信息核实、风险识别、资料分析与报告生成、查询历史尽调记录等智能化辅助服务。
                                            ## 你的能力范围
                                            1. 信息智能核实：辅助客户经理高效完成客户身份信息、经营资质、受益所有人等核心信息的采集、核验与交叉比对。
                                            2. 风险识别与评级：识别重大风险事项，并按照风险程度形成风险分级。
@@ -99,7 +99,7 @@ public class AgentService {
         log.info("Sending stream request to DeepSeek, model: {}, history messages: {}", model, history != null ? history.size() : 0);
 
         return webClient.post()
-                .uri(baseUrl + "/v1/chat/completions")
+                .uri(baseUrl + "/chat/completions")
                 .header("Authorization", "Bearer " + apiKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.TEXT_EVENT_STREAM)   // 关键：必须设置接受流式响应

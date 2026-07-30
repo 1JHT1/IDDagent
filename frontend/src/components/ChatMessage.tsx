@@ -3,13 +3,11 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
-import PotentialCustomerCard from './PotentialCustomerCard';
 import RiskCheckCard from './RiskCheckCard';
 import OutreachCard from './OutreachCard';
-import ProductRecommendCard from './ProductRecommendCard';
-import ProductMatchCard from './ProductMatchCard';
-import AccountOpeningCard from './AccountOpeningCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
+import InformationCheckCard from './InformationCheckCard';
+import ReportGenerateCard from './ReportGenerateCard';
 import CompanyNameSelector from './CompanyNameSelector';
 import FollowUpChip from './FollowUpChip';
 
@@ -33,7 +31,8 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
     ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
         recommend_products: '产品智荐', match_products_intelligently: '产品智能匹配',
         open_corporate_account: '对公账户开户',
-        query_due_diligence_reports: '历史尽调报告' }[extra._skill_name as string]
+        query_due_diligence_reports: '历史尽调报告' ,
+        generate_report: '报告生成' }[extra._skill_name as string]
     : undefined;
   if (label) parts.push(`【${label}】`);
   if (extra.company_name) parts.push(`企业名称：${extra.company_name}`);
@@ -112,7 +111,7 @@ const AttachmentList: React.FC<{ attachments: ChatAttachment[] }> = ({ attachmen
             <img
               src={att.url}
               alt={att.name}
-              className="max-w-[220px] max-h-[160px] rounded-lg border border-blue-400/40 object-cover"
+              className="max-w-[220px] max-h-[160px] rounded-lg border border-blue-400/40 object-contain"
             />
           </a>
         );
@@ -146,10 +145,6 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
   const isUser = message.role === 'user';
   const streaming = isStreamingMessage(message);
 
-  const handleRequestDetail = (_sourceId: string, sourceName: string) => {
-    onSendMessage?.(`查看${sourceName}的客户详情`);
-  };
-
   // 决定复制内容：纯文本直接用 content，卡片消息从 extra 提取
   const copyText = !isUser && message.extra
     ? (getExtraCopyText(message.extra) || message.content || '')
@@ -178,39 +173,27 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         if (skillName === 'prepare_customer_outreach') {
           return <OutreachCard data={message.extra} onSendMessage={onSendMessage} />;
         }
-        if (skillName === 'recommend_products') {
-          return <ProductRecommendCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (skillName === 'match_products_intelligently') {
-          return <ProductMatchCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (skillName === 'open_corporate_account') {
-          return <AccountOpeningCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
         if (skillName === 'check_company_risk') {
           return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
         if (skillName === 'query_due_diligence_reports') {
           return <HistoricalDDQueryCard data={message.extra} onSendMessage={onSendMessage} />;
         }
+        if (skillName === 'verify_business_license') {
+          return <InformationCheckCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
+        if (skillName === 'generate_report') {
+          return <ReportGenerateCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
 
         // 兜底：按字段特征匹配（兼容旧数据）
         if (message.extra.insights_h5_url !== undefined || message.extra.script_h5_url !== undefined) {
           return <OutreachCard data={message.extra} onSendMessage={onSendMessage} />;
         }
-        if (message.extra.detail_h5_url !== undefined || message.extra.products !== undefined) {
-          return <ProductRecommendCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (message.extra.needs_summary !== undefined || message.extra.matches !== undefined) {
-          return <ProductMatchCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
-        if (message.extra.upload_url !== undefined || message.extra.app_id !== undefined) {
-          return <AccountOpeningCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
         return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
       }
 
-      // 候选企业选择器
+      // 候选企业选择器（企业名匹配到多条结果时让用户选择）
       if (extraAction === 'company_name_candidates') {
         const options = message.extra.options as { credit_code: string; company_name: string }[] | undefined;
         if (options && options.length > 0) {
@@ -225,28 +208,8 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         }
       }
 
-      // 时间区间输入提示
-      if (extraAction === 'need_date_range') {
-        const text = message.extra.text as string || '请提供尽调申请的时间区间。例如：2025-01-01 到 2025-12-31';
-        return (
-          <div className="bg-gradient-to-br from-blue-50 to-sky-50 rounded-xl border border-blue-200 overflow-hidden">
-            <div className="p-4">
-              <p className="text-sm text-gray-600 leading-relaxed">
-                📅 {text}
-              </p>
-            </div>
-          </div>
-        );
-      }
-
-      // 潜客推荐卡片
-      return (
-        <PotentialCustomerCard
-          data={message.extra}
-          onRequestDetail={handleRequestDetail}
-          onSendMessage={onSendMessage}
-        />
-      );
+      // 无匹配卡片时回退到 Markdown 渲染
+      return null;
     }
 
     if (isUser) {
@@ -287,9 +250,9 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         {/* 消息内容 */}
         <div
           className={`${
-            message.extra ? 'max-w-[85%]' : 'max-w-[75%]'
+            message.extra ? 'w-full max-w-full' : 'max-w-[75%]'
           } ${isUser
-              ? 'bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-3'
+              ? 'bg-blue-600 text-white rounded-2xl rounded-br-md px-4 py-3 overflow-hidden'
               : message.extra
                 ? ''
                 : 'bg-white text-gray-800 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm border border-gray-100'

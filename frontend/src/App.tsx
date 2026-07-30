@@ -34,6 +34,9 @@ const App: React.FC = () => {
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 
+  // 追踪已注入消息的报告 ID，防止重复
+  const injectedReportIds = useRef<Set<string>>(new Set());
+
   const isAuthenticated = !!token && !!user;
 
   // ---- 登录回调 ----
@@ -64,6 +67,50 @@ const App: React.FC = () => {
     useChat(conversationId, handleConversationIdChange, () => {
       loadConversations();
     });
+
+  // ================================================================
+  // 报告进度消息注入（将进度卡片以智能体消息形式插入聊天流）
+  // ================================================================
+
+  /** 向聊天流注入一条进度卡片消息（同一 reportId 仅注入一次） */
+  const injectProgressMessage = useCallback((reportId: string) => {
+    if (injectedReportIds.current.has(reportId)) return;
+    injectedReportIds.current.add(reportId);
+    setMessages((prev) => [...prev, {
+      id: `report-progress-${reportId}`,
+      role: 'assistant' as const,
+      content: '',
+      extra: {
+        action: 'result',
+        _skill_name: 'generate_report',
+        stage: 'progress',
+        report_id: reportId,
+      },
+      created_at: new Date().toISOString(),
+    }]);
+  }, [setMessages]);
+
+  // 定时轮询当前用户的活跃报告（捕获 H5 标签页关闭后发起的生成）
+  useEffect(() => {
+    if (!isAuthenticated || !user?.id) return;
+
+    const checkActive = async () => {
+      try {
+        const res = await fetch(`/api/generate-report/user/${user.id}/active`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.reports && data.reports.length > 0) {
+          for (const r of data.reports) {
+            injectProgressMessage(r.reportId);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+
+    checkActive();
+    const interval = setInterval(checkActive, 3000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, user?.id, injectProgressMessage]);
 
   // 检查后端服务状态
   useEffect(() => {
@@ -152,9 +199,48 @@ const App: React.FC = () => {
     }
   };
 
-  // 用 ref 追踪最新的 conversationId，避免闭包问题
+  // 用 ref 追踪最新状态，避免闭包问题
   const conversationIdRef = useRef(conversationId);
   conversationIdRef.current = conversationId;
+  const backendOnlineRef = useRef(backendOnline);
+  backendOnlineRef.current = backendOnline;
+
+  // 将 conversationId 同步到 localStorage，供 H5 新标签页读取
+  useEffect(() => {
+    if (conversationId) {
+      localStorage.setItem('currentConversationId', conversationId);
+    }
+  }, [conversationId]);
+
+  // 检测 URL 参数中的 reportId 和 convId（H5 页面确认生成后跳转回来）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const rid = params.get('reportId');
+    const convId = params.get('convId');
+    if (rid || convId) {
+      window.history.replaceState({}, '', window.location.pathname);
+
+      const selectAndInject = async () => {
+        // 等待后端健康检查完成（确保 loadConversations 已启动）
+        let retries = 0;
+        while (backendOnlineRef.current === null && retries < 20) {
+          await new Promise(r => setTimeout(r, 300));
+          retries++;
+        }
+        // 额外等待对话列表加载完成
+        await new Promise(r => setTimeout(r, 500));
+
+        if (convId) {
+          await handleSelectConversation(convId);
+        }
+        if (rid) {
+          setTimeout(() => injectProgressMessage(rid), 200);
+        }
+      };
+      selectAndInject();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 发送消息
   const handleSend = useCallback(async (content: string, attachments?: ChatAttachment[]) => {

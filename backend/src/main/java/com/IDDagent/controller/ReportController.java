@@ -134,6 +134,7 @@ public class ReportController {
         String userId = (String) body.getOrDefault("userId", "unknown");
         String sourceFile = (String) body.getOrDefault("sourceFile", "");
         String organization = (String) body.getOrDefault("organization", "");
+        String conversationId = (String) body.getOrDefault("conversationId", "");
 
         @SuppressWarnings("unchecked")
         List<String> attachmentNames = (List<String>) body.getOrDefault("attachmentNames", List.of());
@@ -153,7 +154,7 @@ public class ReportController {
         }
 
         ReportTask task = taskStore.createTask(templateId, templateName, companyName,
-                creditCode, userId, sourceFile, organization, attachmentNames, attachmentFileIds);
+                creditCode, userId, sourceFile, organization, conversationId, attachmentNames, attachmentFileIds);
 
         // 在 boundedElastic 线程中阻塞解析 LLM，不阻塞 Netty 事件循环
         return Mono.fromCallable(() -> {
@@ -230,17 +231,24 @@ public class ReportController {
         return ResponseEntity.ok(result);
     }
 
-    /** 记录打印日志（用户打印报告后保存到 data/report.json） */
+    /** 记录打印日志（仅用户确认成功打印后调用），含完整 content */
     @PostMapping(value = "/{reportId}/print-log", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> recordPrintLog(@PathVariable String reportId) {
         ReportTask task = taskStore.getTask(reportId);
         if (task == null) {
             return ResponseEntity.status(404).body(Map.of("error", "报告不存在"));
         }
-        ReportStoreService.savePrintLog(
+        if (!"completed".equals(task.getStatus())) {
+            return ResponseEntity.status(400).body(Map.of("error", "报告尚未生成完成"));
+        }
+        ReportStoreService.saveReportJson(
+                task.getReportId(),
                 task.getCompanyName(),
                 task.getTemplateName(),
-                task.getOrganization() != null ? task.getOrganization() : "");
+                task.getOrganization() != null ? task.getOrganization() : "",
+                task.getContent(),
+                task.getCompletedAt()
+        );
         return ResponseEntity.ok(Map.of("success", true));
     }
 
@@ -328,6 +336,24 @@ public class ReportController {
     public ResponseEntity<Map<String, Object>> getActiveReports(@PathVariable String userId) {
         List<ReportTask> activeTasks = taskStore.getActiveTasksByUser(userId);
         List<Map<String, Object>> reports = activeTasks.stream().map(task -> {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("reportId", task.getReportId());
+            item.put("status", task.getStatus());
+            item.put("templateName", task.getTemplateName());
+            item.put("companyName", task.getCompanyName());
+            item.put("progress", task.getProgress());
+            return item;
+        }).toList();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("reports", reports);
+        return ResponseEntity.ok(result);
+    }
+
+    /** 按对话 ID 获取待处理报告（供 H5 新标签页生成报告后，原聊天页轮询获取进度卡片） */
+    @GetMapping(value = "/conversation/{conversationId}/pending", produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Map<String, Object>> getPendingReportsByConversation(@PathVariable String conversationId) {
+        List<ReportTask> pending = taskStore.getTasksByConversation(conversationId);
+        List<Map<String, Object>> reports = pending.stream().map(task -> {
             Map<String, Object> item = new LinkedHashMap<>();
             item.put("reportId", task.getReportId());
             item.put("status", task.getStatus());

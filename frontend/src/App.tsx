@@ -112,6 +112,28 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [isAuthenticated, user?.id, injectProgressMessage]);
 
+  // 按对话 ID 轮询待处理报告（H5 新标签页生成报告后，原聊天页自动获取进度卡片）
+  useEffect(() => {
+    if (!isAuthenticated || !conversationId) return;
+
+    const checkConversationPending = async () => {
+      try {
+        const res = await fetch(`/api/generate-report/conversation/${conversationId}/pending`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.reports && data.reports.length > 0) {
+          for (const r of data.reports) {
+            injectProgressMessage(r.reportId);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+
+    checkConversationPending();
+    const interval = setInterval(checkConversationPending, 3000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, conversationId, injectProgressMessage]);
+
   // 检查后端服务状态
   useEffect(() => {
     if (!isAuthenticated) return;

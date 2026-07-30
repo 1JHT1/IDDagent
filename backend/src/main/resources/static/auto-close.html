@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>关闭中...</title>
+<style>
+  body { margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh; 
+         background: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+  .box { text-align: center; padding: 40px; background: white; border-radius: 16px; 
+         box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 360px; }
+  .icon { font-size: 48px; margin-bottom: 12px; }
+  .title { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+  .hint { font-size: 14px; color: #6b7280; line-height: 1.6; }
+  .btn { margin-top: 20px; padding: 10px 28px; border: none; border-radius: 8px;
+         background: #1a56db; color: white; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .btn:hover { background: #1648c0; }
+</style>
+</head>
+<body>
+<div class="box">
+  <div class="icon">✅</div>
+  <div class="title">报告已提交</div>
+  <div class="hint">正在自动关闭页面...</div>
+  <button class="btn" onclick="window.close()" style="display:none">关闭此页面</button>
+</div>
+<script>
+  // 先尝试直接关闭
+  try { window.close(); } catch(e) {}
+
+  // 如果500ms后还没关闭，显示"手动关闭"按钮
+  setTimeout(function() {
+    if (!window.closed) {
+      document.querySelector('.hint').textContent = '页面未自动关闭，请点击下方按钮';
+      document.querySelector('.btn').style.display = 'inline-block';
+      // 再试一次
+      setTimeout(function() { try { window.close(); } catch(e) {} }, 1000);
+    }
+  }, 500);
+</script>
+</body>
+</html>

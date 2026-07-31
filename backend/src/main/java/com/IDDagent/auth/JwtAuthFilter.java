@@ -30,6 +30,8 @@ public class JwtAuthFilter implements WebFilter {
             Pattern.compile("^/api/product-recommend/.*"),
             Pattern.compile("^/api/account-opening/(upload|process|preview|update|submit|notify|notifications).*"),
             Pattern.compile("^/api/chat/attachments/[a-f0-9\\-]{36}/.*"),  // 附件下载（通过随机UUID保护）
+            Pattern.compile("^/api/dd-reports/.*"),                      // 历史尽调报告（H5页面调用）
+            Pattern.compile("^/h5/.*"),
             Pattern.compile("^/api/h5/markdown.*"),  // 通用 Markdown 渲染 H5 API
             Pattern.compile("^/api/generate-report(/.*)?"),  // 报告生成（含状态轮询和内容获取）
             Pattern.compile("^/h5/.*"),//不公开

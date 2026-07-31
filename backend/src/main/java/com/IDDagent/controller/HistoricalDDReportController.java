@@ -1,6 +1,5 @@
 package com.IDDagent.controller;
 
-import com.IDDagent.model.UserInfo;
 import com.IDDagent.service.DDReportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -10,13 +9,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -24,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api/dd-reports")
@@ -32,9 +28,6 @@ public class HistoricalDDReportController {
 
     private static final Logger log = LoggerFactory.getLogger(HistoricalDDReportController.class);
     private static final ObjectMapper mapper = new ObjectMapper();
-    private static final String ATTACHMENT_DIR = "static/uploads/dd_reports";
-    private static final long MAX_FILE_SIZE = 20 * 1024 * 1024;
-    private static final Pattern FILE_ID_PATTERN = Pattern.compile("^[a-f0-9\\-]{36}$");
 
     private final DDReportService ddReportService;
 
@@ -58,60 +51,7 @@ public class HistoricalDDReportController {
     }
 
     /**
-     * 更新报告内容（编辑保存）
-     */
-    @PutMapping("/{report_id}")
-    public Mono<Map<String, Object>> updateReport(
-            @PathVariable String report_id,
-            @RequestBody Map<String, Object> body,
-            @RequestAttribute("currentUser") UserInfo currentUser) {
-        return Mono.fromCallable(() -> {
-            Map<String, Object> report = ddReportService.updateReport(report_id, body);
-            if (report == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "报告不存在");
-            }
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("status", "ok");
-            response.put("message", "报告已更新");
-            response.put("report", report);
-            return response;
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    /**
-     * 下载报告文件（JSON 格式，供客户端 PDF 生成使用）
-     */
-    @GetMapping("/{report_id}/download")
-    public Mono<ResponseEntity<ByteArrayResource>> downloadReport(
-            @PathVariable String report_id) {
-        return Mono.fromCallable(() -> {
-            Map<String, Object> report = ddReportService.getReport(report_id);
-            if (report == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "报告不存在");
-            }
-            String status = (String) report.get("status");
-            if (!"completed".equals(status)) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "仅创建成功的报告可以下载");
-            }
-
-            String content = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(report);
-            byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
-            ByteArrayResource resource = new ByteArrayResource(bytes);
-
-            String reportName = (String) report.getOrDefault("name", "report");
-            String filename = URLEncoder.encode(reportName + ".json", StandardCharsets.UTF_8)
-                    .replace("+", "%20");
-
-            return ResponseEntity.ok()
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .header(HttpHeaders.CONTENT_DISPOSITION,
-                            "attachment; filename*=UTF-8''" + filename)
-                    .body(resource);
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
-
-    /**
-     * 获取报告附件列表
+     * 获取报告附件列表（从 report.json 的 attachments 字段读取）
      */
     @SuppressWarnings("unchecked")
     @GetMapping("/{report_id}/attachments")
@@ -127,122 +67,57 @@ public class HistoricalDDReportController {
     }
 
     /**
-     * 上传报告附件
+     * 下载附件（通过 fileId 从 data/uploads/report-files/ 中查找实际文件）
      */
-    @PostMapping("/{report_id}/attachments")
-    public Mono<Map<String, Object>> uploadAttachment(
+    @GetMapping("/{report_id}/attachments/{fileId}/download")
+    public Mono<ResponseEntity<ByteArrayResource>> downloadAttachmentFile(
             @PathVariable String report_id,
-            @RequestPart("file") FilePart file,
-            @RequestAttribute("currentUser") UserInfo currentUser) {
-        return readFilePart(file)
-                .publishOn(Schedulers.boundedElastic())
-                .map(bytes -> {
-                    if (bytes.length == 0) {
-                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "文件内容为空");
-                    }
-                    if (bytes.length > MAX_FILE_SIZE) {
-                        throw new ResponseStatusException(HttpStatus.PAYLOAD_TOO_LARGE, "文件大小超过 20MB 限制");
-                    }
-
-                    Map<String, Object> report = ddReportService.getReport(report_id);
-                    if (report == null) {
-                        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "报告不存在");
-                    }
-
-                    String originalName = sanitizeFilename(file.filename());
-                    String fileId = UUID.randomUUID().toString();
-                    Path dir = Paths.get(ATTACHMENT_DIR, report_id);
-                    try {
-                        Files.createDirectories(dir);
-                        Files.write(dir.resolve(originalName), bytes);
-                    } catch (IOException e) {
-                        log.error("保存附件失败: {}", e.getMessage());
-                        throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "保存附件失败");
-                    }
-
-                    Map<String, Object> attachment = new LinkedHashMap<>();
-                    attachment.put("file_id", fileId);
-                    attachment.put("name", originalName);
-                    attachment.put("size", bytes.length);
-                    attachment.put("type", guessContentType(originalName));
-                    attachment.put("url", "/api/chat/attachments/" + fileId + "/" +
-                            URLEncoder.encode(originalName, StandardCharsets.UTF_8).replace("+", "%20"));
-                    attachment.put("uploaded_at", java.time.Instant.now().toString());
-
-                    ddReportService.addAttachment(report_id, attachment);
-                    Map<String, Object> response = new LinkedHashMap<>();
-                    response.put("status", "ok");
-                    response.put("attachment", attachment);
-                    response.put("message", "附件上传成功");
-                    log.info("DDReport attachment uploaded: report={}, file={}", report_id, originalName);
-                    return response;
-                });
-    }
-
-    /**
-     * 删除报告附件
-     */
-    @DeleteMapping("/{report_id}/attachments/{fileId}")
-    public Mono<Map<String, Object>> deleteAttachment(
-            @PathVariable String report_id,
-            @PathVariable String fileId,
-            @RequestAttribute("currentUser") UserInfo currentUser) {
+            @PathVariable String fileId) {
         return Mono.fromCallable(() -> {
             Map<String, Object> report = ddReportService.getReport(report_id);
             if (report == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND, "报告不存在");
             }
-            ddReportService.removeAttachment(report_id, fileId);
-            // 尝试删除物理文件
-            try {
-                Path dir = Paths.get(ATTACHMENT_DIR, report_id);
-                if (Files.exists(dir)) {
-                    try (var files = Files.list(dir)) {
-                        files.filter(f -> f.getFileName().toString().contains(fileId))
-                                .findFirst()
-                                .ifPresent(f -> {
-                                    try { Files.deleteIfExists(f); } catch (IOException ignored) {}
-                                });
-                    }
-                }
-            } catch (IOException e) {
-                log.warn("Failed to delete attachment file: {}", e.getMessage());
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> attachments = (List<Map<String, Object>>) report.get("attachments");
+            if (attachments == null || attachments.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "无附件");
             }
 
-            Map<String, Object> response = new LinkedHashMap<>();
-            response.put("status", "ok");
-            response.put("message", "附件已删除");
-            return response;
+            // 在固定目录 data/uploads/report-files/ 中按 fileId 前缀查找实际文件
+            Path uploadDir = Paths.get("data", "uploads", "report-files");
+            Path filePath;
+            try (var stream = Files.list(uploadDir)) {
+                filePath = stream.filter(f -> f.getFileName().toString().startsWith(fileId))
+                        .findFirst()
+                        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "文件不存在"));
+            }
+
+            // 获取原始文件名（从 attachments 中查找匹配的 file_id）
+            String fileName = fileId;
+            for (Map<String, Object> att : attachments) {
+                String attFileId = (String) att.get("file_id");
+                if (fileId.equals(attFileId)) {
+                    fileName = (String) att.getOrDefault("file_name", fileId);
+                    break;
+                }
+            }
+
+            byte[] bytes = Files.readAllBytes(filePath);
+            String encodedName = URLEncoder.encode(fileName, StandardCharsets.UTF_8)
+                    .replace("+", "%20");
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename*=UTF-8''" + encodedName)
+                    .body(new ByteArrayResource(bytes));
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
     // ============================================================
     // 工具方法
     // ============================================================
-
-    private Mono<byte[]> readFilePart(FilePart filePart) {
-        if (filePart == null) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "缺少文件"));
-        }
-        return filePart.content()
-                .collectList()
-                .map(dataBuffers -> {
-                    ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                    for (var buf : dataBuffers) {
-                        byte[] b = new byte[buf.readableByteCount()];
-                        buf.read(b);
-                        try { baos.write(b); } catch (IOException ignored) {}
-                    }
-                    return baos.toByteArray();
-                });
-    }
-
-    private String sanitizeFilename(String filename) {
-        if (filename == null || filename.isBlank()) return "unnamed";
-        String name = Paths.get(filename).getFileName().toString();
-        name = name.replaceAll("[\\\\/:*?\"<>|]", "_");
-        return name.isBlank() ? "unnamed" : name;
-    }
 
     private String guessContentType(String filename) {
         String lower = filename.toLowerCase();
@@ -260,8 +135,4 @@ public class HistoricalDDReportController {
         if (lower.endsWith(".txt")) return "text/plain; charset=utf-8";
         return MediaType.APPLICATION_OCTET_STREAM_VALUE;
     }
-
-    /**
-     * 根据报告数据生成独立的 HTML 下载页面
-     */
 }

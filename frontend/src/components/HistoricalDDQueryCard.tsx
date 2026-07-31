@@ -67,24 +67,20 @@ const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data }) =
                   <div className="flex items-center justify-center gap-1">
                     <ActionButton
                       label="查看"
-                      title="查看详情"
-                      href={`${BACKEND_URL}/h5/dd-report-detail.html?report_id=${report.report_id}`}
-                    />
-                    <ActionButton
-                      label="编辑"
-                      title="编辑报告"
-                      href={`${BACKEND_URL}/h5/dd-report-edit.html?report_id=${report.report_id}`}
+                      title="查看报告"
+                      href={`${BACKEND_URL}/h5/dd-viewer.html?report_id=${report.report_id}`}
                     />
                     <ActionButton
                       label="下载"
-                      title={report.status === 'completed' ? '下载报告(PDF)' : '报告未完成，暂不可下载'}
-                      href={report.status === 'completed' ? `${BACKEND_URL}/h5/dd-report-detail.html?report_id=${report.report_id}&download_pdf=1` : undefined}
-                      disabled={report.status !== 'completed'}
-                      />
+                      title="下载 PDF"
+                      href={`${BACKEND_URL}/h5/dd-viewer.html?report_id=${report.report_id}&download_pdf=1`}
+                    />
                     <ActionButton
                       label="附件"
-                      title="查看附件"
-                      href={`${BACKEND_URL}/h5/dd-report-attachments.html?report_id=${report.report_id}`}
+                      title="下载附件"
+                      href={report.attachments && report.attachments.length > 0
+                        ? `${BACKEND_URL}/api/dd-reports/${report.report_id}/attachments/${report.attachments[0].file_id}/download`
+                        : undefined}
                     />
                   </div>
                 </td>

@@ -214,6 +214,8 @@ export interface HistoricalDDReport {
   status_label: string;
   created_at: string;
   updated_at: string;
+  /** 附件列表（含 file_id / file_name） */
+  attachments?: { file_id: string; file_name: string }[];
 }
 
 /** 历史尽调查询结果 */

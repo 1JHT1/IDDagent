@@ -9,9 +9,6 @@ import java.util.*;
 @Component
 public class HistoricalDDQuerySkill {
 
-    private static final String NAME_INDEX_FILE = "data/company_name_index.json";
-    private static final String NAME_INDEX_FALLBACK = "data-template/company_name_index.json";
-
     private final SkillRegistry registry;
     private final DDReportService ddReportService;
 
@@ -31,17 +28,17 @@ public class HistoricalDDQuerySkill {
                 this::handle,
                 Map.of(
                         "company_name", new Skill.SkillParam("string",
-                                "企业名称（必填，支持模糊输入）", false, "北京星河科技有限公司"),
+                                "企业名称（必填，支持模糊输入）", false, ""),
                         "credit_code", new Skill.SkillParam("string",
-                                "企业统一信用代码（必填，与企业名称至少提供一个）", false, "91110108MA01B3XK2P"),
+                                "企业统一信用代码（必填，与企业名称至少提供一个）", false, ""),
                         "date_from", new Skill.SkillParam("string",
-                                "尽调开始日期（可选，格式 yyyy-MM-dd，也支持\"近一个月\"等灵活描述；不提供则默认近三个月）", false, "2025-01-01"),
+                                "尽调开始日期（可选，格式 yyyy-MM-dd，也支持\"近一个月\"等灵活描述；不提供则默认近三个月）", false, ""),
                         "date_to", new Skill.SkillParam("string",
-                                "尽调结束日期（可选，格式 yyyy-MM-dd，不提供则默认当前时间）", false, "2025-12-31"),
+                                "尽调结束日期（可选，格式 yyyy-MM-dd，不提供则默认当前时间）", false, ""),
                         "id_type", new Skill.SkillParam("string",
-                                "证件类型（可选）", false, "身份证"),
+                                "证件类型（可选）", false, ""),
                         "id_number", new Skill.SkillParam("string",
-                                "证件号码（可选）", false, "4403****1234")
+                                "证件号码（可选）", false, "")
                 )
         ));
     }
@@ -55,6 +52,20 @@ public class HistoricalDDQuerySkill {
         String idType = ((String) params.getOrDefault("id_type", "")).trim();
         String idNumber = ((String) params.getOrDefault("id_number", "")).trim();
 
+        // 规范化 LLM 可能直接传入的相对时间描述（如 date_from="近一个月"）
+        {
+            java.time.LocalDate now = java.time.LocalDate.now();
+            Integer months = matchRelativeMonths(dateFrom + " " + dateTo);
+            if (months != null) {
+                dateFrom = now.minusMonths(months).toString();
+                dateTo = now.toString();
+            } else {
+                // 非 yyyy-MM-dd 格式的值直接清空，避免下游解析失败
+                if (!dateFrom.isEmpty() && !dateFrom.matches("\\d{4}-\\d{2}-\\d{2}")) dateFrom = "";
+                if (!dateTo.isEmpty() && !dateTo.matches("\\d{4}-\\d{2}-\\d{2}")) dateTo = "";
+            }
+        }
+
         // 处理 _user_input（来自待处理技能的下一条用户消息）
         String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
         if (!userInput.isEmpty()) {
@@ -67,24 +78,15 @@ public class HistoricalDDQuerySkill {
                         .trim();
                 companyName = cleaned.isEmpty() ? userInput : cleaned;
             }
-            // 从 _user_input 中提取日期/时间区间
-            if (dateFrom.isEmpty() && dateTo.isEmpty()) {
-                // 1. 先尝试解析灵活时间描述（如"近一个月"）
-                java.time.LocalDate now = java.time.LocalDate.now();
-                if (userInput.contains("近一个月") || userInput.contains("一个月内") || userInput.contains("近1个月")) {
-                    dateFrom = now.minusMonths(1).toString();
-                    dateTo = now.toString();
-                } else if (userInput.contains("近三个月") || userInput.contains("三个月内") || userInput.contains("近3个月") || userInput.contains("近一季度")) {
-                    dateFrom = now.minusMonths(3).toString();
-                    dateTo = now.toString();
-                } else if (userInput.contains("近半年") || userInput.contains("半年内") || userInput.contains("六个月内") || userInput.contains("近6个月")) {
-                    dateFrom = now.minusMonths(6).toString();
-                    dateTo = now.toString();
-                } else if (userInput.contains("近一年") || userInput.contains("一年内") || userInput.contains("近1年")) {
-                    dateFrom = now.minusMonths(12).toString();
-                    dateTo = now.toString();
-                } else {
-                    // 2. 尝试匹配 "2024-01-01" 格式的标准日期
+            // 从 _user_input 中提取日期/时间区间（优先于 LLM 传入的日期参数）
+            // 因为 LLM 不知道当前实际时间，计算相对时间（如"近一年"）会出错
+            java.time.LocalDate now = java.time.LocalDate.now();
+            Integer months = matchRelativeMonths(userInput);
+            if (months != null) {
+                dateFrom = now.minusMonths(months).toString();
+                dateTo = now.toString();
+            } else if (dateFrom.isEmpty() && dateTo.isEmpty()) {
+                // 无时间关键词且 LLM 未传日期时，尝试解析 _user_input 中的显式日期
                     java.util.regex.Matcher dateMatcher = java.util.regex.Pattern.compile("(\\d{4}-\\d{2}-\\d{2})")
                             .matcher(userInput);
                     List<String> dates = new ArrayList<>();
@@ -112,7 +114,6 @@ public class HistoricalDDQuerySkill {
                     }
                 }
             }
-        }
 
         // ============================================================
         // 阶段一：检查是否缺少企业名称/编号
@@ -129,6 +130,14 @@ public class HistoricalDDQuerySkill {
         // ============================================================
         if (!companyName.isEmpty() && creditCode.isEmpty()) {
             Map<String, String> nameIndex = loadNameIndex();
+            // 归一化：若传入的是带后缀/全称（如"星河公司""北京星河科技有限公司"），
+            // 先反向匹配到 report.json 中的简称（"星河"），再进行精确匹配
+            for (String idxName : nameIndex.values()) {
+                if (!idxName.equals(companyName) && companyName.contains(idxName)) {
+                    companyName = idxName;
+                    break;
+                }
+            }
             Map<String, Object> resolved = RiskCheckSkill.resolveCompanyMatch(companyName, nameIndex);
 
             // 精确匹配到唯一企业
@@ -153,12 +162,12 @@ public class HistoricalDDQuerySkill {
         }
 
         // ============================================================
-        // 阶段三：有企业信息但缺少时间区间 — 自动生成近三个月
+        // 阶段三：有企业信息但缺少时间区间 — 自动生成近三个月（仅设起始，无上界）
         // ============================================================
         if (dateFrom.isEmpty() && dateTo.isEmpty()) {
             java.time.LocalDate now = java.time.LocalDate.now();
             dateFrom = now.minusMonths(3).toString();
-            dateTo = now.toString();
+            // dateTo 留空，DDReportService 中无上界则不限制
         }
 
         // ============================================================
@@ -206,11 +215,89 @@ public class HistoricalDDQuerySkill {
 
     @SuppressWarnings("unchecked")
     private Map<String, String> loadNameIndex() {
-        // 先尝试 data/ 目录，再尝试 data-template/ 目录
-        Map<String, Object> data = DataLoader.loadJson(NAME_INDEX_FILE);
-        if (data.isEmpty()) {
-            data = DataLoader.loadJson(NAME_INDEX_FALLBACK);
+        // 从 DDReportService 获取 report.json 中的公司名列表，构建名称索引
+        // 由于 report.json 中无 credit_code，使用公司名自身作为 key
+        Map<String, String> index = new LinkedHashMap<>();
+        List<String> names = ddReportService.getAllCompanyNames();
+        for (String name : names) {
+            index.put(name, name);
         }
-        return (Map<String, String>) (Map<?, ?>) data;
+        // 如果 report.json 中无数据，回退到旧文件名索引
+        if (index.isEmpty()) {
+            Map<String, Object> fallback = DataLoader.loadJson("data-template/company_name_index.json");
+            if (!fallback.isEmpty()) {
+                return (Map<String, String>) (Map<?, ?>) fallback;
+            }
+        }
+        return index;
+    }
+
+    /**
+     * 从文本中识别相对时间描述，返回对应的"往前推的月数"。
+     * 无法识别时返回 null。
+     */
+    private Integer matchRelativeMonths(String text) {
+        if (text == null || text.isEmpty()) return null;
+        // 特例：半年 / 季度
+        if (text.contains("半年")) return 6;
+        if (text.contains("季度")) return 3;
+        // 近/最近/过去 + N + 年（相对年数，需前缀以避免误匹配"2024年"绝对日期）
+        java.util.regex.Matcher ym = java.util.regex.Pattern
+                .compile("(?:近|最近|过去)\\s*([0-9]+|[一二两三四五六七八九十]+)\\s*年").matcher(text);
+        if (ym.find()) {
+            Integer n = parseCnNumber(ym.group(1));
+            if (n != null) return n * 12;
+        }
+        // "N年内" 形式（如"一年内"）
+        java.util.regex.Matcher ymIn = java.util.regex.Pattern
+                .compile("([0-9]+|[一二两三四五六七八九十]+)\\s*年内").matcher(text);
+        if (ymIn.find()) {
+            Integer n = parseCnNumber(ymIn.group(1));
+            if (n != null) return n * 12;
+        }
+        // 近/最近/过去 + N + (个)月
+        java.util.regex.Matcher mm = java.util.regex.Pattern
+                .compile("(?:近|最近|过去)\\s*([0-9]+|[一二两三四五六七八九十]+)\\s*个?月").matcher(text);
+        if (mm.find()) {
+            Integer n = parseCnNumber(mm.group(1));
+            if (n != null) return n;
+        }
+        // "N(个)月内" 形式（如"三个月内"）
+        java.util.regex.Matcher mmIn = java.util.regex.Pattern
+                .compile("([0-9]+|[一二两三四五六七八九十]+)\\s*个?月内").matcher(text);
+        if (mmIn.find()) {
+            Integer n = parseCnNumber(mmIn.group(1));
+            if (n != null) return n;
+        }
+        return null;
+    }
+
+    /**
+     * 将阿拉伯数字或中文数字（1~99，含"两"）转为整数。无法识别返回 null。
+     */
+    private Integer parseCnNumber(String s) {
+        if (s == null || s.isEmpty()) return null;
+        if (s.matches("[0-9]+")) {
+            try { return Integer.parseInt(s); } catch (NumberFormatException e) { return null; }
+        }
+        Map<Character, Integer> d = new HashMap<>();
+        d.put('一', 1); d.put('二', 2); d.put('两', 2); d.put('三', 3); d.put('四', 4);
+        d.put('五', 5); d.put('六', 6); d.put('七', 7); d.put('八', 8); d.put('九', 9);
+        if (s.equals("十")) return 10;
+        if (s.length() == 1) return d.get(s.charAt(0));
+        if (s.startsWith("十")) {           // 十一 ~ 十九
+            Integer u = d.get(s.charAt(1));
+            return u == null ? null : 10 + u;
+        }
+        if (s.endsWith("十")) {             // 二十、三十...
+            Integer t = d.get(s.charAt(0));
+            return t == null ? null : t * 10;
+        }
+        if (s.length() == 3 && s.charAt(1) == '十') { // 二十一...
+            Integer t = d.get(s.charAt(0));
+            Integer u = d.get(s.charAt(2));
+            return (t == null || u == null) ? null : t * 10 + u;
+        }
+        return null;
     }
 }

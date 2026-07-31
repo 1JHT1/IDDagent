@@ -28,6 +28,7 @@ public class ReportTaskStore {
         private final String userId;
         private final String sourceFile;
         private final String organization;
+        private final String conversationId;
         private final List<String> attachmentNames;
         private final List<String> attachmentFileIds;
         private volatile String status;          // generating / completed / failed
@@ -41,7 +42,7 @@ public class ReportTaskStore {
 
         public ReportTask(String templateId, String templateName, String companyName,
                           String creditCode, String userId, String sourceFile,
-                          String organization,
+                          String organization, String conversationId,
                           List<String> attachmentNames, List<String> attachmentFileIds) {
             this.reportId = UUID.randomUUID().toString();
             this.templateId = templateId;
@@ -51,6 +52,7 @@ public class ReportTaskStore {
             this.userId = userId;
             this.sourceFile = sourceFile != null ? sourceFile : "";
             this.organization = organization != null ? organization : "";
+            this.conversationId = conversationId != null ? conversationId : "";
             this.attachmentNames = attachmentNames != null ? new CopyOnWriteArrayList<>(attachmentNames) : new CopyOnWriteArrayList<>();
             this.attachmentFileIds = attachmentFileIds != null ? new CopyOnWriteArrayList<>(attachmentFileIds) : new CopyOnWriteArrayList<>();
             this.status = "generating";
@@ -71,6 +73,7 @@ public class ReportTaskStore {
         public String getUserId() { return userId; }
         public String getSourceFile() { return sourceFile; }
         public String getOrganization() { return organization; }
+        public String getConversationId() { return conversationId; }
         public List<String> getAttachmentNames() { return attachmentNames; }
         public List<String> getAttachmentFileIds() { return attachmentFileIds; }
         public String getStatus() { return status; }
@@ -95,10 +98,10 @@ public class ReportTaskStore {
     /** 创建报告任务 */
     public ReportTask createTask(String templateId, String templateName, String companyName,
                                  String creditCode, String userId, String sourceFile,
-                                 String organization,
+                                 String organization, String conversationId,
                                  List<String> attachmentNames, List<String> attachmentFileIds) {
         ReportTask task = new ReportTask(templateId, templateName, companyName,
-                creditCode, userId, sourceFile, organization,
+                creditCode, userId, sourceFile, organization, conversationId,
                 attachmentNames, attachmentFileIds);
         tasks.put(task.getReportId(), task);
         log.info("报告任务已创建: reportId={}, template={}, company={}, sourceFile={}",
@@ -122,6 +125,15 @@ public class ReportTaskStore {
     public List<ReportTask> getTasksByUser(String userId) {
         return tasks.values().stream()
                 .filter(t -> t.getUserId().equals(userId))
+                .toList();
+    }
+
+    /** 按对话 ID 获取所有待处理（生成中+已完成尚未确认）任务 */
+    public List<ReportTask> getTasksByConversation(String conversationId) {
+        if (conversationId == null || conversationId.isEmpty()) return List.of();
+        return tasks.values().stream()
+                .filter(t -> conversationId.equals(t.getConversationId()))
+                .filter(t -> "generating".equals(t.getStatus()) || "completed".equals(t.getStatus()))
                 .toList();
     }
 }

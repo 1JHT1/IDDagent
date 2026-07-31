@@ -569,6 +569,7 @@
 
     const companyName = document.getElementById('uploadCompanyName').value.trim();
     const creditCode = document.getElementById('uploadCreditCode').value.trim();
+    const convIdFromStorage = sessionStorage.getItem('currentConversationId') || '';
 
     // 调用后端创建报告任务
     startBtn.disabled = true;
@@ -586,6 +587,7 @@
           creditCode: creditCode,
           sourceFile: selectedTemplate.sourceFile || '',
           organization: selectedTemplate.organization || browseOrg || '',
+          conversationId: convIdFromStorage,
           attachmentNames: succeeded.map(f => f.name),
           attachmentFileIds: succeeded.map(f => f.fileId)
         })
@@ -733,21 +735,39 @@
       });
       if (!res.ok) { const err = await res.json(); throw new Error(err.message || err.error); }
 
-      showToast('报告生成已启动，正在返回对话...');
-      // 直接跳转到聊天页并携带 reportId 和 conversationId
-      setTimeout(() => {
-        const chatOrigin = window.location.protocol + '//' + window.location.hostname + ':3000';
-        const convId = sessionStorage.getItem('currentConversationId') || '';
-        const params = new URLSearchParams();
-        params.set('reportId', rid);
-        if (convId) params.set('convId', convId);
-        window.location.href = chatOrigin + '?' + params.toString();
-      }, 800);
+      // 不再跳转，改为显示成功覆盖层，然后自动关闭当前页
+      showGenerateSuccessOverlay();
+      // 先尝试直接关闭，若失败则重定向到自关闭页面
+      setTimeout(function() {
+        try { window.close(); } catch(e) {}
+        setTimeout(function() {
+          if (!window.closed) {
+            window.location.replace('/h5/auto-close.html');
+          }
+        }, 500);
+      }, 1500);
+
     } catch (err) {
       showToast('操作失败: ' + err.message, true);
       btn.disabled = false;
       btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg> 确认并生成报告';
     }
+  }
+
+  /** 生成报告成功后显示覆盖层，提示返回原聊天窗口 */
+  function showGenerateSuccessOverlay() {
+    var overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:white;border-radius:16px;padding:40px 48px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,0.2);max-width:400px;width:90%';
+    box.innerHTML = '<div style="font-size:56px;margin-bottom:16px">🚀</div>'
+      + '<div style="font-size:20px;font-weight:700;color:#111827;margin-bottom:8px">报告正在生成中</div>'
+      + '<div style="font-size:14px;color:#6b7280;line-height:1.6;margin-bottom:24px">页面即将自动关闭<br>请返回原聊天窗口查看生成进度</div>';
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
   }
 
   async function switchToReportPhase(rid) {
@@ -921,8 +941,34 @@
   function esc(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
   function escAttr(str) { return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
   function printReport() {
-    // 打印完成后记录日志到 data/report.json
     window.onafterprint = function() {
+      showPrintConfirmModal();
+      window.onafterprint = null;
+    };
+    window.print();
+  }
+
+  /** 打印完成后弹出确认弹窗，用户确认后才记录日志 */
+  function showPrintConfirmModal() {
+    var overlay = document.createElement('div');
+    overlay.id = 'printConfirmOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.4);z-index:9999;display:flex;align-items:center;justify-content:center';
+    overlay.onclick = function(e) { if (e.target === overlay) overlay.remove(); };
+
+    var box = document.createElement('div');
+    box.style.cssText = 'background:white;border-radius:12px;padding:28px 32px;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,0.15);max-width:360px;width:90%';
+    box.innerHTML = '<div style="font-size:40px;margin-bottom:12px">🖨️</div>'
+      + '<div style="font-size:16px;font-weight:600;color:#111827;margin-bottom:6px">是否已成功打印？</div>'
+      + '<div style="font-size:13px;color:#6b7280;margin-bottom:20px">确认后系统将记录本次打印日志</div>'
+      + '<div style="display:flex;gap:10px;justify-content:center">'
+      + '<button id="printConfirmYes" style="padding:10px 24px;border:none;border-radius:8px;background:#059669;color:white;font-size:14px;font-weight:500;cursor:pointer">✅ 已成功打印</button>'
+      + '<button id="printConfirmNo" style="padding:10px 24px;border:none;border-radius:8px;background:#f3f4f6;color:#6b7280;font-size:14px;cursor:pointer">取消</button>'
+      + '</div>';
+
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+
+    document.getElementById('printConfirmYes').onclick = function() {
       var rid = window._reportId || '';
       if (rid) {
         fetch('/api/generate-report/' + rid + '/print-log', {
@@ -931,9 +977,11 @@
           body: '{}'
         }).catch(function(err) { console.error('打印记录失败:', err); });
       }
-      window.onafterprint = null;
+      overlay.remove();
     };
-    window.print();
+    document.getElementById('printConfirmNo').onclick = function() {
+      overlay.remove();
+    };
   }
 </script>
 </body>

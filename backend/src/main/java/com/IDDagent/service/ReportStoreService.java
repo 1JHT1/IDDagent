@@ -14,6 +14,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -43,7 +44,8 @@ public class ReportStoreService {
     /** 保存生成的完整报告到 data/report.json（含 markdown 内容，供他人直接读取） */
     public static synchronized void saveReportJson(
             String reportId, String companyName, String templateName, String organization,
-            String content, Instant completedAt) {
+            String content, Instant completedAt,
+            List<Map<String, Object>> attachments) {
         try {
             Path path = Paths.get(PRINT_LOG_FILE);
             Files.createDirectories(path.getParent());
@@ -79,6 +81,7 @@ public class ReportStoreService {
             entry.put("company_name", companyName != null ? companyName : "");
             entry.put("institution", organization != null ? organization : "");
             entry.put("content", content != null ? content : "");
+            entry.put("attachments", attachments != null ? attachments : List.of());
 
             if (existingKey != null) {
                 // 已存在 → 更新（保留原 key 防止时间戳变化）

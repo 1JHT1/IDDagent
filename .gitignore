@@ -1,18 +1,32 @@
-# 项目排除路径
+# ===== 构建输出 =====
 /backend/target/
+/frontend/dist/
+
+# ===== 环境变量与密钥（禁止提交！） =====
+.env
+*.env
 backend/.env
 backend/src/main/resources/application-local.yml
+application-local.yml
 
-# 上传的敏感文件（营业执照、身份证等）
-static/uploads/
+# ===== 运行时数据 =====
+/backend/data/
+/backend/static/uploads/
+/static/uploads/
 
-# Node.js
+# ===== Node.js =====
 node_modules/
 node/
 
-# IDE
+# ===== IDE =====
 .idea/
 *.iml
 
-# 日志
+# ===== 日志 =====
 *.log
+
+# ===== 操作系统 =====
+.DS_Store
+Thumbs.db
+*.swp
+*.swo

@@ -10,6 +10,7 @@ backend/src/main/resources/application-local.yml
 application-local.yml
 
 # ===== 运行时数据 =====
+/data/
 /backend/data/
 /backend/static/uploads/
 /static/uploads/

@@ -241,26 +241,13 @@ public class ReportController {
         if (!"completed".equals(task.getStatus())) {
             return ResponseEntity.status(400).body(Map.of("error", "报告尚未生成完成"));
         }
-        // 构建附件文件名列表
-        List<Map<String, Object>> attachments = new ArrayList<>();
-        List<String> fileIds = task.getAttachmentFileIds();
-        List<String> names = task.getAttachmentNames();
-        if (fileIds != null && names != null) {
-            for (int i = 0; i < fileIds.size() && i < names.size(); i++) {
-                Map<String, Object> att = new LinkedHashMap<>();
-                att.put("file_id", fileIds.get(i));
-                att.put("file_name", names.get(i));
-                attachments.add(att);
-            }
-        }
         ReportStoreService.saveReportJson(
                 task.getReportId(),
                 task.getCompanyName(),
                 task.getTemplateName(),
                 task.getOrganization() != null ? task.getOrganization() : "",
                 task.getContent(),
-                task.getCompletedAt(),
-                attachments
+                task.getCompletedAt()
         );
         return ResponseEntity.ok(Map.of("success", true));
     }

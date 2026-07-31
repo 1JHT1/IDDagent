@@ -200,53 +200,6 @@ export interface InformationCheckResult {
 }
 
 // ============================================================
-// 历史尽调报告查询数据类型
-// ============================================================
-
-/** 历史尽调报告记录 */
-export interface HistoricalDDReport {
-  report_id: string;
-  institution: string;
-  company_name: string;
-  name: string;
-  template_type: string;
-  status: 'completed' | 'incomplete';
-  status_label: string;
-  created_at: string;
-  updated_at: string;
-  /** 附件列表（含 file_id / file_name） */
-  attachments?: { file_id: string; file_name: string }[];
-}
-
-/** 历史尽调查询结果 */
-export interface HistoricalDDQueryResult {
-  action: 'result' | 'need_date_range' | 'not_found';
-  company_name?: string;
-  credit_code?: string;
-  total_count: number;
-  query_params?: {
-    date_from?: string;
-    date_to?: string;
-  };
-  records?: HistoricalDDReport[];
-  message?: string;
-}
-
-/** 企业名称候选 */
-export interface CompanyNameCandidate {
-  credit_code: string;
-  company_name: string;
-}
-
-/** 企业名称候选事件数据 */
-export interface CompanyNameCandidatesData {
-  action: 'candidates';
-  keyword: string;
-  message: string;
-  options: CompanyNameCandidate[];
-}
-
-// ============================================================
 // SSE 事件类型定义
 // ============================================================
 
@@ -265,9 +218,6 @@ export type SSEEventType =
   | 'account_opening_result'
   | 'information_check_result'
   | 'follow_up_suggestion'
-  | 'historical_dd_query_result'
-  | 'company_name_candidates'
-  | 'need_date_range'
   | 'done'
   | 'error';
 
@@ -277,7 +227,8 @@ export interface SSEEvent {
   content?: string;
   message_id?: string;
   conversation_id?: string;
-  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | OutreachResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData;
+  data?: RiskCheckResult | OutreachResult | ReportGenerateResult;
+  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | OutreachResult | ProductRecommendResult | ProductMatchResult | AccountOpeningResult | InformationCheckResult;
 }
 
 // ============================================================

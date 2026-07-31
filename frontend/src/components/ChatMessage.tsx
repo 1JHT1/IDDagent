@@ -5,10 +5,11 @@ import type { ChatMessage, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
 import RiskCheckCard from './RiskCheckCard';
 import OutreachCard from './OutreachCard';
-import HistoricalDDQueryCard from './HistoricalDDQueryCard';
+import ProductRecommendCard from './ProductRecommendCard';
+import ProductMatchCard from './ProductMatchCard';
+import AccountOpeningCard from './AccountOpeningCard';
 import InformationCheckCard from './InformationCheckCard';
 import ReportGenerateCard from './ReportGenerateCard';
-import CompanyNameSelector from './CompanyNameSelector';
 import FollowUpChip from './FollowUpChip';
 
 interface ChatMessageProps {
@@ -29,9 +30,6 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   const parts: string[] = [];
   const label = extra._skill_name
     ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
-        recommend_products: '产品智荐', match_products_intelligently: '产品智能匹配',
-        open_corporate_account: '对公账户开户',
-        query_due_diligence_reports: '历史尽调报告' ,
         generate_report: '报告生成' }[extra._skill_name as string]
     : undefined;
   if (label) parts.push(`【${label}】`);
@@ -43,7 +41,6 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   if (extra.needs_summary) parts.push(`需求摘要：${extra.needs_summary}`);
   if (extra.message) parts.push(`说明：${extra.message}`);
   if (extra.keyword) parts.push(`关键词：${extra.keyword}`);
-  if (extra.total_count) parts.push(`查询结果：共 ${extra.total_count} 条记录`);
   return parts.join('\n');
 }
 
@@ -145,6 +142,10 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
   const isUser = message.role === 'user';
   const streaming = isStreamingMessage(message);
 
+  const handleRequestDetail = (_sourceId: string, sourceName: string) => {
+    onSendMessage?.(`查看${sourceName}的客户详情`);
+  };
+
   // 决定复制内容：纯文本直接用 content，卡片消息从 extra 提取
   const copyText = !isUser && message.extra
     ? (getExtraCopyText(message.extra) || message.content || '')
@@ -176,9 +177,6 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         if (skillName === 'check_company_risk') {
           return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
-        if (skillName === 'query_due_diligence_reports') {
-          return <HistoricalDDQueryCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
         if (skillName === 'verify_business_license') {
           return <InformationCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
@@ -191,21 +189,6 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
           return <OutreachCard data={message.extra} onSendMessage={onSendMessage} />;
         }
         return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
-      }
-
-      // 候选企业选择器（企业名匹配到多条结果时让用户选择）
-      if (extraAction === 'company_name_candidates') {
-        const options = message.extra.options as { credit_code: string; company_name: string }[] | undefined;
-        if (options && options.length > 0) {
-          return (
-            <CompanyNameSelector
-              options={options}
-              message={message.extra.message as string}
-              keyword={message.extra.keyword as string}
-              onSendMessage={onSendMessage}
-            />
-          );
-        }
       }
 
       // 无匹配卡片时回退到 Markdown 渲染

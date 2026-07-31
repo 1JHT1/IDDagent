@@ -11,12 +11,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.util.*;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class CoordinatorService {
@@ -173,10 +175,16 @@ public class CoordinatorService {
     private String buildSystemPrompt() {
         String skillsPrompt = skillRegistry.getSkillsPrompt();
         return """
-                你是一个任务规划主控智能体。分析用户输入，判断意图并做出路由决策。
+                你是一个任务规划主控智能体。分析用户输入（含对话历史上下文），判断意图并做出路由决策。
 
                 ## 上下文记忆
                 系统维护了当前会话的上下文记忆（最近操作的企业主体）。即使用户没有在当前消息中明确提及企业名称，只要意图明确（如「帮我准备拓户材料」「推荐产品」「查下风险」），你仍然应该路由到对应的技能。系统会自动从上下文记忆中补充缺失的企业参数。
+
+                ## 对话历史
+                以下是当前会话的最近对话历史（user/assistant 消息）。请结合历史消息理解用户意图：
+                - 如果用户说"换一家"、"再看另一家"、"查另一家"等 → 表示想切换企业，应匹配到最近使用的同类型技能
+                - 如果用户说"再查2024年的"、"换个时间"等 → 表示想变更查询条件，应匹配到最近使用的同类型技能
+                - 如果用户说的内容与最近的技能不相关 → 按正常规则判断为新意图
 
                 ## 决策规则（严格遵守）
 
@@ -206,6 +214,8 @@ public class CoordinatorService {
                     a. 如果上一轮助手消息是技能结果（标注为[系统返回了结构化卡片结果]），且当前用户输入简短（如仅为企业名称、确认词等），则应该路由到**上一轮相同的技能**，并将用户输入作为参数补充。例如：上轮路由到 verify_business_license 并返回了卡片询问企业名称，本轮用户输入"小米公司"，应继续路由到 verify_business_license，传递 company_name="小米公司"。
                     b. 如果上轮路由为 chat（普通对话），则按正常规则判断本轮意图。
                     c. 如果用户明确表达了新的意图（无论上轮是什么），按新意图路由。
+
+                8. 当用户输入中包含"历史尽调"、"查询历史"、"尽调记录"、"历史报告"、"查一下之前"、"以往的尽调"、"历史查询"、"查看历史"、"尽调历史"、"以前的报告"等关键词时，必须匹配为 query_due_diligence_reports 技能。
 
                 ## 可用技能
 

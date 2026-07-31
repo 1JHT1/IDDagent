@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>报告附件管理</title>
+  <style>
+    :root {
+      --blue: #1677ff; --blue-hover: #4096ff; --red: #ff4d4f;
+      --gray-50: #fafafa; --gray-100: #f5f5f5; --gray-200: #f0f0f0;
+      --gray-500: #8c8c8c; --gray-700: #434343; --gray-900: #1a1a2e;
+      --radius: 14px; --shadow: 0 2px 12px rgba(0,0,0,.06);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+      background: linear-gradient(180deg, #e8edf5 0%, #f0f2f5 120px);
+      color: var(--gray-900); min-height: 100vh; -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 700px; margin: 0 auto; padding: 0 16px 40px; }
+
+    .page-header { text-align: center; padding: 32px 16px 20px; }
+    .page-header .icon { font-size: 36px; margin-bottom: 8px; }
+    .page-header h1 { font-size: 22px; font-weight: 800; }
+    .page-header .meta { font-size: 12px; color: var(--gray-500); margin-top: 4px; }
+
+    .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; padding: 15px 18px; border-bottom: 1px solid var(--gray-200); font-size: 15px; font-weight: 700; }
+    .card-header .left { display: flex; align-items: center; gap: 10px; }
+    .card-body { padding: 16px 18px; }
+
+    /* ====== Upload Area ====== */
+    .upload-area {
+      border: 2px dashed var(--gray-200); border-radius: 12px; padding: 30px 20px;
+      text-align: center; cursor: pointer; transition: all .2s;
+      background: var(--gray-50); margin-bottom: 16px;
+    }
+    .upload-area:hover, .upload-area.dragover {
+      border-color: var(--blue); background: #e6f4ff;
+    }
+    .upload-area .upload-icon { font-size: 36px; margin-bottom: 8px; }
+    .upload-area .upload-text { font-size: 14px; color: var(--gray-700); }
+    .upload-area .upload-hint { font-size: 11px; color: var(--gray-500); margin-top: 4px; }
+    .upload-area input[type="file"] { display: none; }
+
+    /* ====== Attachment List ====== */
+    .att-list { display: flex; flex-direction: column; gap: 8px; }
+    .att-item {
+      display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+      background: var(--gray-50); border-radius: 10px; border: 1px solid var(--gray-200);
+      transition: background .15s;
+    }
+    .att-item:hover { background: #f0f5ff; }
+    .att-item .att-icon { font-size: 24px; flex-shrink: 0; }
+    .att-item .att-info { flex: 1; min-width: 0; }
+    .att-item .att-name { font-size: 13px; font-weight: 500; color: var(--gray-900); }
+    .att-item .att-meta { font-size: 11px; color: var(--gray-500); margin-top: 1px; }
+    .att-item .att-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .att-item .att-actions button {
+      padding: 6px 12px; border: none; border-radius: 6px; font-size: 12px; cursor: pointer; transition: all .15s;
+    }
+    .att-item .att-actions .btn-del { background: #fff2f0; color: var(--red); }
+    .att-item .att-actions .btn-del:hover { background: #ffccc7; }
+    .att-item .att-actions .btn-view { background: #e6f4ff; color: var(--blue); }
+    .att-item .att-actions .btn-view:hover { background: #bae0ff; }
+
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--gray-500); }
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 8px; }
+
+    .toast {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      padding: 12px 24px; border-radius: 10px; font-size: 14px; font-weight: 500;
+      z-index: 1000; opacity: 0; transition: opacity .3s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.success { background: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+    .toast.error { background: #fff2f0; color: #cf1322; border: 1px solid #ffa39e; }
+
+    .page-loading { text-align: center; padding: 100px 20px; color: var(--gray-500); }
+    .spinner { width: 40px; height: 40px; border: 3px solid var(--gray-200); border-top-color: var(--blue); border-radius: 50%; animation: spin .8s linear infinite; margin: 0 auto 16px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .page-error { text-align: center; padding: 80px 20px; }
+    .page-error .err-icon { font-size: 52px; margin-bottom: 12px; }
+    .page-error .err-msg { font-size: 14px; color: #595959; }
+    .page-error .retry-btn { margin-top: 16px; padding: 8px 24px; border-radius: 20px; border: none; background: var(--blue); color: #fff; font-size: 13px; cursor: pointer; }
+
+    .back-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--blue); text-decoration: none; padding: 8px 0; }
+    .footer { text-align: center; padding: 20px 0; font-size: 11px; color: #bfbfbf; }
+  </style>
+</head>
+<body>
+  <div class="container" id="app"></div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var id = params.get('report_id');
+    var root = document.getElementById('app');
+    var toastEl = document.getElementById('toast');
+    var toastTimer = null;
+
+    if (!id) {
+      root.innerHTML = '<div class="page-error"><div class="err-icon">❌</div><div class="err-msg">缺少报告 ID 参数</div></div>';
+      return;
+    }
+
+    root.innerHTML = '<div class="page-loading"><div class="spinner"></div><p style="color:#8c8c8c;font-size:13px;">正在加载附件列表...</p></div>';
+    loadAttachments();
+
+    function showToast(msg, type) {
+      toastEl.textContent = msg;
+      toastEl.className = 'toast ' + type + ' show';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function() { toastEl.className = 'toast ' + type; }, 2500);
+    }
+
+    function loadAttachments() {
+      fetch('/api/dd-reports/' + encodeURIComponent(id) + '/attachments', { credentials: 'include' })
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(render)
+        .catch(function(e) {
+          root.innerHTML = '<div class="page-error"><div class="err-icon">⚠️</div><div class="err-msg">附件加载失败：' + e.message
+            + '</div><button class="retry-btn" onclick="location.reload()">重新加载</button></div>';
+        });
+    }
+
+    function formatSize(bytes) {
+      if (!bytes) return '0 B';
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function render() {
+      var attachments = arguments[0] || [];
+
+      var html = ''
+
+        /* ====== Header ====== */
+        + '<div class="page-header">'
+        + '<div class="icon">📎</div>'
+        + '<h1>报告附件管理</h1>'
+        + '<div class="meta">报告编号：' + id + '　|　共 ' + attachments.length + ' 个附件</div>'
+        + '</div>'
+
+        /* ====== Upload Area ====== */
+        + '<div class="card">'
+        + '<div class="card-header"><div class="left"><span>📤</span>上传附件</div></div>'
+        + '<div class="card-body">'
+        + '<div class="upload-area" id="uploadArea" onclick="document.getElementById(\'fileInput\').click()">'
+        + '<div class="upload-icon">📄</div>'
+        + '<div class="upload-text">点击选择文件或拖拽文件到此处</div>'
+        + '<div class="upload-hint">支持图片、PDF、Word、Excel、TXT 等格式，单个文件最大 20MB</div>'
+        + '<input type="file" id="fileInput" onchange="handleUpload(this)" />'
+        + '</div>'
+        + '</div></div>'
+
+        /* ====== Attachment List ====== */
+        + '<div class="card">'
+        + '<div class="card-header"><div class="left"><span>📋</span>附件清单（' + attachments.length + '）</div></div>'
+        + '<div class="card-body">'
+        + (attachments.length > 0
+          ? '<div class="att-list">' + attachments.map(function(a, i) {
+              var isImage = a.type && a.type.startsWith('image/');
+              return '<div class="att-item" id="att-' + i + '">'
+                + '<span class="att-icon">' + (isImage ? '🖼️' : '📄') + '</span>'
+                + '<div class="att-info">'
+                + '<div class="att-name">' + esc(a.name || '未知文件') + '</div>'
+                + '<div class="att-meta">' + formatSize(a.size) + '　|　' + (a.uploaded_at ? a.uploaded_at.replace('T', ' ').substring(0, 16) : '-') + '</div>'
+                + '</div>'
+                + '<div class="att-actions">'
+                + '<button class="btn-view" onclick="window.open(\'' + esc(a.url || '') + '\',\'_blank\')">查看</button>'
+                + '<button class="btn-del" onclick="deleteAttachment(' + i + ')">删除</button>'
+                + '</div></div>';
+            }).join('') + '</div>'
+          : '<div class="empty-state"><div class="empty-icon">📭</div><div>暂无附件，请点击上方区域上传</div></div>')
+        + '</div></div>'
+
+        /* ====== Footer ====== */
+        + '<div class="footer">'
+        + '<a class="back-link" href="javascript:history.back()">← 返回</a>'
+        + '</div>';
+
+      root.innerHTML = html;
+
+      // Drag & drop support
+      var area = document.getElementById('uploadArea');
+      if (area) {
+        area.addEventListener('dragover', function(e) {
+          e.preventDefault();
+          area.classList.add('dragover');
+        });
+        area.addEventListener('dragleave', function() {
+          area.classList.remove('dragover');
+        });
+        area.addEventListener('drop', function(e) {
+          e.preventDefault();
+          area.classList.remove('dragover');
+          if (e.dataTransfer.files.length > 0) {
+            doUpload(e.dataTransfer.files[0]);
+          }
+        });
+      }
+    }
+
+    function esc(s) {
+      if (!s) return '';
+      return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    window.handleUpload = function(input) {
+      if (input.files.length > 0) {
+        doUpload(input.files[0]);
+        input.value = '';
+      }
+    };
+
+    function doUpload(file) {
+      if (file.size > 20 * 1024 * 1024) {
+        showToast('❌ 文件大小超过 20MB 限制', 'error');
+        return;
+      }
+
+      var formData = new FormData();
+      formData.append('file', file);
+
+      fetch('/api/dd-reports/' + encodeURIComponent(id) + '/attachments', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include'
+      })
+      .then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      })
+      .then(function(res) {
+        showToast('✅ ' + (res.message || '上传成功'), 'success');
+        loadAttachments();
+      })
+      .catch(function(e) {
+        showToast('❌ 上传失败：' + e.message, 'error');
+      });
+    }
+
+    window.deleteAttachment = function(index) {
+      if (!confirm('确定要删除该附件吗？')) return;
+
+      // Get fileId from the current attachment data
+      // We need to fetch attachments again to get the file_id
+      fetch('/api/dd-reports/' + encodeURIComponent(id) + '/attachments', { credentials: 'include' })
+        .then(function(r) { return r.json(); })
+        .then(function(atts) {
+          var att = atts[index];
+          if (!att || !att.file_id) {
+            showToast('❌ 无法获取附件信息', 'error');
+            return;
+          }
+          return fetch('/api/dd-reports/' + encodeURIComponent(id) + '/attachments/' + encodeURIComponent(att.file_id), {
+            method: 'DELETE',
+            credentials: 'include'
+          });
+        })
+        .then(function(r) {
+          if (!r.ok) throw new Error('HTTP ' + r.status);
+          return r.json();
+        })
+        .then(function(res) {
+          showToast('✅ ' + (res.message || '删除成功'), 'success');
+          loadAttachments();
+        })
+        .catch(function(e) {
+          showToast('❌ 删除失败：' + e.message, 'error');
+        });
+    };
+  })();
+  </script>
+</body>
+</html>

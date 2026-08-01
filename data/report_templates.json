@@ -66,7 +66,7 @@
     {
       "id": "business_license_analysis",
       "name": "营业执照信息解析",
-      "organization": "湖北分行",
+      "organization": "北京分行",
       "description": "上传营业执照图片，自动识别并提取统一信用代码、企业名称、法人代表、经营范围等核心信息，生成企业基础档案",
       "icon": "📇",
       "accepted_types": [".pdf", ".docx", ".xlsx", ".xls", ".md", ".png", ".jpg", ".jpeg"],

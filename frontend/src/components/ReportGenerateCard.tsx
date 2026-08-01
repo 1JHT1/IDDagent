@@ -137,7 +137,7 @@ const RedirectCard: React.FC<{
 };
 
 // ============================================================
-// 进度卡片（实时轮询报告生成状态）
+// 进度卡片（实时轮询报告生成状态 + 动态阶段展示）
 // ============================================================
 interface ReportStatus {
   reportId: string;
@@ -146,6 +146,32 @@ interface ReportStatus {
   status: 'generating' | 'completed' | 'failed';
   progress: number;
   errorMessage: string;
+}
+
+/** 生成阶段定义（按 progress 阈值映射） */
+const GENERATE_STAGES = [
+  { label: '加载模板', threshold: 20 },
+  { label: '解析附件', threshold: 35 },
+  { label: '提取数据', threshold: 50 },
+  { label: '生成内容', threshold: 80 },
+];
+
+/** 根据 progress 返回当前进行中的阶段下标（全部完成返回 length） */
+function getCurrentStageIndex(progress: number): number {
+  for (let i = 0; i < GENERATE_STAGES.length; i++) {
+    if (progress < GENERATE_STAGES[i].threshold) return i;
+  }
+  return GENERATE_STAGES.length;
+}
+
+/** 动态阶段状态文字：优先使用后端下发的 errorMessage（后端实时更新阶段描述） */
+function getStageText(status: ReportStatus | null): string {
+  if (!status) return '正在连接生成服务...';
+  if (status.status === 'failed') return status.errorMessage || '生成失败';
+  if (status.status === 'completed') return '报告已生成完成';
+  const stage = GENERATE_STAGES[getCurrentStageIndex(status.progress)];
+  if (status.errorMessage) return status.errorMessage;
+  return stage ? stage.label + '中...' : '正在生成报告...';
 }
 
 const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
@@ -194,19 +220,57 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
 
   const isCompleted = status?.status === 'completed';
   const isFailed = status?.status === 'failed';
+  const isGenerating = status?.status === 'generating';
+  const progress = status?.progress || 0;
+  const currentStage = getCurrentStageIndex(progress);
+  const stageText = getStageText(status);
 
   return (
     <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
-      {/* 头部 */}
-      <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 flex items-center gap-2">
-        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        <span className="text-sm font-semibold text-gray-700">报告生成中</span>
-        {status?.templateName && (
-          <span className="text-xs text-gray-400">· {status.templateName}</span>
-        )}
+      {/* 头部：动态生成状态 */}
+      <div className="px-4 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
+        <div className="flex items-center gap-2">
+          <svg
+            className={`w-4 h-4 ${isGenerating ? 'text-blue-600 animate-spin' : isCompleted ? 'text-green-500' : isFailed ? 'text-red-500' : 'text-blue-600'}`}
+            fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className={`text-sm font-semibold ${isCompleted ? 'text-green-700' : isFailed ? 'text-red-600' : 'text-gray-700'}`}>
+                {!status ? '正在连接'
+                  : isCompleted ? '报告生成完成'
+                  : isFailed ? '报告生成失败'
+                  : '报告生成中'}
+              </span>
+              {/* 三点脉冲动画（生成中） */}
+              {isGenerating && (
+                <span className="flex items-center gap-0.5">
+                  <span className="status-dot w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span className="status-dot w-1.5 h-1.5 rounded-full bg-blue-500" />
+                  <span className="status-dot w-1.5 h-1.5 rounded-full bg-blue-500" />
+                </span>
+              )}
+              {status?.templateName && (
+                <span className="text-xs text-gray-400 truncate">· {status.templateName}</span>
+              )}
+            </div>
+            {/* 动态阶段文字：切换时淡入滑动 */}
+            <p
+              key={stageText}
+              className={`status-fade text-xs mt-0.5 truncate ${isFailed ? 'text-red-500' : isCompleted ? 'text-green-600' : 'text-blue-600'}`}
+            >
+              {stageText}
+            </p>
+          </div>
+
+          {/* 百分比（生成中高亮跳动） */}
+          {isGenerating && (
+            <span className="text-sm font-bold text-blue-600 tabular-nums">{progress}%</span>
+          )}
+        </div>
       </div>
 
       {/* 主体 */}
@@ -215,13 +279,41 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
           <p className="text-xs text-gray-500 mb-2">企业：{status.companyName}</p>
         )}
 
-        {/* 进度条 */}
+        {/* 生成中：阶段胶囊指示器 */}
+        {isGenerating && status && (
+          <div className="flex items-center gap-1 flex-wrap mb-2">
+            {GENERATE_STAGES.map((s, i) => {
+              const done = progress >= s.threshold;
+              const active = !done && currentStage === i;
+              return (
+                <React.Fragment key={s.label}>
+                  <span
+                    className={`px-2 py-0.5 rounded-full text-[10px] font-medium transition-all duration-300 ${
+                      done
+                        ? 'bg-green-100 text-green-700'
+                        : active
+                        ? 'bg-blue-600 text-white animate-pulse'
+                        : 'bg-gray-100 text-gray-400'
+                    }`}
+                  >
+                    {done ? '✓ ' : active ? '● ' : '○ '}{s.label}
+                  </span>
+                  {i < GENERATE_STAGES.length - 1 && (
+                    <span className="text-[10px] text-gray-300">→</span>
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 进度条（生成中带条纹流动效果） */}
         <div className="w-full bg-gray-100 rounded-full h-2 mb-2 overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${
-              isCompleted ? 'bg-green-500' : isFailed ? 'bg-red-500' : 'bg-blue-500'
+              isCompleted ? 'bg-green-500' : isFailed ? 'bg-red-500' : 'bg-blue-500 progress-stripes'
             }`}
-            style={{ width: `${Math.max(status?.progress || 0, 5)}%` }}
+            style={{ width: `${Math.max(progress, 5)}%` }}
           />
         </div>
 
@@ -232,7 +324,7 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
               : isFailed ? (status.errorMessage || '生成失败')
               : (status.errorMessage || '正在生成报告...')}
           </span>
-          <span className="text-xs text-gray-400">{status?.progress || 0}%</span>
+          <span className="text-xs text-gray-400">{progress}%</span>
         </div>
 
         {/* 完成按钮组 */}

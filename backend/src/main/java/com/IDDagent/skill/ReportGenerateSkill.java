@@ -1,5 +1,6 @@
 package com.IDDagent.skill;
 
+import com.IDDagent.service.UserStoreService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,9 +15,11 @@ public class ReportGenerateSkill {
     private static final String TEMPLATES_FILE = "data/report_templates.json";
 
     private final SkillRegistry registry;
+    private final UserStoreService userStoreService;
 
-    public ReportGenerateSkill(SkillRegistry registry) {
+    public ReportGenerateSkill(SkillRegistry registry, UserStoreService userStoreService) {
         this.registry = registry;
+        this.userStoreService = userStoreService;
     }
 
     @PostConstruct
@@ -36,7 +39,14 @@ public class ReportGenerateSkill {
 
     private Map<String, Object> handle(String userId, Map<String, Object> params) {
         String templateId = (String) params.getOrDefault("template_id", "");
+        // 机构优先取参数（协调器提取），为空时从用户所属机构兑底
         String organization = (String) params.getOrDefault("organization", "");
+        if (organization == null || organization.isEmpty()) {
+            organization = userStoreService.getUser(userId)
+                    .map(u -> u.getOrDefault("bank_institution", ""))
+                    .orElse("");
+            log.info("报告技能使用用户机构: userId={}, organization={}", userId, organization);
+        }
 
         // 没有模板ID → 返回模板列表让用户选择（按机构过滤）
         if (templateId.isEmpty()) {

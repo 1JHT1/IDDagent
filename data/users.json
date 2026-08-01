@@ -19,5 +19,12 @@
     "created_at" : "2026-07-21T02:01:25.662220700Z",
     "id" : "fc17c659-99a3-4898-af45-bf86c896dd8c",
     "username" : "1"
+  },
+  "6fedb07a-7c00-43b6-86bc-c690dad544bc" : {
+    "password" : "c421428243d03a72a755e6de5a76a872$5a497e23bf5de0fae918d93137c3639dcd68e3db6d3d3c8e91ecd2aa5a25f872",
+    "bank_institution" : "北京分行",
+    "created_at" : "2026-08-01T03:10:36.747415700Z",
+    "id" : "6fedb07a-7c00-43b6-86bc-c690dad544bc",
+    "username" : "JHT2"
   }
 }

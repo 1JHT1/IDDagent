@@ -145,15 +145,13 @@
 <div class="container">
 
   <!-- ========== 阶段0：模板选择 ========== -->
-  <div id="phaseTemplates">
+  <div id="phaseTemplates" style="display:none">
     <div class="status-bar">
       <div class="step active"><div class="step-dot">1</div>选择模板</div>
       <div class="step-line"></div>
       <div class="step"><div class="step-dot">2</div>上传附件</div>
       <div class="step-line"></div>
       <div class="step"><div class="step-dot">3</div>数据确认</div>
-      <div class="step-line"></div>
-      <div class="step"><div class="step-dot">4</div>报告生成</div>
     </div>
     <div class="editor-card">
       <div class="header">
@@ -177,8 +175,6 @@
       <div class="step active"><div class="step-dot">2</div>上传附件</div>
       <div class="step-line"></div>
       <div class="step"><div class="step-dot">3</div>数据确认</div>
-      <div class="step-line"></div>
-      <div class="step"><div class="step-dot">4</div>报告生成</div>
     </div>
     <div class="editor-card">
       <div class="header">
@@ -230,8 +226,6 @@
       <div class="step done" style="cursor:pointer" onclick="backToUpload()" title="返回上传附件"><div class="step-dot">✓</div>上传附件 ←</div>
       <div class="step-line"></div>
       <div class="step active"><div class="step-dot">3</div>数据确认</div>
-      <div class="step-line"></div>
-      <div class="step"><div class="step-dot">4</div>报告生成</div>
     </div>
     <div class="editor-card">
       <div class="header">
@@ -338,8 +332,11 @@
     document.getElementById('uploadTemplateName').textContent = '上传附件 - ' + (templateName || '报告');
     phaseTemplates.style.display = 'none';
     phaseUpload.style.display = 'block';
-    // 异步加载模板详情（获取 sourceFile）
-    fetch('/api/generate-report/templates').then(r => r.json()).then(templates => {
+    // 异步加载模板详情（获取 sourceFile），只查询当前机构下的模板
+    const detailUrl = browseOrg
+      ? '/api/generate-report/templates?organization=' + encodeURIComponent(browseOrg)
+      : '/api/generate-report/templates';
+    fetch(detailUrl).then(r => r.json()).then(templates => {
       const tpl = templates.find(t => t.id === templateId);
       if (tpl) {
         selectedTemplate.sourceFile = tpl.source_file || '';
@@ -364,7 +361,11 @@
     templateList.innerHTML = '<div class="state-container"><div class="spinner"></div><div class="state-title">加载模板中...</div></div>';
 
     try {
-      const res = await fetch('/api/generate-report/templates');
+      // 只加载当前机构下的模板
+      const url = browseOrg
+        ? '/api/generate-report/templates?organization=' + encodeURIComponent(browseOrg)
+        : '/api/generate-report/templates';
+      const res = await fetch(url);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const templates = await res.json();
       allTemplates = templates;  // 缓存供后续查找
@@ -842,7 +843,10 @@
   // ========== 阶段3：报告展示 ==========
   function showReportPhase(data) {
     phaseEditor.style.display = 'none';
+    phaseTemplates.style.display = 'none';
     phaseReport.style.display = 'block';
+    // 查看报告时隐藏步骤条（选择模板-上传附件-数据确认-报告生成）
+    document.getElementById('reportStatusBar').style.display = 'none';
     renderReport(data);
     addEditButton(reportId);
     window._reportId = reportId;
@@ -887,6 +891,8 @@
 
   // ========== 旧版：带 reportId 直接进入 ==========
   async function init() {
+    // 查看报告模式：隐藏模板选择区域
+    phaseTemplates.style.display = 'none';
     try {
       const contentRes = await fetch('/api/generate-report/' + reportId + '/content');
       if (contentRes.ok) {

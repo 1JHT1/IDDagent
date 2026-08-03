@@ -8,6 +8,7 @@ import OutreachCard from './OutreachCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
 import InformationCheckCard from './InformationCheckCard';
 import ReportGenerateCard from './ReportGenerateCard';
+import CompanyQueryCard from './CompanyQueryCard';
 import CompanyNameSelector from './CompanyNameSelector';
 import FollowUpChip from './FollowUpChip';
 
@@ -29,8 +30,6 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   const parts: string[] = [];
   const label = extra._skill_name
     ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
-        recommend_products: '产品智荐', match_products_intelligently: '产品智能匹配',
-        open_corporate_account: '对公账户开户',
         query_due_diligence_reports: '历史尽调报告' ,
         generate_report: '报告生成' }[extra._skill_name as string]
     : undefined;
@@ -170,9 +169,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         const skillName = message.extra._skill_name as string | undefined;
 
         // 根据技能名称精确路由
-        if (skillName === 'prepare_customer_outreach') {
-          return <OutreachCard data={message.extra} onSendMessage={onSendMessage} />;
-        }
+       
         if (skillName === 'check_company_risk') {
           return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
         }
@@ -184,6 +181,9 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         }
         if (skillName === 'generate_report') {
           return <ReportGenerateCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
+        if (skillName && skillName.startsWith('query_')) {
+          return <CompanyQueryCard data={message.extra} onSendMessage={onSendMessage} />;
         }
 
         // 兜底：按字段特征匹配（兼容旧数据）

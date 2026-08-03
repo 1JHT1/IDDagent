@@ -222,6 +222,23 @@ export function useChat(
               );
               break;
 
+            case 'company_query_result':
+              // 企业信息查询结果（基本信息/股东/受益人/族谱/海关/冻结/授信/人行账管）
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  isStreamingMessage(msg) && msg.id === assistantMsgId
+                    ? {
+                        id: msg.id,
+                        role: 'assistant' as const,
+                        content: '企业信息查询',
+                        extra: event.data as unknown as Record<string, unknown>,
+                        created_at: msg.created_at,
+                      }
+                    : msg
+                )
+              );
+              break;
+
             case 'company_name_candidates':
               // 候选企业选择器：复用流式消息（替代"正在思考"占位）
               setMessages((prev) =>

@@ -85,6 +85,15 @@ public class ChatController {
             enhancedMessage = sb.toString();
         }
 
+        // 保存附件 URL 到会话上下文，供技能通过 _attachment_url 参数使用（如营业执照信息核实）
+        if (attachments != null && !attachments.isEmpty()) {
+            Object firstUrl = attachments.get(0).get("url");
+            if (firstUrl instanceof String s && !s.isEmpty()) {
+                contextMemoryService.updateAttachment(conversationId, s);
+                log.info("Attachment URL saved to context: {}", s);
+            }
+        }
+
         Message userMsg = new Message(userMsgId, "user", body.getMessage(), now);
         userMsg.setAttachments(attachments);
         conv.getMessages().add(userMsg);
@@ -192,6 +201,12 @@ public class ChatController {
             }
         }
 
+        // 注入最新上传的附件 URL（如有），供技能解析营业执照等附件
+        if (ctx.attachmentUrl != null && !ctx.attachmentUrl.isEmpty()) {
+            skillParams.put("_attachment_url", ctx.attachmentUrl);
+            log.info("Injected attachment URL into skill params: {}", ctx.attachmentUrl);
+        }
+
         log.info("Coordinator routed to skill: {}, params: {}", skillName, skillParams);
         skillParams.put("_conversation_id", convId);
 
@@ -245,11 +260,12 @@ public class ChatController {
                             log.info("Pending skill set: {} (info_needed), params: {}", skillName, skillParams);
                         } else if ("result".equals(action) || "ambiguous".equals(action) || "not_found".equals(action)) {
                             String eventType = switch (skillName) {
-                                case "prepare_customer_outreach" -> "outreach_result";
-                                case "recommend_products" -> "product_recommend_result";
-                                case "match_products_intelligently" -> "product_match_result";
-                                case "open_corporate_account" -> "account_opening_result";
                                 case "query_due_diligence_reports" -> "historical_dd_query_result";
+                                case "verify_business_license" -> "information_check_result";
+                                case "query_company_basic_info", "query_shareholder_info", "query_beneficiary_info",
+                                     "query_company_genealogy", "query_customs_auth", "query_customs_blacklist",
+                                     "query_account_freeze_tag", "query_credit_granting",
+                                     "query_pboc_account_control" -> "company_query_result";
                                 default -> "risk_check_result";
                             };
                             // 将 skill_name 注入到结果中，方便前端根据技能类型路由卡片
@@ -267,9 +283,10 @@ public class ChatController {
                             log.info("Context updated: {} ({})", result.get("company_name"), result.get("credit_code"));
                         }
 
-                        // 清理待处理技能（技能已完成或未找到结果）
+                        // 清理待处理技能（技能已完成或未找到结果），并清除已使用的附件
                         if ("result".equals(action) || "not_found".equals(action)) {
                             contextMemoryService.clearPendingSkill(convId);
+                            contextMemoryService.clearAttachment(convId);
                         }
                         // reset或result/not_found时重置重试计数（新技能调用从0开始）
                         if (!"candidates".equals(action) && !"info_needed".equals(action)) {

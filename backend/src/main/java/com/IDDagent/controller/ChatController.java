@@ -151,6 +151,11 @@ public class ChatController {
                 log.info("Routing to pending skill: {}, user_input: {}", pendingSkill, finalMessage);
                 mainFlow = handleSkill(decision, convId, userId, finalConv);
             }
+        } else if (body.getMessage() == null || body.getMessage().trim().isEmpty()) {
+            // 仅上传附件、无文字输入：跳过意图识别，直接走对话助手
+            // 由 Agent 按 system prompt 规则主动询问附件用途（信息核实 / 生成尽调报告）
+            log.info("Empty message with attachments, routing directly to chat for purpose inquiry");
+            mainFlow = handleChat(convId, finalConv, finalMessage);
         } else {
             // 无待处理技能 → 走 Coordinator 意图识别（携带对话历史以便 LLM 理解上下文）
             mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages())

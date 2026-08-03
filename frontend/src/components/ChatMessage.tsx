@@ -7,6 +7,7 @@ import RiskCheckCard from './RiskCheckCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
 import InformationCheckCard from './InformationCheckCard';
 import ReportGenerateCard from './ReportGenerateCard';
+import CompanyQueryCard from './CompanyQueryCard';
 import CompanyNameSelector from './CompanyNameSelector';
 import FollowUpChip from './FollowUpChip';
 
@@ -27,7 +28,7 @@ function formatSize(bytes: number): string {
 function getExtraCopyText(extra: Record<string, unknown>): string {
   const parts: string[] = [];
   const label = extra._skill_name
-    ? { check_company_risk: '风险预查',
+    ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
         query_due_diligence_reports: '历史尽调报告' ,
         generate_report: '报告生成' }[extra._skill_name as string]
     : undefined;
@@ -178,6 +179,9 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         }
         if (skillName === 'generate_report') {
           return <ReportGenerateCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
+        if (skillName && skillName.startsWith('query_')) {
+          return <CompanyQueryCard data={message.extra} onSendMessage={onSendMessage} />;
         }
 
         // 兜底：按字段特征匹配（兼容旧数据）

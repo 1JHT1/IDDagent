@@ -28,7 +28,7 @@ function formatSize(bytes: number): string {
 function getExtraCopyText(extra: Record<string, unknown>): string {
   const parts: string[] = [];
   const label = extra._skill_name
-    ? { check_company_risk: '风险预查', prepare_customer_outreach: '拓户准备',
+    ? { check_company_risk: '风险预查',
         query_due_diligence_reports: '历史尽调报告' ,
         generate_report: '报告生成' }[extra._skill_name as string]
     : undefined;

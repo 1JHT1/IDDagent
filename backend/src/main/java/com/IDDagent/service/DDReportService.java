@@ -30,7 +30,7 @@ public class DDReportService {
 
     @PostConstruct
     public void init() {
-        load();
+        refresh();
         log.info("DDReportService initialized with {} reports", reports.size());
     }
 
@@ -51,25 +51,51 @@ public class DDReportService {
     public List<Map<String, Object>> queryReports(String creditCode, String companyName,
                                                    String dateFrom, String dateTo,
                                                    String userId) {
+        // 每次查询前同步 report.json（报告生成后无需重启即可被历史尽调查询到）
+        refresh();
+
         log.info("===== DDReport QUERY DIAGNOSTICS =====");
         log.info("Step0 - reports size: {}", reports.size());
         log.info("Step0 - input: creditCode={}, companyName={}, dateFrom={}, dateTo={}, userId={}",
                 creditCode, companyName, dateFrom, dateTo, userId);
 
-        // 1. 按企业名称筛选（模糊匹配，只要公司名包含搜索关键词即可）
+        // 1. 按企业筛选（优先精确匹配，避免“北京星河”把“星河”的记录也匹配出来）
         Set<String> candidateIds = new LinkedHashSet<>(reports.keySet());
-        if (companyName != null && !companyName.isEmpty()) {
+        // 1a. 信用代码精确匹配优先（仅当是合法 18 位代码时才按代码过滤，防止公司名被误放入）
+        if (creditCode != null && isValidCreditCode(creditCode)) {
             int before = candidateIds.size();
             candidateIds.removeIf(id -> {
                 Map<String, Object> report = reports.get(id);
                 if (report == null) return true;
-                String name = (String) report.getOrDefault("company_name", "");
-                return !(name.contains(companyName) || companyName.contains(name));
+                String cc = (String) report.getOrDefault("credit_code", "");
+                return !creditCode.equals(cc);
             });
-            log.info("Step1 - companyName filter: {} -> {} (removed {})",
+            log.info("Step1a - creditCode filter: {} -> {} (removed {})",
+                    before, candidateIds.size(), before - candidateIds.size());
+        } else if (companyName != null && !companyName.isEmpty()) {
+            // 1b. 公司名：先精确匹配，无结果时再用包含匹配兑底
+            int before = candidateIds.size();
+            Set<String> exactIds = new LinkedHashSet<>();
+            for (String id : candidateIds) {
+                Map<String, Object> report = reports.get(id);
+                if (report == null) continue;
+                String name = (String) report.getOrDefault("company_name", "");
+                if (companyName.equals(name)) exactIds.add(id);
+            }
+            if (!exactIds.isEmpty()) {
+                candidateIds = exactIds;
+            } else {
+                candidateIds.removeIf(id -> {
+                    Map<String, Object> report = reports.get(id);
+                    if (report == null) return true;
+                    String name = (String) report.getOrDefault("company_name", "");
+                    return !name.contains(companyName);
+                });
+            }
+            log.info("Step1b - companyName filter: {} -> {} (removed {})",
                     before, candidateIds.size(), before - candidateIds.size());
         } else {
-            log.info("Step1 - no companyName filter, using all {} reports", candidateIds.size());
+            log.info("Step1 - no company filter, using all {} reports", candidateIds.size());
         }
 
         // 2. 按 generate_time 时间区间筛选
@@ -141,7 +167,10 @@ public class DDReportService {
             item.put("report_id", report.get("report_id"));
             item.put("institution", report.get("institution"));
             item.put("company_name", report.get("company_name"));
-            item.put("name", report.getOrDefault("company_name", ""));
+            item.put("credit_code", report.getOrDefault("credit_code", ""));
+            // 报告名称：优先 report_name（即 report.json 的 key，如 20260530_160758_星河_借款人财务分析报告）
+            item.put("name", report.getOrDefault("report_name",
+                    report.getOrDefault("company_name", "")));
             item.put("status", "completed");
             item.put("status_label", "创建成功");
             item.put("created_at", report.get("generate_time"));
@@ -206,6 +235,24 @@ public class DDReportService {
     }
 
     /**
+     * 获取 report.json 中所有不重复的公司（含统一信用代码），用于技能层的名称匹配和候选展示
+     */
+    public List<Map<String, Object>> getAllCompanies() {
+        Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
+        for (Map<String, Object> report : reports.values()) {
+            String name = (String) report.get("company_name");
+            if (name == null || name.isEmpty()) continue;
+            Map<String, Object> c = byName.computeIfAbsent(name, k -> new LinkedHashMap<>());
+            c.put("company_name", name);
+            String cc = (String) report.get("credit_code");
+            if (cc != null && !cc.isEmpty()) {
+                c.put("credit_code", cc);
+            }
+        }
+        return new ArrayList<>(byName.values());
+    }
+
+    /**
      * 获取 report.json 中所有不重复的公司名称（用于技能层的名称匹配和候选展示）
      */
     public List<String> getAllCompanyNames() {
@@ -223,8 +270,16 @@ public class DDReportService {
     // 持久化
     // ============================================================
 
+    /** report.json 最后加载时的修改时间，用于判断运行期是否新增/修改了报告 */
+    private long lastLoadedMtime = 0;
+
+    /**
+     * 从 data/report.json 重新加载报告索引。
+     * 仅当文件修改时间变化时重建内存 map（毫秒级开销，查询前调用安全），
+     * 保证报告生成后无需重启即可被历史尽调查询到。
+     */
     @SuppressWarnings("unchecked")
-    private void load() {
+    private void refresh() {
         // 从 data/report.json 加载
         try {
             Path path = Paths.get(REPORTS_FILE);
@@ -232,24 +287,43 @@ public class DDReportService {
                 log.error("report.json not found at {}", path.toAbsolutePath());
                 return;
             }
+            long mtime = Files.getLastModifiedTime(path).toMillis();
+            if (mtime == lastLoadedMtime) {
+                return; // 文件未变化，内存索引已是最新
+            }
             Map<String, Object> data = mapper.readValue(path.toFile(), new TypeReference<>() {});
-            // report.json 结构: { "key_时间_公司_模板": { report_id, company_name, institution, template_name, generate_time, content, attachments } }
+            // report.json 结构: { "key_时间_公司_模板": { report_id, credit_code, company_name, institution, template_name, generate_time, content, attachments } }
+            Map<String, Map<String, Object>> fresh = new ConcurrentHashMap<>();
             for (var entry : data.entrySet()) {
                 Map<String, Object> reportData = (Map<String, Object>) entry.getValue();
+                // 将 JSON key（如 20260530_160758_星河_借款人财务分析报告）作为 report_name 保存
+                reportData.put("report_name", entry.getKey());
                 String reportId = (String) reportData.get("report_id");
                 if (reportId != null && !reportId.isEmpty()) {
-                    reports.put(reportId, reportData);
+                    fresh.put(reportId, reportData);
                 }
             }
-            log.info("DDReportService loaded {} reports from {}", reports.size(), path.toAbsolutePath());
+            reports.clear();
+            reports.putAll(fresh);
+            lastLoadedMtime = mtime;
+            log.info("DDReportService reloaded {} reports from {}", reports.size(), path.toAbsolutePath());
         } catch (IOException e) {
-            log.error("Failed to load report.json: {}", e.getMessage());
+            log.error("Failed to reload report.json: {}", e.getMessage());
         }
     }
 
     // ============================================================
     // 工具方法
     // ============================================================
+
+    /**
+     * 判断字符串是否为合法的统一社会信用代码（18 位数字+大写字母）。
+     * 非法的值（如公司名被误放入 credit_code 参数）不参与代码过滤，回退到公司名匹配。
+     */
+    private static boolean isValidCreditCode(String code) {
+        if (code == null || code.isEmpty()) return false;
+        return code.toUpperCase().matches("[0-9A-Z]{18}");
+    }
 
     /**
      * 解析日期字符串，支持 "2025-01-01" 和 "2026-07-16T08:50:49.013027700Z" 两种格式

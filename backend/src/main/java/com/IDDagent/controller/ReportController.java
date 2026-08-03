@@ -429,6 +429,7 @@ public class ReportController {
             if (persistOnComplete) {
                 ReportStoreService.saveReportJson(
                         task.getReportId(),
+                        task.getCreditCode() != null ? task.getCreditCode() : "",
                         task.getCompanyName(),
                         task.getTemplateName(),
                         task.getOrganization() != null ? task.getOrganization() : "",

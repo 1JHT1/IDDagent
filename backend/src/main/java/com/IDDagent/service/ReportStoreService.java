@@ -20,7 +20,7 @@ import java.util.Map;
 /**
  * 报告存储服务，负责将生成的完整报告和打印日志持久化到 data/report.json
  *
- * 完整报告格式：{ "yyyyMMdd_HHmmss_公司名_模板名": { report_id, generate_time, template_name, company_name, institution, content } }
+ * 完整报告格式：{ "yyyyMMdd_HHmmss_公司名_模板名": { report_id, generate_time, template_name, company_name, credit_code, institution, content } }
  * 打印日志格式：{ "yyyyMMdd_HHmmss_公司名_模板名": { generate_time, template_name, company_name, institution } }
  */
 @Service
@@ -43,7 +43,7 @@ public class ReportStoreService {
 
     /** 保存生成的完整报告到 data/report.json（含 markdown 内容，供他人直接读取） */
     public static synchronized void saveReportJson(
-            String reportId, String companyName, String templateName, String organization,
+            String reportId, String creditCode, String companyName, String templateName, String organization,
             String content, Instant completedAt,
             List<Map<String, Object>> attachments) {
         try {
@@ -78,6 +78,7 @@ public class ReportStoreService {
             entry.put("report_id", reportId != null ? reportId : "");
             entry.put("generate_time", generateTime);
             entry.put("template_name", templateName != null ? templateName : "");
+            entry.put("credit_code", creditCode != null ? creditCode : "");
             entry.put("company_name", companyName != null ? companyName : "");
             entry.put("institution", organization != null ? organization : "");
             entry.put("content", content != null ? content : "");

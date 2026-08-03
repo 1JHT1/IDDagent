@@ -28,7 +28,8 @@ const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({ options, mess
             key={opt.credit_code}
             onClick={() =>
               onSendMessage?.(
-                opt.company_name
+                // 按字段名发送：后端解析"公司：名称\n统一信用代码：代码"识别企业身份（跳过二次选项卡）
+                `公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`
               )
             }
             className="w-full text-left px-4 py-3 rounded-lg border border-blue-200 bg-white

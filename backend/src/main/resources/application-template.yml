@@ -2,6 +2,10 @@ server:
   port: ${PORT:8000}
 
 spring:
+  config:
+    import:
+      - optional:file:backend/.env[.properties]
+      - optional:file:.env[.properties]
   webflux:
     static-path-pattern: /h5/**
   web:
@@ -11,7 +15,7 @@ spring:
 # DeepSeek API configuration (from .env or system properties)
 app:
   deepseek:
-    api-key: sk-23afa0615c24426283f0da1583d246bd
+    api-key: ${DEEPSEEK_API_KEY}
     base-url: ${DEEPSEEK_BASE_URL:https://api.deepseek.com}
   model:
     name: ${MODEL_NAME:deepseek-v4-flash}

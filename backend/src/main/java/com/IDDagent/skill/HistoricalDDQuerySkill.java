@@ -67,17 +67,15 @@ public class HistoricalDDQuerySkill {
         }
 
         // 处理 _user_input（来自待处理技能的下一条用户消息）
+        // 注意：参数中的 company_name/credit_code 可能来自 Coordinator 的上下文自动补全
+        // （复用上次查询的企业），并非用户本次明确提供，因此：
+        // - 首次发起（_user_input 为空）→ 一律走阶段二模糊匹配出选项卡让用户确认
+        // - 用户已输入（_user_input 非空）→ 以用户输入为准覆盖企业参数（旧值作废）
         String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
+        // 用户输入中是否携带合法信用代码（选项卡点击会携带"公司名+信用代码"，或直接输入代码）
+        // 携带即企业身份已确认，后续跳过模糊匹配直接查询（与自动补全的污染值区分开）
+        boolean codeFromUser = false;
         if (!userInput.isEmpty()) {
-            // 如果尚未确定信用代码（企业未精确匹配），始终使用 _user_input 作为最新企业名输入
-            // 这确保用户点击候选后，选中的精确企业名能替代上一轮的模糊 keyword
-            if (creditCode.isEmpty()) {
-                String cleaned = userInput
-                        .replaceAll("^(查询|查找|搜索|看一下|看看|帮我查|帮我找|找一下|查一下|查)\\s*", "")
-                        .replaceAll("\\s*(的历史尽调报告|的历史报告|的尽调报告|的尽调|的报告|的记录)$", "")
-                        .trim();
-                companyName = cleaned.isEmpty() ? userInput : cleaned;
-            }
             // 从 _user_input 中提取日期/时间区间（优先于 LLM 传入的日期参数）
             // 因为 LLM 不知道当前实际时间，计算相对时间（如"近一年"）会出错
             java.time.LocalDate now = java.time.LocalDate.now();
@@ -87,37 +85,92 @@ public class HistoricalDDQuerySkill {
                 dateTo = now.toString();
             } else if (dateFrom.isEmpty() && dateTo.isEmpty()) {
                 // 无时间关键词且 LLM 未传日期时，尝试解析 _user_input 中的显式日期
-                    java.util.regex.Matcher dateMatcher = java.util.regex.Pattern.compile("(\\d{4}-\\d{2}-\\d{2})")
-                            .matcher(userInput);
-                    List<String> dates = new ArrayList<>();
-                    while (dateMatcher.find()) {
-                        dates.add(dateMatcher.group(1));
-                    }
-                    // 再尝试匹配 "2024年1月1日" 中文格式
-                    if (dates.size() < 2) {
-                        java.util.regex.Matcher cnMatcher = java.util.regex.Pattern.compile(
-                                "(\\d{4})\\s*年\\s*(\\d{1,2})\\s*月\\s*(\\d{1,2})?\\s*日?").matcher(userInput);
-                        dates.clear();
-                        while (cnMatcher.find()) {
-                            String y = cnMatcher.group(1);
-                            String m = String.format("%02d", Integer.parseInt(cnMatcher.group(2)));
-                            String d = cnMatcher.group(3) != null ? String.format("%02d", Integer.parseInt(cnMatcher.group(3))) : "01";
-                            dates.add(y + "-" + m + "-" + d);
-                        }
-                    }
-                    if (dates.size() >= 2) {
-                        dateFrom = dates.get(0);
-                        dateTo = dates.get(dates.size() - 1);
-                    } else if (dates.size() == 1) {
-                        dateFrom = dates.get(0);
-                        dateTo = dates.get(0);
+                java.util.regex.Matcher dateMatcher = java.util.regex.Pattern.compile("(\\d{4}-\\d{2}-\\d{2})")
+                        .matcher(userInput);
+                List<String> dates = new ArrayList<>();
+                while (dateMatcher.find()) {
+                    dates.add(dateMatcher.group(1));
+                }
+                // 再尝试匹配 "2024年1月1日" 中文格式
+                if (dates.size() < 2) {
+                    java.util.regex.Matcher cnMatcher = java.util.regex.Pattern.compile(
+                            "(\\d{4})\\s*年\\s*(\\d{1,2})\\s*月\\s*(\\d{1,2})?\\s*日?").matcher(userInput);
+                    dates.clear();
+                    while (cnMatcher.find()) {
+                        String y = cnMatcher.group(1);
+                        String m = String.format("%02d", Integer.parseInt(cnMatcher.group(2)));
+                        String d = cnMatcher.group(3) != null ? String.format("%02d", Integer.parseInt(cnMatcher.group(3))) : "01";
+                        dates.add(y + "-" + m + "-" + d);
                     }
                 }
+                if (dates.size() >= 2) {
+                    dateFrom = dates.get(0);
+                    dateTo = dates.get(dates.size() - 1);
+                } else if (dates.size() == 1) {
+                    dateFrom = dates.get(0);
+                    dateTo = dates.get(0);
+                }
             }
+
+            // 以用户最新输入为准更新企业信息（清洗掉查询前缀/后缀与时间描述）：
+            // - 选项卡点击会携带"公司名+信用代码"（如"北京星河 91110108MA01B3XK2Q"），先提取代码
+            // - 提取到代码（用户明确提供）→ 企业身份已确认，后续跳过模糊匹配直接查询
+            // - 提取后剩余非空 → 作为 company_name 并清空旧 credit_code（含自动补全的旧值作废）
+            // - 清洗后为空（如仅补充"近一月"时间）→ 保留原有企业信息
+            String cleaned = userInput
+                    .replaceAll("^(查询|查找|搜索|看一下|看看|帮我查|帮我找|找一下|查一下|查)\\s*", "")
+                    .replaceAll("\\s*(的历史尽调报告|的历史报告|的尽调报告|的尽调|的报告|的记录)$", "")
+                    .replaceAll("(近|最近|过去)\\s*[0-9一二两三四五六七八九十]+\\s*个?月", "")
+                    .replaceAll("(近|最近|过去)\\s*[0-9一二两三四五六七八九十]+\\s*年", "")
+                    .replaceAll("半年|季度", "")
+                    .replaceAll("\\d{4}-\\d{2}-\\d{2}", "")
+                    .replaceAll("\\d{4}\\s*年\\s*\\d{1,2}\\s*月\\s*\\d{1,2}\\s*日?", "")
+                    .trim();
+            // 提取信用代码（选项卡点击/直接输入代码场景）：
+            // 1) 选项卡点击格式"公司：XXX\n统一信用代码：YYY"（前端按字段名发送）——
+            //    直接解析出企业名称与代码，视为企业身份已确认
+            // 2) 选项卡点击兼容格式"公司名 + 空格 + 代码"——识别尾部连续字母数字串（≥6 位）
+            //    兼容 18 位标准统一社会信用代码与测试用的短数字占位代码
+            // 3) 整串即为代码（直接手输信用代码）
+            java.util.regex.Matcher codeField = java.util.regex.Pattern.compile("统一信用代码[:：]\\s*([0-9A-Za-z]+)").matcher(cleaned);
+            if (codeField.find()) {
+                creditCode = codeField.group(1).toUpperCase();
+                codeFromUser = true;
+                java.util.regex.Matcher nameField = java.util.regex.Pattern.compile("公司[:：]\\s*([^\\n\\r]+)").matcher(cleaned);
+                if (nameField.find()) {
+                    String nm = nameField.group(1).trim();
+                    int sep = nm.indexOf("统一信用代码");
+                    if (sep > 0) nm = nm.substring(0, sep).trim();
+                    if (!nm.isEmpty()) companyName = nm;
+                }
+                cleaned = "";
+            } else {
+                java.util.regex.Matcher ccMatcher = java.util.regex.Pattern.compile("\\s+[0-9A-Za-z]{6,}\\s*$").matcher(cleaned);
+                if (ccMatcher.find()) {
+                    creditCode = ccMatcher.group().trim().toUpperCase();
+                    codeFromUser = true;
+                    cleaned = cleaned.substring(0, ccMatcher.start()).trim();
+                } else if (cleaned.matches("[0-9A-Za-z]{6,}")) {
+                    creditCode = cleaned.toUpperCase();
+                    codeFromUser = true;
+                    cleaned = "";
+                }
+            }
+            if (!cleaned.isEmpty()) {
+                companyName = cleaned;
+                if (!codeFromUser) {
+                    creditCode = "";
+                }
+            }
+        }
 
         // ============================================================
         // 阶段一：检查是否缺少企业名称/编号
         // ============================================================
+        // 非法的 credit_code（如 LLM 误把公司名塞入该参数）视为未提供，避免查询层按代码过滤出错
+        if (!isValidCreditCode(creditCode)) {
+            creditCode = "";
+        }
         if (creditCode.isEmpty() && companyName.isEmpty()) {
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("action", "info_needed");
@@ -126,39 +179,75 @@ public class HistoricalDDQuerySkill {
         }
 
         // ============================================================
-        // 阶段二：如果有企业名称但无信用代码，进行模糊匹配
+        // 阶段二：企业名称模糊匹配 —— 只要用户以公司名发起查询（无论精确/模糊、首次/追问）
+        // 一律返回 candidates 选项卡供用户确认（可能存在同名不同信用代码的企业）；
+        // 仅当用户输入携带信用代码（选项卡点击/直接输入代码）→ 企业身份已确认，跳过本阶段
         // ============================================================
-        if (!companyName.isEmpty() && creditCode.isEmpty()) {
-            Map<String, String> nameIndex = loadNameIndex();
-            // 归一化：若传入的是带后缀/全称（如"星河公司""北京星河科技有限公司"），
-            // 先反向匹配到 report.json 中的简称（"星河"），再进行精确匹配
-            for (String idxName : nameIndex.values()) {
-                if (!idxName.equals(companyName) && companyName.contains(idxName)) {
-                    companyName = idxName;
-                    break;
+        if (!companyName.isEmpty() && !codeFromUser) {
+            Map<String, String> nameIndex = loadNameIndex(); // credit_code → company_name
+            // 归一化：取包含在查询词中的最长索引名（"北京星河公司"→"北京星河"，避免被误缩成"星河"）
+            // 若查询词本身就是索引中的精确企业名，则不做归一化
+            if (!nameIndex.containsValue(companyName)) {
+                String best = null;
+                for (String idxName : nameIndex.values()) {
+                    if (!idxName.equals(companyName) && companyName.contains(idxName)) {
+                        if (best == null || idxName.length() > best.length()) {
+                            best = idxName;
+                        }
+                    }
                 }
+                if (best != null) companyName = best;
             }
-            Map<String, Object> resolved = RiskCheckSkill.resolveCompanyMatch(companyName, nameIndex);
 
-            // 精确匹配到唯一企业
-            if (resolved.containsKey("credit_code")) {
-                creditCode = (String) resolved.get("credit_code");
-                // 从 nameIndex 获取标准企业名称
-                companyName = nameIndex.getOrDefault(creditCode, companyName);
-            }
-            // 存在歧义/未找到，返回候选列表供用户选择
-            else if (resolved.containsKey("action")) {
-                String action = (String) resolved.get("action");
-                if ("ambiguous".equals(action) || "not_found".equals(action)) {
-                    // 将 resolveCompanyMatch 的结果转为 candidates 格式
-                    Map<String, Object> result = new LinkedHashMap<>();
-                    result.put("action", "candidates");
-                    result.put("keyword", resolved.getOrDefault("keyword", companyName));
-                    result.put("message", resolved.getOrDefault("message", "请选择要查询的企业："));
-                    result.put("options", resolved.getOrDefault("options", List.of()));
-                    return result;
+            List<Map<String, Object>> matches = RiskCheckSkill.fuzzyMatchCompany(companyName, nameIndex);
+
+            // 扩展匹配集合：输入的公司名可能是其他企业的简称（如"星河"是"北京星河"的简称），
+            // fuzzyMatchCompany 在精确命中时会直接短路返回单条，掩盖其他包含该名称的企业，
+            // 因此将所有名称包含输入词的企业一并纳入选项卡（精确 100 分优先，包含 80 分次之）
+            Map<String, Map<String, Object>> expanded = new LinkedHashMap<>();
+            for (var idxEntry : nameIndex.entrySet()) {
+                String idxName = idxEntry.getValue();
+                if (idxName.contains(companyName)) {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("company_name", idxName);
+                    m.put("credit_code", idxEntry.getKey());
+                    m.put("_score", idxName.equals(companyName) ? 100 : 80);
+                    expanded.putIfAbsent(idxEntry.getKey(), m);
                 }
             }
+            // 合并 fuzzyMatch 结果（覆盖名称不含输入词但相似的匹配，如错别字/子序列命中）
+            for (Map<String, Object> m : matches) {
+                expanded.putIfAbsent((String) m.getOrDefault("credit_code", ""), m);
+            }
+            matches = new ArrayList<>(expanded.values());
+            matches.sort((a, b) -> ((Number) b.getOrDefault("_score", 0)).intValue()
+                    - ((Number) a.getOrDefault("_score", 0)).intValue());
+
+            if (matches.isEmpty()) {
+                Map<String, Object> result = new LinkedHashMap<>();
+                result.put("action", "not_found");
+                result.put("message", "未找到与「" + companyName + "」匹配的企业，请确认企业名称是否正确。");
+                return result;
+            }
+
+            // 构造选项（含企业名称 + 统一社会信用代码）
+            List<Map<String, Object>> options = new ArrayList<>();
+            for (Map<String, Object> m : matches) {
+                Map<String, Object> opt = new LinkedHashMap<>();
+                opt.put("company_name", m.get("company_name"));
+                opt.put("credit_code", m.getOrDefault("credit_code", ""));
+                options.add(opt);
+            }
+
+            // 进入本阶段（用户以公司名发起、未携带信用代码）→ 一律展示选项卡让用户确认：
+            // 可能存在同名不同信用代码的企业，必须由用户显式选择后才能查询；
+            // 选项卡点击会携带"公司名+信用代码"，codeFromUser=true 已在阶段二入口拦截直接查询，不会死循环
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("action", "candidates");
+            result.put("keyword", companyName);
+            
+            result.put("options", options);
+            return result;
         }
 
         // ============================================================
@@ -215,12 +304,13 @@ public class HistoricalDDQuerySkill {
 
     @SuppressWarnings("unchecked")
     private Map<String, String> loadNameIndex() {
-        // 从 DDReportService 获取 report.json 中的公司名列表，构建名称索引
-        // 由于 report.json 中无 credit_code，使用公司名自身作为 key
+        // 从 DDReportService 获取 report.json 中的公司列表，构建 信用代码→公司名 索引
         Map<String, String> index = new LinkedHashMap<>();
-        List<String> names = ddReportService.getAllCompanyNames();
-        for (String name : names) {
-            index.put(name, name);
+        for (Map<String, Object> c : ddReportService.getAllCompanies()) {
+            String name = (String) c.get("company_name");
+            if (name == null || name.isEmpty()) continue;
+            String cc = (String) c.getOrDefault("credit_code", "");
+            index.put(cc.isEmpty() ? name : cc, name);
         }
         // 如果 report.json 中无数据，回退到旧文件名索引
         if (index.isEmpty()) {
@@ -230,6 +320,16 @@ public class HistoricalDDQuerySkill {
             }
         }
         return index;
+    }
+
+    /**
+     * 判断字符串是否为合法的统一社会信用代码（18 位数字+大写字母）。
+     * 用于识别 LLM 误把公司名塞进 credit_code 参数的情况（如 credit_code="星河"），
+     * 此时仍应走企业名称模糊匹配出选项卡。
+     */
+    private static boolean isValidCreditCode(String code) {
+        if (code == null || code.isEmpty()) return false;
+        return code.toUpperCase().matches("[0-9A-Z]{18}");
     }
 
     /**

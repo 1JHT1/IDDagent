@@ -2,10 +2,10 @@
 // useChat - 聊天核心逻辑 Hook
 // ============================================================
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import type { ChatMessage, SSEEvent, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
-import { sendMessageStream, checkAccountNotifications } from '../api/agent';
+import { sendMessageStream } from '../api/agent';
 
 interface UseChatReturn {
   messages: ChatMessage[];
@@ -146,23 +146,6 @@ export function useChat(
                         id: msg.id,
                         role: 'assistant' as const,
                         content: '风险预查',
-                        extra: event.data as unknown as Record<string, unknown>,
-                        created_at: msg.created_at,
-                      }
-                    : msg
-                )
-              );
-              break;
-
-            case 'outreach_result':
-              // 拓户准备结果
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  isStreamingMessage(msg) && msg.id === assistantMsgId
-                    ? {
-                        id: msg.id,
-                        role: 'assistant' as const,
-                        content: '拓户准备',
                         extra: event.data as unknown as Record<string, unknown>,
                         created_at: msg.created_at,
                       }
@@ -322,53 +305,12 @@ export function useChat(
           // 完成回调
           isSendingRef.current = false;
           setIsSending(false);
-          // 每次 SSE 完成后检查开户提交通知
-          pollNotifications();
         },
         attachments
       );
     },
     [onConversationIdChange]
   );
-
-  // ============================================================
-  // 开户提交通知轮询
-  // ============================================================
-
-  const pollNotifications = useCallback(async () => {
-    if (!conversationId) return;
-    const notifications = await checkAccountNotifications(conversationId);
-    for (const n of notifications) {
-      if (n.type === 'account_submitted') {
-        // 构造开户提交成功的智能体回复消息
-        const submittedMsg: ChatMessage = {
-          id: `msg-submitted-${n.app_id}-${Date.now()}`,
-          role: 'assistant',
-          content: '',
-          created_at: new Date().toISOString(),
-          extra: {
-            action: 'result',
-            app_id: n.app_id,
-            company_name: n.company_name,
-            credit_code: n.credit_code,
-            status: 'submitted',
-            submitted_url: n.submitted_url,
-            submitted_at: n.submitted_at,
-          },
-        };
-        setMessages((prev) => [...prev, submittedMsg]);
-      }
-    }
-  }, [conversationId]);
-
-  // 当有 conversationId 时自动启动轮询（每5秒检查一次通知）
-  useEffect(() => {
-    if (!conversationId) return;
-    // 立即检查一次（用户从 H5 页面返回时立刻看到通知）
-    pollNotifications();
-    const timer = setInterval(pollNotifications, 5000);
-    return () => clearInterval(timer);
-  }, [conversationId, pollNotifications]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);

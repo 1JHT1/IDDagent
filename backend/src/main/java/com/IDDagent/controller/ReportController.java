@@ -231,7 +231,7 @@ public class ReportController {
         return ResponseEntity.ok(result);
     }
 
-    /** 记录打印日志（仅用户确认成功打印后调用），含完整 content */
+    /** 打印确认接口（仅用户确认成功打印后调用）。报告已由生成流程入库，此处不再重复保存 */
     @PostMapping(value = "/{reportId}/print-log", produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<Map<String, Object>> recordPrintLog(@PathVariable String reportId) {
         ReportTask task = taskStore.getTask(reportId);
@@ -241,27 +241,6 @@ public class ReportController {
         if (!"completed".equals(task.getStatus())) {
             return ResponseEntity.status(400).body(Map.of("error", "报告尚未生成完成"));
         }
-        // 构建附件文件名列表
-        List<Map<String, Object>> attachments = new ArrayList<>();
-        List<String> fileIds = task.getAttachmentFileIds();
-        List<String> names = task.getAttachmentNames();
-        if (fileIds != null && names != null) {
-            for (int i = 0; i < fileIds.size() && i < names.size(); i++) {
-                Map<String, Object> att = new LinkedHashMap<>();
-                att.put("file_id", fileIds.get(i));
-                att.put("file_name", names.get(i));
-                attachments.add(att);
-            }
-        }
-        ReportStoreService.saveReportJson(
-                task.getReportId(),
-                task.getCompanyName(),
-                task.getTemplateName(),
-                task.getOrganization() != null ? task.getOrganization() : "",
-                task.getContent(),
-                task.getCompletedAt(),
-                attachments
-        );
         return ResponseEntity.ok(Map.of("success", true));
     }
 
@@ -334,7 +313,8 @@ public class ReportController {
             task.setStatus("generating");
             task.setProgress(0);
             task.setErrorMessage("正在生成报告...");
-            CompletableFuture.runAsync(() -> generateReport(task));
+            // 仅"确认并生成报告"触发的生成在完成时入库（data/report.json）
+            CompletableFuture.runAsync(() -> generateReport(task, true));
         }
 
         Map<String, Object> result = new LinkedHashMap<>();
@@ -384,6 +364,11 @@ public class ReportController {
     // 后台报告生成逻辑
     // ============================================================
     private void generateReport(ReportTask task) {
+        generateReport(task, false);
+    }
+
+    /** @param persistOnComplete 生成完成时是否写入 data/report.json（仅"确认并生成报告"触发时 true） */
+    private void generateReport(ReportTask task, boolean persistOnComplete) {
         // 捕获当前版本号，完成时只允许最新版本写入结果
         int myVersion = task.nextGenerationVersion();
         log.info("generateReport 开始: reportId={}, version={}, templateId={}, company={}, fileIds={}",
@@ -440,6 +425,19 @@ public class ReportController {
             task.setErrorMessage("");
             log.info("报告生成完成: reportId={}", task.getReportId());
 
+            // 仅"确认并生成报告"（/update）触发的生成完成时入库（data/report.json），无需等待打印确认
+            if (persistOnComplete) {
+                ReportStoreService.saveReportJson(
+                        task.getReportId(),
+                        task.getCompanyName(),
+                        task.getTemplateName(),
+                        task.getOrganization() != null ? task.getOrganization() : "",
+                        task.getContent(),
+                        task.getCompletedAt(),
+                        buildAttachmentList(task)
+                );
+            }
+
         } catch (Exception e) {
             if (task.getGenerationVersion() <= myVersion) {
                 task.setStatus("failed");
@@ -447,6 +445,22 @@ public class ReportController {
             }
             log.error("报告生成失败: {}", task.getReportId(), e);
         }
+    }
+
+    /** 构建附件文件名列表（供报告入库使用） */
+    private List<Map<String, Object>> buildAttachmentList(ReportTask task) {
+        List<Map<String, Object>> attachments = new ArrayList<>();
+        List<String> fileIds = task.getAttachmentFileIds();
+        List<String> names = task.getAttachmentNames();
+        if (fileIds != null && names != null) {
+            for (int i = 0; i < fileIds.size() && i < names.size(); i++) {
+                Map<String, Object> att = new LinkedHashMap<>();
+                att.put("file_id", fileIds.get(i));
+                att.put("file_name", names.get(i));
+                attachments.add(att);
+            }
+        }
+        return attachments;
     }
 
     // ============================================================
@@ -583,25 +597,114 @@ public class ReportController {
         for (Map.Entry<String, String> entry : data.entrySet()) {
             String key = "{{" + entry.getKey() + "}}";
             if (result.contains(key)) {
-                result = result.replace(key, entry.getValue() != null ? entry.getValue() : "");
+                String value = entry.getValue() != null ? entry.getValue() : "";
+                // 数值类字段为空时用 — 占位，避免出现裸"万元"等
+                if (value.isEmpty() && isNumericField(entry.getKey())) {
+                    value = "—";
+                }
+                result = result.replace(key, value);
             }
         }
+
+        // 1.5 派生占位符：根据「是否覆盖本息」推断营业成本覆盖情况
+        String coverCost = "不能".equals(data.getOrDefault("是否覆盖本息", "")) ? "无法" : "可以";
+        result = result.replace("{{\u8986\u76d6\u8425\u4e1a\u6210\u672c}}", coverCost);
+
+        // 1.6 派生占位符：根据附件解析的净利润自动判断利润正负，生成利润情况描述
+        result = result.replace("{{\u5229\u6da6\u60c5\u51b5\u63cf\u8ff0}}", buildProfitDescription(data));
 
         // 2. 填充表格中空的数据单元格
         //    匹配模式: |        | （8个空格）
         result = fillTableCells(result, task.getTemplateId(), data);
 
-        // 3. 填充 XXXX 占位文本
-        result = result.replace("XXXX", task.getCompanyName());
-        result = result.replace("xx万元", data.getOrDefault("营业收入2024", "8,526.30") + "万元");
-        result = result.replace("XX万元", data.getOrDefault("营业收入2024", "8,526.30") + "万元");
-
-        // 4. 替换常见占位模板文本
+        // 3. 描述性占位文本（必须先于通用 XXXX 替换执行，否则占位符会被企业名称提前破坏）
         result = replaceTemplateText(result, task, data);
 
-        // 5. 兜底：未替换的 {{占位符}} 统一清空
+        // 4. 剩余 XXXX 为企业名称占位
+        result = result.replace("XXXX", task.getCompanyName());
+
+        // 5. 兼容旧模板的 xx万元/XX万元 占位（按年份顺序依次替换，不再全部使用同一数值）
+        result = replaceRevenuePlaceholders(result, data);
+
+        // 6. 兜底：未替换的 {{占位符}} 统一清空
         result = result.replaceAll("\\{\\{\\{?[^}]+\\}\\}?", "");
 
+        return result;
+    }
+
+    /**
+     * 根据附件解析的净利润自动判断利润正负，生成描述文字（模板 {{利润情况描述}}）
+     * - 净利润为负：企业利润为负（有原因则附上原因）
+     * - 净利润为正：企业利润为正
+     * - 无净利润数据：以财务数据为准
+     */
+    private String buildProfitDescription(Map<String, String> data) {
+        String[] profitKeys = {"净利润2024", "净利润2023", "净利润2022"};
+        String latest = "";
+        for (String key : profitKeys) {
+            String v = data.getOrDefault(key, "");
+            if (v != null && !v.trim().isEmpty()) {
+                latest = v.trim();
+                break;
+            }
+        }
+        if (latest.isEmpty()) {
+            return "企业利润情况以财务数据为准";
+        }
+        boolean negative;
+        String cleaned = latest.replace(",", "").replace("，", "").trim();
+        if (cleaned.startsWith("(") || cleaned.startsWith("（") || cleaned.startsWith("-")
+                || cleaned.startsWith("负") || cleaned.contains("亏损")) {
+            negative = true;
+        } else {
+            try {
+                negative = Double.parseDouble(cleaned) < 0;
+            } catch (NumberFormatException e) {
+                negative = cleaned.contains("-") || cleaned.contains("负");
+            }
+        }
+        if (!negative) {
+            return "企业利润为正";
+        }
+        String reason = data.getOrDefault("利润为负原因", "");
+        if (reason != null && !reason.trim().isEmpty()) {
+            return "企业利润为负，是由于" + reason.trim();
+        }
+        return "企业利润为负";
+    }
+
+    /** 判断字段是否为数值类字段（空值时用 — 占位，避免裸"万元"） */
+    private boolean isNumericField(String field) {
+        return field.matches(".*\\d{4}$") || "资产负债率".equals(field);
+    }
+
+    /** 统计固定收入组成的数量（按顿号/逗号/分号分隔） */
+    private int countIncomeParts(String text) {
+        String[] parts = text.split("[、，,；;]");
+        int count = 0;
+        for (String p : parts) {
+            if (!p.trim().isEmpty()) count++;
+        }
+        return Math.max(count, 1);
+    }
+
+    /**
+     * 旧模板兼容：按文字顺序（2022/2023/2024）依次将 xx万元/XX万元 占位替换为对应年份营业收入
+     * 注意：模板句子"2022年至2024年营业收入分别为xx万元、xx万元、xx万元"中占位顺序与年份顺序一致
+     */
+    private String replaceRevenuePlaceholders(String result, Map<String, String> data) {
+        if (!result.contains("XX万元") && !result.contains("xx万元")) return result;
+        String[] revenueKeys = {"营业收入2022", "营业收入2023", "营业收入2024"};
+        for (String key : revenueKeys) {
+            String value = data.getOrDefault(key, "");
+            if (value == null || value.trim().isEmpty()) value = "—";
+            if (result.contains("XX万元")) {
+                result = result.replaceFirst("XX万元", value + "万元");
+            }
+            if (result.contains("xx万元")) {
+                result = result.replaceFirst("xx万元", value + "万元");
+            }
+        }
         return result;
     }
 
@@ -614,6 +717,7 @@ public class ReportController {
 
             String[] lines = md.split("\n");
             StringBuilder sb = new StringBuilder();
+            boolean revenueTablePassed = false; // 已越过主营业务表表头，待转换为行指标格式
             for (String line : lines) {
                 if (line.trim().startsWith("|") && line.trim().endsWith("|") && line.contains("        ")) {
                     String filled = line;
@@ -637,7 +741,7 @@ public class ReportController {
                                             .findFirst().orElse(null);
                                 }
                                 if (val == null || val.isEmpty()) {
-                                    val = "0.00";
+                                    val = "—";
                                 }
                                 filled = filled.replaceFirst("\\|\\s{8}", "| " + val + " ");
                             }
@@ -645,6 +749,17 @@ public class ReportController {
                         }
                     }
                     sb.append(filled).append("\n");
+                } else if (line.contains("营业收入（万元）")) {
+                    // 主营业务表（9列）转换为行指标表格：与（二）财务指标表渲染样式一致
+                    revenueTablePassed = true;
+                    sb.append("| 项目       | 2024年 | 2023年 | 2022年 |\n");
+                    sb.append("| ---------- | ------ | ------ | ------ |\n");
+                } else if (revenueTablePassed && line.contains("主营业务")) {
+                    // 输出 营业收入/营业成本/销售利润 三行指标数据
+                    sb.append(buildIndicatorRows(data));
+                    revenueTablePassed = false;
+                } else if (revenueTablePassed) {
+                    // 跳过原 9 列表格的年份行/空行（不输出）
                 } else {
                     sb.append(line).append("\n");
                 }
@@ -654,27 +769,96 @@ public class ReportController {
         return md;
     }
 
+    /**
+     * 生成行指标格式数据行（与（二）财务指标表样式一致）：
+     * | 营业收入   | 2024 | 2023 | 2022 |
+     * | 营业成本   | ... |
+     * | 销售利润   | ... |（缺失时由 营业收入-营业成本 派生）
+     */
+    private String buildIndicatorRows(Map<String, String> data) {
+        String[][] groups = {
+                {"营业收入", "营业收入2024", "营业收入2023", "营业收入2022"},
+                {"营业成本", "营业成本2024", "营业成本2023", "营业成本2022"},
+                {"销售利润", "销售利润2024", "销售利润2023", "销售利润2022"}
+        };
+        StringBuilder sb = new StringBuilder();
+        for (String[] group : groups) {
+            sb.append("| ").append(group[0]).append("   |");
+            for (int i = 1; i < group.length; i++) {
+                String key = group[i];
+                String val = data.getOrDefault(key, "");
+                if (val != null && !val.trim().isEmpty()) {
+                    val = val.trim();
+                } else if ("销售利润".equals(group[0])) {
+                    String year = key.substring(key.length() - 4);
+                    String derived = deriveSalesProfit(data, year);
+                    val = derived != null ? derived : "—";
+                } else {
+                    val = "—";
+                }
+                sb.append(" ").append(val).append(" |");
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** 销售利润派生：营业收入 - 营业成本（均缺失时返回 null） */
+    private String deriveSalesProfit(Map<String, String> data, String year) {
+        String rev = data.getOrDefault("营业收入" + year, "").trim();
+        String cost = data.getOrDefault("营业成本" + year, "").trim();
+        if (!rev.isEmpty() && !cost.isEmpty()) {
+            try {
+                double r = Double.parseDouble(rev.replace(",", "").replace("，", ""));
+                double c = Double.parseDouble(cost.replace(",", "").replace("，", ""));
+                return String.format("%.2f", r - c);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+        return null;
+    }
+
     /** 替换模板中的描述性占位文本 */
     private String replaceTemplateText(String md, ReportTask task, Map<String, String> data) {
         String result = md;
 
-        // 营收来源描述
-        if (result.contains("营业收入主要来源是XXXX")) {
+        // 营收来源描述（新模板：xxxx；旧模板：XXXX 兼容）
+        if (result.contains("营业收入主要来源是xxxx")) {
+            result = result.replace("营业收入主要来源是xxxx",
+                    "营业收入主要来源是" + data.getOrDefault("营收来源描述", ""));
+        } else if (result.contains("营业收入主要来源是XXXX")) {
             result = result.replace("营业收入主要来源是XXXX",
-                    "营业收入主要来源是" + data.getOrDefault("营收来源描述", "主营业务"));
+                    "营业收入主要来源是" + data.getOrDefault("营收来源描述", ""));
         }
-        // 利润为负原因
-        if (result.contains("企业利润为负是由于XXXX")) {
+        // 利润正负描述：根据附件净利润自动判断（新模板：企业利润为负主要是由于xxxx）
+        if (result.contains("企业利润为负主要是由于xxxx")) {
+            result = result.replace("企业利润为负主要是由于xxxx", buildProfitDescription(data));
+        } else if (result.contains("企业利润为负是由于XXXX")) {
             result = result.replace("企业利润为负是由于XXXX",
-                    "企业利润为负是由于" + data.getOrDefault("利润为负原因", "暂不适用"));
+                    "企业利润为负是由于" + data.getOrDefault("利润为负原因", ""));
         }
-        // 是否覆盖
+        // 营业成本覆盖情况（新模板：无法/可以）
+        if (result.contains("无法/可以")) {
+            String coverCost = "不能".equals(data.getOrDefault("是否覆盖本息", "")) ? "无法" : "可以";
+            result = result.replace("无法/可以", coverCost);
+        }
+        // 是否覆盖本息（旧模板兼容：能/不能）
         if (result.contains("能/不能")) {
-            result = result.replace("能/不能", data.getOrDefault("是否覆盖本息", "能"));
+            result = result.replace("能/不能", data.getOrDefault("是否覆盖本息", ""));
         }
-        // 固定收入组成
+        // 固定收入组成（新模板：x部分组成：xxxxxx）
+        if (result.contains("x部分组成：xxxxxx")) {
+            String fixedIncome = data.getOrDefault("固定收入组成", "").trim();
+            if (fixedIncome.isEmpty()) {
+                result = result.replace("x部分组成：xxxxxx", "");
+            } else {
+                result = result.replace("x部分组成：xxxxxx",
+                        countIncomeParts(fixedIncome) + "部分组成：" + fixedIncome);
+            }
+        }
+        // 固定收入组成（旧模板兼容：XXXXXXXXXXXX）
         if (result.contains("XXXXXXXXXXXX")) {
-            result = result.replace("XXXXXXXXXXXX", data.getOrDefault("固定收入组成", "长期合同和协议"));
+            result = result.replace("XXXXXXXXXXXX", data.getOrDefault("固定收入组成", ""));
         }
         // 审计机构
         if (result.contains("xxxx 会计师事务所")) {
@@ -682,17 +866,8 @@ public class ReportController {
                     data.getOrDefault("审计机构", "xxxx 会计师事务所"));
         }
 
-        // 营收预测表
-        if (result.contains("2025年           | 2024年           | 2025年")) {
-            result = result.replaceFirst(
-                    "主营业务\\s*\\|\\s*\\|\\s*\\|",
-                    "主营业务 | " + data.getOrDefault("营业收入预测2025", "9,800.00") + " | "
-                            + data.getOrDefault("营业成本预测2025", "7,052.00") + " | "
-                            + data.getOrDefault("销售利润预测2025", "2,748.00") + " |");
-        }
-
-        // 表格中的空单元格再次填充（兜底）
-        result = result.replaceAll("\\|\\s{8}\\|", "| 0.00       |");
+        // 表格中的空单元格再次填充（兜底）：无数据时用 — 占位，避免写死 0.00 与真实数据混淆
+        result = result.replaceAll("\\|\\s{8}\\|", "| — |");
 
         return result;
     }
@@ -718,20 +893,12 @@ public class ReportController {
         labelMap.put("企业名称", "企业名称");
         labelMap.put("统一信用代码", "统一社会信用代码");
         labelMap.put("主营业务", "主营业务");
-        labelMap.put("员工人数", "员工人数");
         labelMap.put("营业收入2024", "营业收入（2024年）");
         labelMap.put("营业收入2023", "营业收入（2023年）");
         labelMap.put("营业收入2022", "营业收入（2022年）");
         labelMap.put("营业成本2024", "营业成本（2024年）");
         labelMap.put("营业成本2023", "营业成本（2023年）");
         labelMap.put("营业成本2022", "营业成本（2022年）");
-        labelMap.put("净利润2024", "净利润（2024年）");
-        labelMap.put("净利润2023", "净利润（2023年）");
-        labelMap.put("净利润2022", "净利润（2022年）");
-        labelMap.put("总资产2024", "总资产（2024年）");
-        labelMap.put("总资产2023", "总资产（2023年）");
-        labelMap.put("总资产2022", "总资产（2022年）");
-        labelMap.put("资产负债率", "资产负债率");
         labelMap.put("货币资金202212", "货币资金（2022/12）");
         labelMap.put("货币资金202312", "货币资金（2023/12）");
         labelMap.put("货币资金202412", "货币资金（2024/12）");

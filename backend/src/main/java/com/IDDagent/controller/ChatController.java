@@ -245,10 +245,7 @@ public class ChatController {
                             log.info("Pending skill set: {} (info_needed), params: {}", skillName, skillParams);
                         } else if ("result".equals(action) || "ambiguous".equals(action) || "not_found".equals(action)) {
                             String eventType = switch (skillName) {
-                                case "prepare_customer_outreach" -> "outreach_result";
                                 case "recommend_products" -> "product_recommend_result";
-                                case "match_products_intelligently" -> "product_match_result";
-                                case "open_corporate_account" -> "account_opening_result";
                                 case "query_due_diligence_reports" -> "historical_dd_query_result";
                                 default -> "risk_check_result";
                             };

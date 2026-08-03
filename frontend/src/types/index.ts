@@ -106,34 +106,6 @@ export interface RiskCheckResult {
 }
 
 // ============================================================
-// 拓户准备数据类型
-// ============================================================
-
-/** 触达渠道 */
-export interface ContactChannel {
-  type: string;
-  relation: string;
-  contact_method: string;
-  priority: 'high' | 'medium';
-}
-
-/** 拓户准备结果 */
-export interface OutreachResult {
-  action: 'result' | 'ambiguous' | 'not_found';
-  credit_code?: string;
-  company_name?: string;
-  business_address?: string;
-  registered_address?: string;
-  contact_channels?: ContactChannel[];
-  insights_h5_url?: string;
-  script_h5_url?: string;
-  channel_count?: number;
-  message?: string;
-  keyword?: string;
-  options?: RiskAmbiguousOption[];
-}
-
-// ============================================================
 // 报告生成数据类型
 // ============================================================
 
@@ -258,11 +230,7 @@ export type SSEEventType =
   | 'text_delta'
   | 'text_done'
   | 'risk_check_result'
-  | 'outreach_result'
   | 'report_generate_result'
-  | 'product_recommend_result'
-  | 'product_match_result'
-  | 'account_opening_result'
   | 'information_check_result'
   | 'follow_up_suggestion'
   | 'historical_dd_query_result'
@@ -277,7 +245,7 @@ export interface SSEEvent {
   content?: string;
   message_id?: string;
   conversation_id?: string;
-  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | OutreachResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData;
+  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData;
 }
 
 // ============================================================

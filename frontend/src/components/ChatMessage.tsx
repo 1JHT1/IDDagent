@@ -7,6 +7,7 @@ import RiskCheckCard from './RiskCheckCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
 import InformationCheckCard from './InformationCheckCard';
 import ReportGenerateCard from './ReportGenerateCard';
+import CompanyQueryCard from './CompanyQueryCard';
 import CompanyNameSelector from './CompanyNameSelector';
 import FollowUpChip from './FollowUpChip';
 
@@ -178,6 +179,9 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         }
         if (skillName === 'generate_report') {
           return <ReportGenerateCard data={message.extra} onSendMessage={onSendMessage} />;
+        }
+        if (skillName && skillName.startsWith('query_')) {
+          return <CompanyQueryCard data={message.extra} onSendMessage={onSendMessage} />;
         }
 
         // 兜底：按字段特征匹配（兼容旧数据）

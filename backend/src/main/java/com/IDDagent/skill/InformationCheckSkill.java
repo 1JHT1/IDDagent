@@ -37,6 +37,21 @@ public class InformationCheckSkill {
         String creditCode = ((String) params.getOrDefault("credit_code", "")).trim();
         String companyName = ((String) params.getOrDefault("company_name", "")).trim();
 
+        // 多轮交互：当企业名与信用代码均未由 LLM 提供时，从用户下一条输入中提取企业名
+        if (creditCode.isEmpty() && companyName.isEmpty()) {
+            String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
+            if (!userInput.isEmpty()) {
+                String cleaned = userInput
+                        .replaceAll("^(请帮我|帮我|请|麻烦|辛苦)\\s*(核实|核验|核查|验证|查询|查一下|查)\\s*(一下|下)?\\s*", "")
+                        .replaceAll("^(信息核实|信息核查|核实信息|核查信息|核实|核查|查询|查一下|查)\\s*", "")
+                        .replaceAll("\\s*(的信息|的资料|的核实|的核查|的营业执照|营业执照)$", "")
+                        .trim();
+                if (!cleaned.isEmpty() && cleaned.length() <= 100) {
+                    companyName = cleaned;
+                }
+            }
+        }
+
         // 解析公司名称 → 信用代码
         if (creditCode.isEmpty() && !companyName.isEmpty()) {
             Map<String, String> nameIndex = (Map<String, String>) (Map<?, ?>) DataLoader.loadJson(NAME_INDEX_FILE);
@@ -55,7 +70,7 @@ public class InformationCheckSkill {
 
         if (creditCode.isEmpty()) {
             Map<String, Object> resp = new HashMap<>();
-            resp.put("action", "not_found");
+            resp.put("action", "info_needed");
             resp.put("message", "请提供企业名称或统一信用代码进行信息核实。");
             return resp;
         }
@@ -64,8 +79,11 @@ public class InformationCheckSkill {
         String attachmentUrl = ((String) params.getOrDefault("_attachment_url", "")).trim();
         if (attachmentUrl.isEmpty()) {
             Map<String, Object> resp = new HashMap<>();
-            resp.put("action", "not_found");
+            resp.put("action", "info_needed");
             resp.put("message", "请上传该企业的营业执照图片以进行信息核实。");
+            // 带回已解析的企业信息，供 ChatController 合并进技能上下文，避免下一轮参数丢失
+            resp.put("company_name", companyName);
+            resp.put("credit_code", creditCode);
             return resp;
         }
 

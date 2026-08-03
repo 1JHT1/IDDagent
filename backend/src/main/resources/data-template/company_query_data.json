@@ -1,0 +1,574 @@
+{
+  "91110108551385082Q": {
+    "credit_code": "91110108551385082Q",
+    "company_name": "小米科技有限责任公司",
+    "basic_info": {
+      "legal_rep": "王强",
+      "registered_capital": "10000万元",
+      "establish_date": "2010-04-06",
+      "address": "北京市海淀区西二旗中路33号",
+      "industry": "软件和信息技术服务业",
+      "status": "存续",
+      "business_scope": "计算机软件、硬件及网络设备的技术开发、技术咨询、技术服务；电子产品的销售。"
+    },
+    "shareholders": [
+      { "name": "王强", "type": "自然人股东", "ratio": "55%" },
+      { "name": "星辰资本投资有限公司", "type": "法人股东", "ratio": "45%" }
+    ],
+    "beneficiaries": [
+      { "name": "王强", "type": "最终受益人", "ratio": "55%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": ["红米子集科技有限公司", "小米科技有限公司", "小米至善科技有限公司", "小米食品有限公司"], "group": "小米集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC11082010001234", "valid_until": "2027-08-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": true, "tags": ["司法冻结"], "accounts": ["11010212345678901234"] },
+    "credit_granting": { "total_limit": "20000万元", "used": "12000万元", "balance": "8000万元", "rating": "AA" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-30" }
+  },
+  "91110108MA01B3XK2P": {
+    "credit_code": "91110108MA01B3XK2P",
+    "company_name": "北京星河科技有限公司",
+    "basic_info": {
+      "legal_rep": "李华",
+      "registered_capital": "5000万元",
+      "establish_date": "2018-03-15",
+      "address": "北京市海淀区中关村大街1号",
+      "industry": "科技推广服务业",
+      "status": "存续",
+      "business_scope": "技术开发、技术咨询、技术转让；计算机系统服务；软件开发。"
+    },
+    "shareholders": [
+      { "name": "李华", "type": "自然人股东", "ratio": "60%" },
+      { "name": "星河资本投资有限公司", "type": "法人股东", "ratio": "40%" }
+    ],
+    "beneficiaries": [
+      { "name": "李华", "type": "最终受益人", "ratio": "60%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": ["叶子科技有限公司"], "group": "星河集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC11082018005678", "valid_until": "2027-06-30" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "8000万元", "used": "3000万元", "balance": "5000万元", "rating": "AA-" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-01" }
+  },
+  "91440300MA5DCTJH8N": {
+    "credit_code": "91440300MA5DCTJH8N",
+    "company_name": "深圳前海创新金融集团有限公司",
+    "basic_info": {
+      "legal_rep": "陈静",
+      "registered_capital": "30000万元",
+      "establish_date": "2016-05-20",
+      "address": "广东省深圳市前海深港合作区前湾一路1号",
+      "industry": "金融业（控股公司服务）",
+      "status": "存续",
+      "business_scope": "投资管理、股权投资、受托资产管理、企业管理咨询。"
+    },
+    "shareholders": [
+      { "name": "陈静", "type": "自然人股东", "ratio": "70%" },
+      { "name": "前海深港联合投资合伙企业", "type": "合伙企业股东", "ratio": "30%" }
+    ],
+    "beneficiaries": [
+      { "name": "陈静", "type": "最终受益人", "ratio": "70%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "前海创新集团" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC44032016002345", "valid_until": "2026-12-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "50000万元", "used": "35000万元", "balance": "15000万元", "rating": "A+" },
+    "pboc_account_control": { "control_type": "账户管控", "controls": [
+      { "date": "2026-03-18", "type": "限制非柜面交易", "reason": "反洗钱可疑交易监测" }
+    ], "last_check": "2026-06-15" }
+  },
+  "91330108MA27XK5B3D": {
+    "credit_code": "91330108MA27XK5B3D",
+    "company_name": "杭州云栖大数据技术有限公司",
+    "basic_info": {
+      "legal_rep": "杨帆",
+      "registered_capital": "8000万元",
+      "establish_date": "2017-09-08",
+      "address": "浙江省杭州市西湖区云栖小镇科技园6幢",
+      "industry": "大数据服务",
+      "status": "存续",
+      "business_scope": "数据处理和存储服务；大数据分析；云计算技术服务。"
+    },
+    "shareholders": [
+      { "name": "杨帆", "type": "自然人股东", "ratio": "80%" },
+      { "name": "云栖产业投资基金合伙企业", "type": "合伙企业股东", "ratio": "20%" }
+    ],
+    "beneficiaries": [
+      { "name": "杨帆", "type": "最终受益人", "ratio": "80%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "无" },
+    "customs_auth": { "status": "未认证", "auth_code": "", "valid_until": "" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "5000万元", "used": "1000万元", "balance": "4000万元", "rating": "A" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-05-20" }
+  },
+  "91310115MA1K3L6M9Q": {
+    "credit_code": "91310115MA1K3L6M9Q",
+    "company_name": "上海浦江智能装备制造有限公司",
+    "basic_info": {
+      "legal_rep": "赵磊",
+      "registered_capital": "15000万元",
+      "establish_date": "2014-11-12",
+      "address": "上海市浦东新区临港新片区云水路168号",
+      "industry": "专用设备制造业",
+      "status": "存续",
+      "business_scope": "智能装备、工业机器人的研发、制造与销售；自动化生产线集成。"
+    },
+    "shareholders": [
+      { "name": "赵磊", "type": "自然人股东", "ratio": "65%" },
+      { "name": "浦江智能制造产业基金", "type": "法人股东", "ratio": "35%" }
+    ],
+    "beneficiaries": [
+      { "name": "赵磊", "type": "最终受益人", "ratio": "65%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "浦江集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC31092014007890", "valid_until": "2028-03-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": true, "tags": ["涉案账户冻结", "止付"], "accounts": ["31009876543210987654"] },
+    "credit_granting": { "total_limit": "30000万元", "used": "18000万元", "balance": "12000万元", "rating": "A" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-04-28" }
+  },
+  "91440101MA5AK7T4R2": {
+    "credit_code": "91440101MA5AK7T4R2",
+    "company_name": "广州珠江国际贸易有限公司",
+    "basic_info": {
+      "legal_rep": "孙悦",
+      "registered_capital": "6000万元",
+      "establish_date": "2013-02-18",
+      "address": "广东省广州市天河区珠江新城华夏路10号",
+      "industry": "批发业",
+      "status": "存续",
+      "business_scope": "货物进出口、技术进出口；国内贸易代理；供应链管理服务。"
+    },
+    "shareholders": [
+      { "name": "孙悦", "type": "自然人股东", "ratio": "75%" },
+      { "name": "珠江商贸集团有限责任公司", "type": "法人股东", "ratio": "25%" }
+    ],
+    "beneficiaries": [
+      { "name": "孙悦", "type": "最终受益人", "ratio": "75%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "珠江商贸集团" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC44012013004567", "valid_until": "2026-11-30" },
+    "customs_blacklist": { "in_list": true, "records": [
+      { "date": "2025-09-10", "type": "失信企业名单", "reason": "未按期办理海关税款缴纳" }
+    ] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "10000万元", "used": "6000万元", "balance": "4000万元", "rating": "BBB+" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-10" }
+  },
+  "91510100MA6C8M2F5W": {
+    "credit_code": "91510100MA6C8M2F5W",
+    "company_name": "成都天府半导体材料有限公司",
+    "basic_info": {
+      "legal_rep": "周杰",
+      "registered_capital": "20000万元",
+      "establish_date": "2019-07-01",
+      "address": "四川省成都市高新区天府五街200号",
+      "industry": "计算机、通信和其他电子设备制造业",
+      "status": "存续",
+      "business_scope": "半导体材料、电子元器件的研发、生产与销售。"
+    },
+    "shareholders": [
+      { "name": "周杰", "type": "自然人股东", "ratio": "50%" },
+      { "name": "天府芯城产业投资有限公司", "type": "法人股东", "ratio": "50%" }
+    ],
+    "beneficiaries": [
+      { "name": "周杰", "type": "最终受益人", "ratio": "50%", "note": "直接持股50%，另通过一致行动协议共同控制" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "天府芯城集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC51012019001234", "valid_until": "2027-12-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "40000万元", "used": "25000万元", "balance": "15000万元", "rating": "AA-" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-05-30" }
+  },
+  "91420100MA4KX2L8H1": {
+    "credit_code": "91420100MA4KX2L8H1",
+    "company_name": "武汉光谷生物医药科技有限公司",
+    "basic_info": {
+      "legal_rep": "吴敏",
+      "registered_capital": "12000万元",
+      "establish_date": "2015-08-25",
+      "address": "湖北省武汉市东湖新技术开发区高新大道666号",
+      "industry": "医药制造业",
+      "status": "存续",
+      "business_scope": "生物医药技术研发；药品、医疗器械的生产与销售。"
+    },
+    "shareholders": [
+      { "name": "吴敏", "type": "自然人股东", "ratio": "58%" },
+      { "name": "光谷生物城发展有限公司", "type": "法人股东", "ratio": "42%" }
+    ],
+    "beneficiaries": [
+      { "name": "吴敏", "type": "最终受益人", "ratio": "58%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "光谷生物城集团" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC42012015006789", "valid_until": "2027-01-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "15000万元", "used": "7000万元", "balance": "8000万元", "rating": "A" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-03-25" }
+  },
+  "91320115MA1W7J9P3B": {
+    "credit_code": "91320115MA1W7J9P3B",
+    "company_name": "南京江宁新能源动力有限公司",
+    "basic_info": {
+      "legal_rep": "郑凯",
+      "registered_capital": "25000万元",
+      "establish_date": "2016-12-09",
+      "address": "江苏省南京市江宁区秣周东路9号",
+      "industry": "新能源电池制造",
+      "status": "存续",
+      "business_scope": "动力电池、储能系统的研发、制造与销售；新能源技术推广服务。"
+    },
+    "shareholders": [
+      { "name": "郑凯", "type": "自然人股东", "ratio": "52%" },
+      { "name": "江宁新能源产业投资基金", "type": "法人股东", "ratio": "48%" }
+    ],
+    "beneficiaries": [
+      { "name": "郑凯", "type": "最终受益人", "ratio": "52%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "江宁新能源集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC32012016005678", "valid_until": "2027-10-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "60000万元", "used": "20000万元", "balance": "40000万元", "rating": "AA" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-05" }
+  },
+  "91500000MA5YU6RA4C": {
+    "credit_code": "91500000MA5YU6RA4C",
+    "company_name": "重庆两江新区供应链管理有限公司",
+    "basic_info": {
+      "legal_rep": "冯雪",
+      "registered_capital": "9000万元",
+      "establish_date": "2017-04-26",
+      "address": "重庆市两江新区龙兴镇两江大道618号",
+      "industry": "供应链管理服务",
+      "status": "存续",
+      "business_scope": "供应链管理；仓储服务；货物运输代理；报关报检代理。"
+    },
+    "shareholders": [
+      { "name": "冯雪", "type": "自然人股东", "ratio": "68%" },
+      { "name": "两江新区开发投资集团", "type": "法人股东", "ratio": "32%" }
+    ],
+    "beneficiaries": [
+      { "name": "冯雪", "type": "最终受益人", "ratio": "68%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "两江投资集团" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC50002017001234", "valid_until": "2026-12-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "12000万元", "used": "5000万元", "balance": "7000万元", "rating": "A-" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-04-15" }
+  },
+  "91320594MA1R8T2B6E": {
+    "credit_code": "91320594MA1R8T2B6E",
+    "company_name": "苏州工业园区芯片设计有限公司",
+    "basic_info": {
+      "legal_rep": "许峰",
+      "registered_capital": "18000万元",
+      "establish_date": "2018-01-22",
+      "address": "江苏省苏州市工业园区金鸡湖大道88号",
+      "industry": "集成电路设计",
+      "status": "存续",
+      "business_scope": "集成电路、电子产品的设计、开发与销售；芯片技术咨询服务。"
+    },
+    "shareholders": [
+      { "name": "许峰", "type": "自然人股东", "ratio": "62%" },
+      { "name": "苏州芯谷产业投资有限公司", "type": "法人股东", "ratio": "38%" }
+    ],
+    "beneficiaries": [
+      { "name": "许峰", "type": "最终受益人", "ratio": "62%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "苏州芯谷集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC32052018007890", "valid_until": "2027-11-30" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "35000万元", "used": "15000万元", "balance": "20000万元", "rating": "AA-" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-05-18" }
+  },
+  "91610131MA6U2F8G8K": {
+    "credit_code": "91610131MA6U2F8G8K",
+    "company_name": "西安高新区航空航天零部件有限公司",
+    "basic_info": {
+      "legal_rep": "韩冰",
+      "registered_capital": "22000万元",
+      "establish_date": "2014-06-30",
+      "address": "陕西省西安市高新区锦业路69号",
+      "industry": "航空航天器及设备制造",
+      "status": "存续",
+      "business_scope": "航空航天零部件的研发、制造与销售；精密机械加工。"
+    },
+    "shareholders": [
+      { "name": "韩冰", "type": "自然人股东", "ratio": "60%" },
+      { "name": "西安航天产业投资有限公司", "type": "法人股东", "ratio": "40%" }
+    ],
+    "beneficiaries": [
+      { "name": "韩冰", "type": "最终受益人", "ratio": "60%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "西安航天产业集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC61012014002345", "valid_until": "2027-09-30" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "45000万元", "used": "28000万元", "balance": "17000万元", "rating": "AA" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-02-28" }
+  },
+  "91410100MA44N6K3D9": {
+    "credit_code": "91410100MA44N6K3D9",
+    "company_name": "郑州航空港区跨境电子商务有限公司",
+    "basic_info": {
+      "legal_rep": "马超",
+      "registered_capital": "7000万元",
+      "establish_date": "2017-03-14",
+      "address": "河南省郑州市航空港经济综合实验区华夏大道168号",
+      "industry": "互联网和相关服务",
+      "status": "存续",
+      "business_scope": "跨境电子商务平台运营；货物进出口；仓储服务；国际货运代理。"
+    },
+    "shareholders": [
+      { "name": "马超", "type": "自然人股东", "ratio": "66%" },
+      { "name": "航空港跨境产业投资有限公司", "type": "法人股东", "ratio": "34%" }
+    ],
+    "beneficiaries": [
+      { "name": "马超", "type": "最终受益人", "ratio": "66%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "航空港跨境集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC41012017003456", "valid_until": "2028-02-28" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "9000万元", "used": "3500万元", "balance": "5500万元", "rating": "A" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-08" }
+  },
+  "91120116MA05K8N3X7": {
+    "credit_code": "91120116MA05K8N3X7",
+    "company_name": "天津滨海新区精工制造有限公司",
+    "basic_info": {
+      "legal_rep": "唐磊",
+      "registered_capital": "16000万元",
+      "establish_date": "2015-05-11",
+      "address": "天津市滨海新区临港工业区渤海路28号",
+      "industry": "通用设备制造业",
+      "status": "存续",
+      "business_scope": "精密机械、通用设备的制造与销售；机械零部件加工。"
+    },
+    "shareholders": [
+      { "name": "唐磊", "type": "自然人股东", "ratio": "72%" },
+      { "name": "滨海精工产业基金", "type": "法人股东", "ratio": "28%" }
+    ],
+    "beneficiaries": [
+      { "name": "唐磊", "type": "最终受益人", "ratio": "72%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "滨海精工集团" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC12012015004567", "valid_until": "2026-10-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "28000万元", "used": "22000万元", "balance": "6000万元", "rating": "BBB+" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-05-22" }
+  },
+  "91460000MA5T8F3K6D": {
+    "credit_code": "91460000MA5T8F3K6D",
+    "company_name": "海南自贸港国际物流有限公司",
+    "basic_info": {
+      "legal_rep": "曹阳",
+      "registered_capital": "10000万元",
+      "establish_date": "2019-11-08",
+      "address": "海南省海口市美兰区国兴大道5号",
+      "industry": "多式联运和运输代理业",
+      "status": "存续",
+      "business_scope": "国际物流、多式联运；货物运输代理；保税仓储服务。"
+    },
+    "shareholders": [
+      { "name": "曹阳", "type": "自然人股东", "ratio": "70%" },
+      { "name": "海南自贸港发展基金", "type": "法人股东", "ratio": "30%" }
+    ],
+    "beneficiaries": [
+      { "name": "曹阳", "type": "最终受益人", "ratio": "70%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "自贸港物流集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC46002019005678", "valid_until": "2027-12-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "15000万元", "used": "8000万元", "balance": "7000万元", "rating": "A+" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-12" }
+  },
+  "91350200MA34P9J8K2": {
+    "credit_code": "91350200MA34P9J8K2",
+    "company_name": "厦门两岸科技孵化器有限公司",
+    "basic_info": {
+      "legal_rep": "林芳",
+      "registered_capital": "5000万元",
+      "establish_date": "2020-08-18",
+      "address": "福建省厦门市湖里区五缘湾商务营运中心1号楼",
+      "industry": "科技中介服务",
+      "status": "存续",
+      "business_scope": "科技企业孵化服务；创业投资服务；企业管理咨询。"
+    },
+    "shareholders": [
+      { "name": "林芳", "type": "自然人股东", "ratio": "64%" },
+      { "name": "两岸青年创业投资合伙企业", "type": "合伙企业股东", "ratio": "36%" }
+    ],
+    "beneficiaries": [
+      { "name": "林芳", "type": "最终受益人", "ratio": "64%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "无" },
+    "customs_auth": { "status": "未认证", "auth_code": "", "valid_until": "" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "3000万元", "used": "800万元", "balance": "2200万元", "rating": "A-" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-04-20" }
+  },
+  "91110108MA01B3XK2PB": {
+    "credit_code": "91110108MA01B3XK2PB",
+    "company_name": "红米子集科技有限公司",
+    "basic_info": {
+      "legal_rep": "王强",
+      "registered_capital": "3000万元",
+      "establish_date": "2019-06-12",
+      "address": "北京市海淀区西二旗中路33号院2号楼",
+      "industry": "软件和信息技术服务业",
+      "status": "存续",
+      "business_scope": "电子产品的技术开发与销售；软件开发；信息系统集成服务。"
+    },
+    "shareholders": [
+      { "name": "小米科技有限责任公司", "type": "法人股东", "ratio": "100%" }
+    ],
+    "beneficiaries": [
+      { "name": "王强", "type": "最终受益人", "ratio": "55%", "note": "通过小米科技有限责任公司间接持股认定" }
+    ],
+    "genealogy": { "parent": "小米科技有限责任公司", "children": [], "group": "小米集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC11082019006789", "valid_until": "2027-06-30" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "2000万元", "used": "500万元", "balance": "1500万元", "rating": "A" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-20" }
+  },
+  "91440300MA5DCTJH8NB": {
+    "credit_code": "91440300MA5DCTJH8NB",
+    "company_name": "木棉花供应链管理有限公司",
+    "basic_info": {
+      "legal_rep": "罗敏",
+      "registered_capital": "4000万元",
+      "establish_date": "2021-04-16",
+      "address": "广东省深圳市南山区科技园南区T3栋",
+      "industry": "供应链管理服务",
+      "status": "存续",
+      "business_scope": "供应链管理；国内贸易；货物及技术进出口。"
+    },
+    "shareholders": [
+      { "name": "罗敏", "type": "自然人股东", "ratio": "85%" },
+      { "name": "木棉花资本有限公司", "type": "法人股东", "ratio": "15%" }
+    ],
+    "beneficiaries": [
+      { "name": "罗敏", "type": "最终受益人", "ratio": "85%", "note": "通过直接持股认定" }
+    ],
+    "genealogy": { "parent": "无", "children": [], "group": "无" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC44032021001234", "valid_until": "2026-09-30" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "2500万元", "used": "1200万元", "balance": "1300万元", "rating": "BBB+" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-05-12" }
+  },
+  "91440300MA5DCTJHQAZ": {
+    "credit_code": "91440300MA5DCTJHQAZ",
+    "company_name": "叶子科技有限公司",
+    "basic_info": {
+      "legal_rep": "李华",
+      "registered_capital": "2000万元",
+      "establish_date": "2022-07-01",
+      "address": "广东省深圳市南山区粤海街道科技园路9号",
+      "industry": "软件和信息技术服务业",
+      "status": "存续",
+      "business_scope": "计算机软件开发；网络技术服务；智能终端设备销售。"
+    },
+    "shareholders": [
+      { "name": "北京星河科技有限公司", "type": "法人股东", "ratio": "70%" },
+      { "name": "李华", "type": "自然人股东", "ratio": "30%" }
+    ],
+    "beneficiaries": [
+      { "name": "李华", "type": "最终受益人", "ratio": "72%", "note": "直接持股30%并间接持股42%" }
+    ],
+    "genealogy": { "parent": "北京星河科技有限公司", "children": [], "group": "星河集团" },
+    "customs_auth": { "status": "未认证", "auth_code": "", "valid_until": "" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "1500万元", "used": "600万元", "balance": "900万元", "rating": "A-" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-03-30" }
+  },
+  "91440300MA5DCTJHQA1": {
+    "credit_code": "91440300MA5DCTJHQA1",
+    "company_name": "小米科技有限公司",
+    "basic_info": {
+      "legal_rep": "王强",
+      "registered_capital": "5000万元",
+      "establish_date": "2018-10-10",
+      "address": "广东省深圳市南山区深南大道9988号",
+      "industry": "软件和信息技术服务业",
+      "status": "存续",
+      "business_scope": "智能硬件研发；互联网技术服务；电子产品销售。"
+    },
+    "shareholders": [
+      { "name": "小米科技有限责任公司", "type": "法人股东", "ratio": "100%" }
+    ],
+    "beneficiaries": [
+      { "name": "王强", "type": "最终受益人", "ratio": "55%", "note": "通过小米科技有限责任公司间接持股认定" }
+    ],
+    "genealogy": { "parent": "小米科技有限责任公司", "children": [], "group": "小米集团" },
+    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC44032018004567", "valid_until": "2027-10-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "4000万元", "used": "1800万元", "balance": "2200万元", "rating": "A+" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-18" }
+  },
+  "91440300MA5DCTJHQA2": {
+    "credit_code": "91440300MA5DCTJHQA2",
+    "company_name": "小米至善科技有限公司",
+    "basic_info": {
+      "legal_rep": "王强",
+      "registered_capital": "3000万元",
+      "establish_date": "2020-03-20",
+      "address": "广东省深圳市南山区深南大道9988号B座",
+      "industry": "科技推广服务业",
+      "status": "存续",
+      "business_scope": "科技推广服务；健康科技产品研发与销售。"
+    },
+    "shareholders": [
+      { "name": "小米科技有限责任公司", "type": "法人股东", "ratio": "100%" }
+    ],
+    "beneficiaries": [
+      { "name": "王强", "type": "最终受益人", "ratio": "55%", "note": "通过小米科技有限责任公司间接持股认定" }
+    ],
+    "genealogy": { "parent": "小米科技有限责任公司", "children": [], "group": "小米集团" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC44032020005678", "valid_until": "2026-12-31" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "1800万元", "used": "700万元", "balance": "1100万元", "rating": "A" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-04-26" }
+  },
+  "91440300MA5DCTJHQA3": {
+    "credit_code": "91440300MA5DCTJHQA3",
+    "company_name": "小米食品有限公司",
+    "basic_info": {
+      "legal_rep": "王强",
+      "registered_capital": "2000万元",
+      "establish_date": "2019-01-15",
+      "address": "广东省深圳市南山区深南大道9988号C座",
+      "industry": "食品制造业",
+      "status": "存续",
+      "business_scope": "预包装食品的研发、生产与销售；食品互联网销售。"
+    },
+    "shareholders": [
+      { "name": "小米科技有限责任公司", "type": "法人股东", "ratio": "100%" }
+    ],
+    "beneficiaries": [
+      { "name": "王强", "type": "最终受益人", "ratio": "55%", "note": "通过小米科技有限责任公司间接持股认定" }
+    ],
+    "genealogy": { "parent": "小米科技有限责任公司", "children": [], "group": "小米集团" },
+    "customs_auth": { "status": "一般认证企业", "auth_code": "AEOC44032019007890", "valid_until": "2026-11-30" },
+    "customs_blacklist": { "in_list": false, "records": [] },
+    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
+    "credit_granting": { "total_limit": "1000万元", "used": "300万元", "balance": "700万元", "rating": "BBB+" },
+    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-05-28" }
+  }
+}

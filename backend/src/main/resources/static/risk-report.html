@@ -103,15 +103,6 @@
     .status-tag.warn { background: var(--risk-medium-bg); color: var(--risk-medium); }
     .status-tag.safe { background: var(--risk-low-bg); color: var(--risk-low); }
 
-    /* ====== Recommendation ====== */
-    .recommendation { padding: 18px; background: linear-gradient(135deg, #fff7e6, #fffbe6); border-radius: var(--radius); 
-      box-shadow: var(--shadow); margin-bottom: 14px; border: 1px solid #ffe58f; }
-    .recommendation .rec-title { font-size: 14px; font-weight: 700; color: #ad6800; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-    .recommendation .rec-list { display: flex; flex-direction: column; gap: 6px; }
-    .recommendation .rec-item { font-size: 12px; color: var(--gray-700); display: flex; gap: 6px; line-height: 1.5; }
-    .recommendation .rec-num { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: #faad14; 
-      color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
-
     /* ====== Footer ====== */
     .footer { text-align: center; padding: 20px 0; }
     .footer .disclaimer { font-size: 11px; color: #bfbfbf; line-height: 1.6; margin-bottom: 8px; }
@@ -277,40 +268,11 @@
         html += '</div></div></div>';
       });
 
-      /* ====== Recommendation ====== */
-      var recItems;
-      if (level === 'high') {
-        recItems = [
-          '建议暂缓受理该企业的开户申请，并上报区域风控部门复核',
-          '需对企业法人及受益所有人进行增强型尽职调查（EDD）',
-          '对该企业关联方及交易对手进行全面排查',
-          '如确需受理，必须获得区域内部控制部门书面审批'
-        ];
-      } else if (level === 'medium') {
-        recItems = [
-          '可以受理开户申请，但需执行标准尽职调查程序',
-          '重点关注受益所有人信息及跨境交易记录的完整性',
-          '开户后需进行定期交易监控，频次不低于每季度一次',
-          '如尽调过程中发现其他风险点，应及时升级风险等级'
-        ];
-      } else {
-        recItems = [
-          '该企业综合风险较低，建议受理开户申请',
-          '执行简化型尽职调查程序即可',
-          '开户后进行例行交易监控，频次不低于每半年一次',
-          '如企业信息发生重大变更，需重新进行风险评估'
-        ];
-      }
 
-      html += '<div class="recommendation">'
-        + '<div class="rec-title">💼 开户处理建议</div>'
-        + '<div class="rec-list">'
-        + recItems.map(function(t, i) { return '<div class="rec-item"><span class="rec-num">' + (i+1) + '</span><span>' + t + '</span></div>'; }).join('')
-        + '</div></div>';
 
       /* ====== Footer ====== */
       html += '<div class="footer">'
-        + '<div class="disclaimer">本报告由对公存款智能体系统自动生成，数据来源为工商公示信息、反洗钱监测系统及风险评级模型。<br>'
+        + '<div class="disclaimer">本报告由智能尽调智能体系统自动生成，数据来源为工商公示信息、反洗钱监测系统及风险评级模型。<br>'
         + '以上内容仅供内部参考，不构成任何法律或商业建议。如需进一步核实，请联系风控合规部门。</div>'
         + '<div class="report-id">报告编号：' + reportId + '　|　生成时间：' + timeStr + '</div>'
         + '</div>';

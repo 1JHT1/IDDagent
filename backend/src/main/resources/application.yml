@@ -9,6 +9,10 @@ spring:
   web:
     resources:
       static-locations: classpath:/static/
+      cache:
+        cachecontrol:
+          # H5 页面每次请求向后端重新校验，避免浏览器缓存旧版本页面
+          no-cache: true
 
 app:
   deepseek:

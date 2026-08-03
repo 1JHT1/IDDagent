@@ -104,8 +104,8 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
   const handleSend = () => {
     if (!canSend) return;
     const metas = doneAttachments.map((a) => a.meta!) as ChatAttachment[];
-    // 无文字但有附件时给一个默认文案
-    const text = input.trim() || '请查看我上传的附件';
+    // 无文字时传空字符串，由后端识别「仅上传附件」场景并询问用途
+    const text = input.trim();
     onSend(text, metas.length > 0 ? metas : undefined);
     setInput('');
     setAttachments([]);

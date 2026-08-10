@@ -5,14 +5,28 @@ package com.IDDagent.service;
 * */
 import com.IDDagent.model.Conversation;
 import com.IDDagent.model.ConversationListItem;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class ConversationService {
+
+    private static final Logger log = LoggerFactory.getLogger(ConversationService.class);
+    /** 会话持久化文件（与 users.json 同目录，后端重启后对话记录仍保留） */
+    private static final String CONVERSATIONS_FILE = "data/conversations.json";
+    private final ObjectMapper mapper = new ObjectMapper();
 
     // { userId: { convId: Conversation } }
     private final Map<String, Map<String, Conversation>> conversations = new ConcurrentHashMap<>();
@@ -22,6 +36,38 @@ public class ConversationService {
 
     // { conversationId: [notification, ...] }
     private final Map<String, List<Map<String, Object>>> accountNotifications = new ConcurrentHashMap<>();
+
+    @PostConstruct
+    public void init() {
+        load();
+    }
+
+    /** 启动时从 data/conversations.json 加载会话到内存 */
+    private void load() {
+        try {
+            Path path = Paths.get(CONVERSATIONS_FILE);
+            if (Files.exists(path)) {
+                Map<String, Map<String, Conversation>> loaded = mapper.readValue(
+                        path.toFile(),
+                        new TypeReference<Map<String, Map<String, Conversation>>>() {});
+                conversations.putAll(loaded);
+                log.info("Loaded {} users' conversations from {}", conversations.size(), path.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            log.warn("Failed to load conversations file: {}", e.getMessage());
+        }
+    }
+
+    /** 将内存中的全部会话写入 data/conversations.json（消息增删后调用） */
+    public synchronized void persist() {
+        try {
+            Path path = Paths.get(CONVERSATIONS_FILE);
+            Files.createDirectories(path.getParent());
+            mapper.writerWithDefaultPrettyPrinter().writeValue(path.toFile(), conversations);
+        } catch (IOException e) {
+            log.error("Failed to save conversations file: {}", e.getMessage());
+        }
+    }
 
     public Map<String, Conversation> getUserConvs(String userId) {
         return conversations.computeIfAbsent(userId, k -> new ConcurrentHashMap<>());
@@ -38,6 +84,7 @@ public class ConversationService {
         conv.setCreatedAt(now);
         conv.setUpdatedAt(now);
         getUserConvs(userId).put(convId, conv);
+        persist();
         return conv;
     }
 
@@ -61,7 +108,11 @@ public class ConversationService {
     }
 
     public boolean deleteConversation(String userId, String convId) {
-        return getUserConvs(userId).remove(convId) != null;
+        boolean removed = getUserConvs(userId).remove(convId) != null;
+        if (removed) {
+            persist();
+        }
+        return removed;
     }
 
     // Track skills called per conversation per company

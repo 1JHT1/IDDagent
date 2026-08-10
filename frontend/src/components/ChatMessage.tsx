@@ -210,6 +210,19 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         }
       }
 
+      // 文本提示类消息（info_needed 缺企业标识 / need_date_range 需输入时间区间）：以普通文本气泡渲染
+      if (extraAction === 'info_needed' || extraAction === 'need_date_range') {
+        const text = (message.extra.message as string) || '';
+        if (!text) return null;
+        return (
+          <div className="max-w-[75%] bg-white text-gray-800 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm border border-gray-100">
+            <div className="markdown-content text-sm">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+            </div>
+          </div>
+        );
+      }
+
       // 无匹配卡片时回退到 Markdown 渲染
       return null;
     }

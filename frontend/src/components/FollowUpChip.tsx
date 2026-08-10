@@ -4,9 +4,10 @@ interface FollowUpChipProps {
   text: string
   onSendMessage?: (content: string) => void
 }
+
 /**
  * 将追问问题转换为用户请求指令
- * 例: "是否需要为「北京星河科技」推荐适合的金融产品？" → "请为北京星河科技推荐适合的金融产品"
+ * 
  */
 function convertToRequest(question: string): string {
   return question

@@ -34,9 +34,6 @@ const App: React.FC = () => {
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
 
-  // 追踪已注入消息的报告 ID，防止重复
-  const injectedReportIds = useRef<Set<string>>(new Set());
-
   const isAuthenticated = !!token && !!user;
 
   // ---- 登录回调 ----
@@ -72,23 +69,38 @@ const App: React.FC = () => {
   // 报告进度消息注入（将进度卡片以智能体消息形式插入聊天流）
   // ================================================================
 
-  /** 向聊天流注入一条进度卡片消息（同一 reportId 仅注入一次） */
+  /** 向聊天流注入一条进度卡片消息（消息列表中已存在同 reportId 则不重复注入） */
   const injectProgressMessage = useCallback((reportId: string) => {
-    if (injectedReportIds.current.has(reportId)) return;
-    injectedReportIds.current.add(reportId);
-    setMessages((prev) => [...prev, {
-      id: `report-progress-${reportId}`,
-      role: 'assistant' as const,
-      content: '',
-      extra: {
-        action: 'result',
-        _skill_name: 'generate_report',
-        stage: 'progress',
-        report_id: reportId,
-      },
-      created_at: new Date().toISOString(),
-    }]);
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === `report-progress-${reportId}`)) return prev;
+      return [...prev, {
+        id: `report-progress-${reportId}`,
+        role: 'assistant' as const,
+        content: '',
+        extra: {
+          action: 'result',
+          _skill_name: 'generate_report',
+          stage: 'progress',
+          report_id: reportId,
+        },
+        created_at: new Date().toISOString(),
+      }];
+    });
   }, [setMessages]);
+
+  /** 拉取指定会话的待处理报告并注入进度卡片（切换会话时立即调用，无需等待轮询） */
+  const injectConversationReports = useCallback(async (convId: string) => {
+    try {
+      const res = await fetch(`/api/generate-report/conversation/${convId}/pending`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.reports && data.reports.length > 0) {
+        for (const r of data.reports) {
+          injectProgressMessage(r.reportId);
+        }
+      }
+    } catch { /* ignore */ }
+  }, [injectProgressMessage]);
 
   // 定时轮询当前用户的活跃报告（捕获 H5 标签页关闭后发起的生成）
   useEffect(() => {
@@ -202,6 +214,8 @@ const App: React.FC = () => {
         return base;
       });
       setMessages(msgs);
+      // 立即注入该会话的待处理报告进度卡片（切换后无需刷新即可显示，轮询兜底）
+      injectConversationReports(id);
     } catch (err) {
       console.error('加载会话失败:', err);
     }

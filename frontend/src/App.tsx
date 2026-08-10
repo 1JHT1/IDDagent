@@ -193,6 +193,12 @@ const App: React.FC = () => {
           try {
             const parsed = JSON.parse(m.content);
             if (parsed && typeof parsed.action === 'string') {
+              // 归一化候选选项卡 action：实时 SSE 路径前端设为 company_name_candidates，
+              // 而消息持久化的是技能原始返回值 action=candidates，若不归一化，
+              // 切换对话重载后选项卡（CompanyNameSelector）将无法恢复渲染
+              if (parsed.action === 'candidates') {
+                parsed.action = 'company_name_candidates';
+              }
               return { ...base, content: '', extra: parsed };
             }
           } catch {

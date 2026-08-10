@@ -238,6 +238,9 @@ public class DDReportService {
      * 获取 report.json 中所有不重复的公司（含统一信用代码），用于技能层的名称匹配和候选展示
      */
     public List<Map<String, Object>> getAllCompanies() {
+        // 查询前同步 report.json：refresh 仅幂等检查文件修改时间（毫秒级），
+        // 否则进程运行期间新生成的报告不会出现在名称索引/候选列表中
+        refresh();
         Map<String, Map<String, Object>> byName = new LinkedHashMap<>();
         for (Map<String, Object> report : reports.values()) {
             String name = (String) report.get("company_name");
@@ -256,6 +259,8 @@ public class DDReportService {
      * 获取 report.json 中所有不重复的公司名称（用于技能层的名称匹配和候选展示）
      */
     public List<String> getAllCompanyNames() {
+        // 与 getAllCompanies 同理：名称索引查询前同步 report.json
+        refresh();
         Set<String> names = new LinkedHashSet<>();
         for (Map<String, Object> report : reports.values()) {
             String name = (String) report.get("company_name");

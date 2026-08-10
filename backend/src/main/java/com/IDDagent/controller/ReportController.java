@@ -335,6 +335,7 @@ public class ReportController {
             item.put("templateName", task.getTemplateName());
             item.put("companyName", task.getCompanyName());
             item.put("progress", task.getProgress());
+            item.put("createdAt", task.getCreatedAt().toString());
             return item;
         }).toList();
         Map<String, Object> result = new LinkedHashMap<>();
@@ -353,6 +354,7 @@ public class ReportController {
             item.put("templateName", task.getTemplateName());
             item.put("companyName", task.getCompanyName());
             item.put("progress", task.getProgress());
+            item.put("createdAt", task.getCreatedAt().toString());
             return item;
         }).toList();
         Map<String, Object> result = new LinkedHashMap<>();

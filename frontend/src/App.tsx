@@ -70,10 +70,10 @@ const App: React.FC = () => {
   // ================================================================
 
   /** 向聊天流注入一条进度卡片消息（消息列表中已存在同 reportId 则不重复注入） */
-  const injectProgressMessage = useCallback((reportId: string) => {
+  const injectProgressMessage = useCallback((reportId: string, createdAt?: string) => {
     setMessages((prev) => {
       if (prev.some((m) => m.id === `report-progress-${reportId}`)) return prev;
-      return [...prev, {
+      const card = {
         id: `report-progress-${reportId}`,
         role: 'assistant' as const,
         content: '',
@@ -83,8 +83,34 @@ const App: React.FC = () => {
           stage: 'progress',
           report_id: reportId,
         },
-        created_at: new Date().toISOString(),
-      }];
+        created_at: createdAt || new Date().toISOString(),
+      };
+      // 1) 优先插入到会话中最后一条"报告生成流程"消息（模板选择卡/跳转卡）之后，
+      //    让进度卡片固定在其初始返回位置，而非追加到消息末尾
+      for (let i = prev.length - 1; i >= 0; i--) {
+        const extra = (prev[i] as { extra?: Record<string, unknown> }).extra;
+        if (extra && extra._skill_name === 'generate_report') {
+          const next = [...prev];
+          next.splice(i + 1, 0, card);
+          return next;
+        }
+      }
+      // 2) 兜底：按任务创建时间排序插入
+      if (createdAt) {
+        const cardTime = new Date(createdAt).getTime();
+        const insertIdx = prev.findIndex((m) => {
+          const t = m.created_at ? new Date(m.created_at).getTime() : 0;
+          return t > cardTime;
+        });
+        const next = [...prev];
+        if (insertIdx === -1) {
+          next.push(card);
+        } else {
+          next.splice(insertIdx, 0, card);
+        }
+        return next;
+      }
+      return [...prev, card];
     });
   }, [setMessages]);
 
@@ -96,7 +122,7 @@ const App: React.FC = () => {
       const data = await res.json();
       if (data.reports && data.reports.length > 0) {
         for (const r of data.reports) {
-          injectProgressMessage(r.reportId);
+          injectProgressMessage(r.reportId, r.createdAt as string | undefined);
         }
       }
     } catch { /* ignore */ }
@@ -113,7 +139,7 @@ const App: React.FC = () => {
         const data = await res.json();
         if (data.reports && data.reports.length > 0) {
           for (const r of data.reports) {
-            injectProgressMessage(r.reportId);
+            injectProgressMessage(r.reportId, r.createdAt as string | undefined);
           }
         }
       } catch { /* ignore */ }
@@ -135,7 +161,7 @@ const App: React.FC = () => {
         const data = await res.json();
         if (data.reports && data.reports.length > 0) {
           for (const r of data.reports) {
-            injectProgressMessage(r.reportId);
+            injectProgressMessage(r.reportId, r.createdAt as string | undefined);
           }
         }
       } catch { /* ignore */ }
@@ -196,7 +222,11 @@ const App: React.FC = () => {
           id: m.id,
           role: m.role as 'user' | 'assistant',
           content: m.content,
-          created_at: m.created_at,
+          // 后端序列化为 createdAt（驼峰），兼容读取；缺失时兜底当前时间
+          created_at:
+            m.created_at ??
+            (m as { createdAt?: string }).createdAt ??
+            new Date().toISOString(),
           // 还原消息附件（用户上传的文件）
           ...(m.attachments && m.attachments.length > 0 ? { attachments: m.attachments } : {}),
         };
@@ -276,7 +306,18 @@ const App: React.FC = () => {
           await handleSelectConversation(convId);
         }
         if (rid) {
-          setTimeout(() => injectProgressMessage(rid), 200);
+          // 通过 /status 接口获取任务创建时间，确保跳转回来时卡片也插入其初始生成位置
+          try {
+            const res = await fetch(`/api/generate-report/${rid}/status`);
+            if (res.ok) {
+              const data = await res.json();
+              injectProgressMessage(rid, data.createdAt as string | undefined);
+            } else {
+              injectProgressMessage(rid);
+            }
+          } catch {
+            injectProgressMessage(rid);
+          }
         }
       };
       selectAndInject();

@@ -1,98 +1,70 @@
 {
   "499ffe5c-159d-40a4-860f-23b02bc68b3a" : {
-    "6cab9cf0-3fcd-4fca-b8b9-8a12e2eb47a5" : {
-      "id" : "6cab9cf0-3fcd-4fca-b8b9-8a12e2eb47a5",
+    "6d19f8eb-347f-4264-a2a9-aa27d6eb6c9b" : {
+      "id" : "6d19f8eb-347f-4264-a2a9-aa27d6eb6c9b",
       "userId" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
-      "title" : "你好",
+      "title" : "尽调报告",
       "messages" : [ {
-        "id" : "3311e1f1-a9e7-4ccf-9d1e-8f8ced9ac4d4",
+        "id" : "a2c43fd7-a064-4fd6-9ff9-ad0c77502218",
+        "role" : "user",
+        "content" : "尽调报告",
+        "createdAt" : "2026-08-10T08:41:14.247210400Z"
+      }, {
+        "id" : "944bbe88-b67f-44f9-b53b-d76fd185e8ae",
+        "role" : "assistant",
+        "content" : "{\"action\":\"result\",\"_skill_name\":\"generate_report\",\"stage\":\"templates\",\"templates\":[{\"id\":\"financial_analysis\",\"name\":\"借款人财务分析报告\",\"organization\":\"湖北分行\",\"description\":\"基于企业财务报表数据，自动生成借款人财务分析报告，涵盖财务审计情况、财务指标分析、还款来源预测等模块\",\"icon\":\"\uD83D\uDCCA\",\"accepted_types\":[\".pdf\",\".docx\",\".xlsx\",\".xls\",\".md\"],\"required_fields\":[\"企业名称\",\"统一信用代码\"],\"output_type\":\"markdown\",\"source_file\":\"财务分析报告模板.md\",\"all_fields\":[\"企业名称\",\"统一信用代码\",\"营业收入2024\",\"营业收入2023\",\"营业收入2022\",\"营业成本2024\",\"营业成本2023\",\"营业成本2022\",\"销售利润2024\",\"销售利润2023\",\"销售利润2022\",\"货币资金202212\",\"货币资金202312\",\"货币资金202412\",\"货币资金202509\",\"应收账款202212\",\"应收账款202312\",\"应收账款202412\",\"应收账款202509\",\"预付账款202212\",\"预付账款202312\",\"预付账款202412\",\"预付账款202509\",\"其他应收款202212\",\"其他应收款202312\",\"其他应收款202412\",\"其他应收款202509\",\"营收来源描述\",\"利润为负原因\",\"是否覆盖本息\",\"固定收入组成\",\"审计机构\",\"主营业务\"]},{\"id\":\"due_diligence_brief\",\"name\":\"尽调简报\",\"organization\":\"湖北分行\",\"description\":\"快速生成企业尽职调查简报，涵盖企业基本信息、财务概览、经营风险提示、关联交易等核心内容\",\"icon\":\"\uD83D\uDCCB\",\"accepted_types\":[\".pdf\",\".docx\",\".xlsx\",\".xls\",\".md\"],\"required_fields\":[\"企业名称\"],\"output_type\":\"markdown\",\"source_file\":\"尽调简报模板.md\",\"all_fields\":[\"企业名称\",\"统一信用代码\",\"主营业务\",\"员工人数\",\"营业收入2024\",\"净利润2024\",\"总资产2024\",\"资产负债率\",\"前五大客户占比\",\"关联交易额\",\"审计机构\"]},{\"id\":\"credit_evaluation\",\"name\":\"授信评估报告\",\"organization\":\"湖北分行\",\"description\":\"综合评估企业信用状况和还款能力，生成授信评估报告，包括财务分析、行业前景、担保评估等\",\"icon\":\"\uD83C\uDFE6\",\"accepted_types\":[\".pdf\",\".docx\",\".xlsx\",\".xls\",\".md\"],\"required_fields\":[\"企业名称\",\"统一信用代码\"],\"output_type\":\"markdown\",\"source_file\":\"授信评估模板.md\",\"all_fields\":[\"企业名称\",\"统一信用代码\",\"营业收入2024\",\"净利润2024\",\"总资产2024\",\"偿债能力评分\",\"盈利能力评分\",\"经营能力评分\",\"发展能力评分\",\"担保能力评分\",\"综合评分\",\"信用等级\",\"建议授信额度\",\"授信期限\",\"担保方式\",\"行业前景\"]}],\"organization\":\"湖北分行\",\"message\":\"请选择需要生成的报告模板\"}",
+        "createdAt" : "2026-08-10T08:41:16.687496Z"
+      }, {
+        "id" : "27d222e2-7e3c-41f5-8e01-e4ab5f544e17",
+        "role" : "user",
+        "content" : "使用\"借款人财务分析报告\"模板(ID:financial_analysis)生成尽调报告",
+        "createdAt" : "2026-08-10T08:41:18.763792200Z"
+      }, {
+        "id" : "8c75a862-a9ee-4686-9c2e-ac55117867c1",
+        "role" : "assistant",
+        "content" : "{\"action\":\"result\",\"_skill_name\":\"generate_report\",\"stage\":\"redirect\",\"template_id\":\"financial_analysis\",\"template_name\":\"借款人财务分析报告\",\"template_icon\":\"\uD83D\uDCCA\",\"template_description\":\"基于企业财务报表数据，自动生成借款人财务分析报告，涵盖财务审计情况、财务指标分析、还款来源预测等模块\",\"accepted_types\":[\".pdf\",\".docx\",\".xlsx\",\".xls\",\".md\"],\"required_fields\":[\"企业名称\",\"统一信用代码\"],\"message\":\"请在报告编辑页面中上传附件并生成报告\"}",
+        "createdAt" : "2026-08-10T08:41:19.661809900Z"
+      }, {
+        "id" : "6a677529-64e4-485c-851a-c46a3da8edf3",
         "role" : "user",
         "content" : "你好",
-        "createdAt" : "2026-08-10T07:21:11.392375600Z"
+        "createdAt" : "2026-08-10T08:41:43.509681600Z"
       }, {
-        "id" : "789485bb-27b1-496b-9b4a-fea837e6e53d",
+        "id" : "652ce022-993f-45a7-a430-65b7e19466b7",
         "role" : "assistant",
-        "content" : "您好！欢迎使用工商银行智能尽调助手，我是您专属的尽职调查辅助工具。\uD83D\uDE0A\n\n请问今天需要我",
-        "createdAt" : "2026-08-10T07:21:16.994078100Z"
-      } ],
-      "createdAt" : "2026-08-10T07:21:11.392375600Z",
-      "updatedAt" : "2026-08-10T07:21:16.994078100Z"
-    },
-    "85afe0db-a6bf-4c20-912b-64631f3579b8" : {
-      "id" : "85afe0db-a6bf-4c20-912b-64631f3579b8",
-      "userId" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
-      "title" : "查风险信息",
-      "messages" : [ {
-        "id" : "a257ed30-c76e-4bd4-a805-d7477e5f04aa",
-        "role" : "user",
-        "content" : "查风险信息",
-        "createdAt" : "2026-08-10T07:23:05.712996600Z"
+        "content" : "您好！我是工行智能尽调助手，很高兴为您服务。\n\n已收到您需要使用“借款人财务分析报告”模板（ID:financial_analysis）生成尽调报告的需求。为了准确、高效地生成报告，我需要先了解两点：\n\n1. **请问本次尽调的借款人（企业）名称是什么？**\n2. **您是否已准备好该企业近三年的财务报表（资产负债表、利润表、现金流量表）？**\n\n您可以先告知企业名称和财务数据概况，或直接上传相关附件，我将协助您完成后续核实与报告生成。",
+        "createdAt" : "2026-08-10T08:41:51.301926600Z"
       }, {
-        "id" : "5c629f3e-fb13-4759-a67f-bb35364d0bf8",
+        "id" : "6e419857-b6ee-4068-a3de-6951218e8caf",
+        "role" : "user",
+        "content" : "你好",
+        "createdAt" : "2026-08-10T08:42:36.354659400Z"
+      }, {
+        "id" : "3b10ad9c-f384-4c8b-846a-fb5b50aedca9",
+        "role" : "assistant",
+        "content" : "您好！很高兴继续为您服务。\uD83D\uDE0A\n\n为了帮您生成“借款人财务分析报告”，我需要以下两项关键信息：\n\n1. **借款人（企业）全称**：请提供准确的公司名称，用于核实身份和匹配数据。\n2. **财务报表**：请提供近三年的资产负债表、利润表、现金流量表（可上传Excel/PDF/图片）。\n\n如果您暂时没有报表，也可以先告知企业名称，我可以先帮您查看历史尽调记录或提示信息缺口。\n\n请问您方便提供企业名称吗？或者您还有其他需要帮助的地方？",
+        "createdAt" : "2026-08-10T08:42:40.006426700Z"
+      }, {
+        "id" : "0933c9c8-716f-4127-9ca4-d34f563825f1",
+        "role" : "user",
+        "content" : "查风险",
+        "createdAt" : "2026-08-10T08:44:35.405480100Z"
+      }, {
+        "id" : "be7fb6f5-7bf8-49e6-9188-a8810881ddf7",
         "role" : "assistant",
         "content" : "{\"_skill_name\":\"check_company_risk\",\"action\":\"not_found\",\"message\":\"请提供企业名称或统一信用代码进行查询。\"}",
-        "createdAt" : "2026-08-10T07:23:06.733281100Z"
-      }, {
-        "id" : "2230b4a5-59c9-4f2e-a662-5f24c9a7560a",
-        "role" : "user",
-        "content" : "星河",
-        "createdAt" : "2026-08-10T07:23:09.822458Z"
-      }, {
-        "id" : "e05395a8-3e49-455c-a0ac-808d833153b8",
-        "role" : "assistant",
-        "content" : "{\"_skill_name\":\"check_company_risk\",\"options\":[{\"credit_code\":\"91110108MA01B3XK2P\",\"company_name\":\"北京星河科技有限公司\"}],\"action\":\"not_found\",\"keyword\":\"星河\",\"message\":\"未找到与「星河」完全匹配的企业，您是否要查询以下相似企业？\"}",
-        "createdAt" : "2026-08-10T07:23:10.948102700Z"
-      }, {
-        "id" : "47760ec1-8269-4026-8eb5-fb436a2e978f",
-        "role" : "user",
-        "content" : "查询统一信用代码为91110108MA01B3XK2P的客户的风险",
-        "createdAt" : "2026-08-10T07:23:12.442098Z"
-      }, {
-        "id" : "8346439e-80a6-460d-8a4a-e6a2b82005e2",
-        "role" : "assistant",
-        "content" : "{\"has_risk\":true,\"risk_level\":\"medium\",\"risk_summary\":\"该客户存在一定风险，需关注经营异常及关联交易，建议进行强化尽职调查。\",\"h5_url\":\"http://localhost:8000/h5/risk-report.html?code=91110108MA01B3XK2P\",\"_skill_name\":\"check_company_risk\",\"credit_code\":\"91110108MA01B3XK2P\",\"company_name\":\"北京星河科技有限公司\",\"action\":\"result\"}",
-        "createdAt" : "2026-08-10T07:23:13.302284300Z"
-      }, {
-        "id" : "16091c31-d4c5-4727-b232-518438b20f3f",
-        "role" : "user",
-        "content" : "查华为风险",
-        "createdAt" : "2026-08-10T07:25:17.692925200Z"
-      }, {
-        "id" : "ddd628ed-ad48-4db7-a0ae-2f1986be8a5c",
-        "role" : "assistant",
-        "content" : "{\"_skill_name\":\"check_company_risk\",\"action\":\"not_found\",\"message\":\"未找到与「华为」匹配的企业，请确认企业名称是否正确。可尝试使用更简短的关键词，或提供统一信用代码查询。\"}",
-        "createdAt" : "2026-08-10T07:25:18.866649500Z"
-      }, {
-        "id" : "900e3d9f-3004-4caa-a872-c431fe9fa2f1",
-        "role" : "user",
-        "content" : "查小米至善公司风险",
-        "createdAt" : "2026-08-10T07:27:17.917459800Z"
-      }, {
-        "id" : "7c627ddd-f578-467c-8ed9-294244744977",
-        "role" : "assistant",
-        "content" : "{\"_skill_name\":\"check_company_risk\",\"options\":[{\"credit_code\":\"91440300MA5DCTJHQA2\",\"company_name\":\"小米至善科技有限公司\"}],\"action\":\"not_found\",\"keyword\":\"小米至善公司\",\"message\":\"未找到与「小米至善公司」完全匹配的企业，您是否要查询以下相似企业？\"}",
-        "createdAt" : "2026-08-10T07:27:19.249716500Z"
-      }, {
-        "id" : "f4cf0610-fda6-445f-8199-8da190189412",
-        "role" : "user",
-        "content" : "查询统一信用代码为91440300MA5DCTJHQA2的客户的风险",
-        "createdAt" : "2026-08-10T07:27:21.817290200Z"
-      }, {
-        "id" : "bf118207-9395-42f4-9666-ae7fae82a8f7",
-        "role" : "assistant",
-        "content" : "{\"_skill_name\":\"check_company_risk\",\"action\":\"not_found\",\"message\":\"未查询到统一信用代码为 91440300MA5DCTJHQA2 的企业风险信息，请核实代码是否正确。\"}",
-        "createdAt" : "2026-08-10T07:27:22.838269400Z"
+        "createdAt" : "2026-08-10T08:44:36.593784400Z"
       } ],
-      "createdAt" : "2026-08-10T07:23:05.712996600Z",
-      "updatedAt" : "2026-08-10T07:27:22.838269400Z"
+      "createdAt" : "2026-08-10T08:41:14.247210400Z",
+      "updatedAt" : "2026-08-10T08:44:36.593784400Z"
     },
-    "9ac84182-42f2-4125-b057-1cbbd8068b83" : {
-      "id" : "9ac84182-42f2-4125-b057-1cbbd8068b83",
+    "76c15eb1-4dc6-4008-8999-480d58a2f893" : {
+      "id" : "76c15eb1-4dc6-4008-8999-480d58a2f893",
       "userId" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
       "title" : "新对话",
       "messages" : [ ],
-      "createdAt" : "2026-08-10T07:36:57.823732800Z",
-      "updatedAt" : "2026-08-10T07:36:57.823732800Z"
+      "createdAt" : "2026-08-10T08:48:21.070522Z",
+      "updatedAt" : "2026-08-10T08:48:21.070522Z"
     }
   },
   "6fedb07a-7c00-43b6-86bc-c690dad544bc" : { },

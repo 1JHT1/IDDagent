@@ -120,6 +120,7 @@ export async function uploadChatAttachment(file: File): Promise<ChatAttachment> 
 /**
  * 流式发送消息
  * 返回一个 ReadableStream，通过回调处理 SSE 事件
+ * @param signal 可选 AbortSignal，用于中途强制终止（配合后端 /api/chat/stop 双保险）
  */
 export async function sendMessageStream(
   message: string,
@@ -127,7 +128,8 @@ export async function sendMessageStream(
   onEvent: (event: SSEEvent) => void,
   onError: (error: Error) => void,
   onDone: () => void,
-  attachments?: ChatAttachment[]
+  attachments?: ChatAttachment[],
+  signal?: AbortSignal
 ): Promise<void> {
   let doneCalled = false;
   const safeDone = () => { if (!doneCalled) { doneCalled = true; onDone(); } };
@@ -141,6 +143,7 @@ export async function sendMessageStream(
         conversationId: conversationId,
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
       }),
+      signal,
     });
 
     console.log('📡 SSE 响应状态:', res.status, 'Content-Type:', res.headers.get('content-type'));
@@ -219,9 +222,31 @@ export async function sendMessageStream(
 
     safeDone();
   } catch (err) {
+    // 主动终止（AbortController.abort）不算错误，直接按完成处理
+    if (signal?.aborted) {
+      console.log('⏹️ SSE 请求已被主动终止');
+      safeDone();
+      return;
+    }
     onError(err instanceof Error ? err : new Error(String(err)));
   } finally {
     safeDone();
+  }
+}
+
+/**
+ * 强制终止当前对话的流式生成（通知后端截断事件流）
+ * 与前端 AbortController 双保险：前端断开连接 + 后端取消标记
+ */
+export async function stopChatStream(conversationId: string): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/chat/stop`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({ conversationId }),
+    });
+  } catch (err) {
+    console.warn('通知后端终止对话失败（前端连接已断开，不影响）：', err);
   }
 }
 

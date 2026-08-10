@@ -7,12 +7,14 @@ interface ChatContainerProps {
   messages: ChatMessage[];
   isSending: boolean;
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
+  onStop?: () => void;
 }
 
 const ChatContainer: React.FC<ChatContainerProps> = ({
   messages,
   isSending,
   onSend,
+  onStop,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -83,7 +85,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
       </div>
 
       {/* 输入区域 */}
-      <ChatInput onSend={onSend} disabled={isSending} />
+      <ChatInput onSend={onSend} disabled={isSending} onStop={onStop} />
     </div>
   );
 };

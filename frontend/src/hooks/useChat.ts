@@ -5,12 +5,13 @@
 import React, { useState, useCallback, useRef } from 'react';
 import type { ChatMessage, SSEEvent, ChatAttachment } from '../types';
 import { isStreamingMessage } from '../types';
-import { sendMessageStream } from '../api/agent';
+import { sendMessageStream, stopChatStream } from '../api/agent';
 
 interface UseChatReturn {
   messages: ChatMessage[];
   isSending: boolean;
   sendMessage: (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => Promise<void>;
+  stopStreaming: () => void;
   clearMessages: () => void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
 }
@@ -23,6 +24,8 @@ export function useChat(
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isSending, setIsSending] = useState(false);
   const isSendingRef = useRef(false);
+  // 当前进行中的 SSE 请求控制器，用于强制终止
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // 用 ref 追踪最新值，避免闭包陈旧引用
   const conversationIdRef = useRef(conversationId);
@@ -41,6 +44,10 @@ export function useChat(
 
       isSendingRef.current = true;
       setIsSending(true);
+
+      // 创建本次请求的终止控制器（点击"停止"按钮时 abort）
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
       // 添加用户消息
       const userMsg: ChatMessage = {
@@ -322,12 +329,54 @@ export function useChat(
           // 完成回调
           isSendingRef.current = false;
           setIsSending(false);
+          if (abortControllerRef.current === controller) {
+            abortControllerRef.current = null;
+          }
         },
-        attachments
+        attachments,
+        controller.signal
       );
     },
     [onConversationIdChange]
   );
+
+  /**
+   * 强制终止当前流式对话
+   * 1. 前端：abort 断开 SSE 连接（fetch 抛 AbortError，走完成回调而非错误回调）
+   * 2. 后端：通知 /api/chat/stop 设置取消标记，截断剩余事件流（双保险）
+   * 3. 将进行中的流式占位消息转为普通消息（标记已停止），避免永久处于加载状态
+   */
+  const stopStreaming = useCallback(() => {
+    if (!isSendingRef.current) return;
+    console.log('⏹️ 用户点击停止，终止当前对话');
+    const controller = abortControllerRef.current;
+    const convId = conversationIdRef.current;
+    if (controller) {
+      controller.abort();
+      abortControllerRef.current = null;
+    }
+    if (convId) {
+      stopChatStream(convId);
+    }
+    isSendingRef.current = false;
+    setIsSending(false);
+    // 将流式占位消息转为普通消息，保留已生成的内容（如有）
+    setMessages((prev) =>
+      prev.map((msg) =>
+        isStreamingMessage(msg)
+          ? {
+              id: msg.id,
+              role: 'assistant' as const,
+              content: msg.content && msg.content !== '🤔 正在思考...'
+                ? msg.content + '\n\n> ⏹️ 已停止生成'
+                : '⏹️ 已停止生成',
+              ...(msg.extra ? { extra: msg.extra } : {}),
+              created_at: msg.created_at,
+            }
+          : msg
+      )
+    );
+  }, [setMessages]);
 
   const clearMessages = useCallback(() => {
     setMessages([]);
@@ -337,6 +386,7 @@ export function useChat(
     messages,
     isSending,
     sendMessage,
+    stopStreaming,
     clearMessages,
     setMessages,
   };

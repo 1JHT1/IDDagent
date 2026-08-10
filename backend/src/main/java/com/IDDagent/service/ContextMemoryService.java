@@ -57,6 +57,28 @@ public class ContextMemoryService {
 
     public void clear(String conversationId) {
         store.remove(conversationId);
+        cancelledFlags.remove(conversationId);
+    }
+
+    // ============================================================
+    // 强制终止对话标记
+    // ============================================================
+
+    private final Map<String, Boolean> cancelledFlags = new ConcurrentHashMap<>();
+
+    /** 标记该会话的流式生成为终止状态（前端点击"强制终止"时调用） */
+    public void cancel(String conversationId) {
+        cancelledFlags.put(conversationId, true);
+    }
+
+    /** 该会话是否被标记终止 */
+    public boolean isCancelled(String conversationId) {
+        return Boolean.TRUE.equals(cancelledFlags.get(conversationId));
+    }
+
+    /** 清除终止标记（每次新消息开始时重置） */
+    public void clearCancelled(String conversationId) {
+        cancelledFlags.remove(conversationId);
     }
 
     public static class ConversationContext {

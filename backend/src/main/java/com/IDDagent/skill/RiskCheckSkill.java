@@ -67,6 +67,13 @@ public class RiskCheckSkill {
                 if (result != null) {
                     return buildResult(result);
                 }
+                // 名称匹配成功但 risk_check.json 中无该企业风险数据（如索引中的混淆/无数据企业）：
+                // 返回"未找到"提示，避免返回无 action 的空响应导致前端无反馈
+                Map<String, Object> resp = new HashMap<>();
+                resp.put("action", "not_found");
+                resp.put("message", "未找到与「" + companyName + "」匹配的企业，请确认企业名称是否正确。" +
+                        "可尝试使用更简短的关键词，或提供统一信用代码查询。");
+                return resp;
             }
 
             return resolved;

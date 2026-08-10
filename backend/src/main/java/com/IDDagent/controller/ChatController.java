@@ -43,6 +43,33 @@ public class ChatController {
         this.skillRegistry = skillRegistry;
     }
 
+    /**
+     * 强制终止当前对话的流式生成
+     * 前端点击"停止"按钮时调用，配合前端断开 SSE 连接（AbortController）双保险生效
+     */
+    @PostMapping("/chat/stop")
+    public Mono<Map<String, Object>> stopChat(@RequestBody Map<String, String> body,
+                                              @RequestAttribute("currentUser") UserInfo currentUser) {
+        String conversationId = body.get("conversationId");
+        Map<String, Object> resp = new LinkedHashMap<>();
+        if (conversationId == null || conversationId.isBlank()) {
+            resp.put("ok", false);
+            resp.put("message", "conversationId 不能为空");
+            return Mono.just(resp);
+        }
+        // 仅允许终止当前用户自己的会话
+        Map<String, Conversation> userConvs = conversationService.getUserConvs(currentUser.getId());
+        if (!userConvs.containsKey(conversationId)) {
+            resp.put("ok", false);
+            resp.put("message", "会话不存在");
+            return Mono.just(resp);
+        }
+        contextMemoryService.cancel(conversationId);
+        log.info("Chat stop requested for conversation: {}", conversationId);
+        resp.put("ok", true);
+        return Mono.just(resp);
+    }
+
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> chatStream(
             @RequestBody ChatRequest body,
@@ -110,6 +137,9 @@ public class ChatController {
         final Conversation finalConv = conv;
         final String finalMessage = enhancedMessage;
 
+        // 每次新消息开始时重置该会话的终止标记（强制终止后允许继续对话）
+        contextMemoryService.clearCancelled(convId);
+
         // 检查是否有待处理技能（上次技能正在等待用户补充信息）
         ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
         boolean hasPendingSkill = ctx.hasPendingSkill();
@@ -169,11 +199,20 @@ public class ChatController {
         }
 
         return initEvent.concatWith(mainFlow)
+                // 强制终止检查：一旦该会话被标记为取消，立即截断剩余事件流
+                .takeWhile(e -> !contextMemoryService.isCancelled(convId))
                 // 所有事件流结束后发送 done 事件
                 .concatWith(Flux.just(sseEvent("done", Map.of("conversation_id", convId), null, convId)))
                 .doOnSubscribe(s -> System.out.println("🔵 SSE Flux 被订阅!"))
                 //.doOnNext(event -> System.out.println("📤 发送 SSE: " + event.substring(0, Math.min(120, event.length()))))
-                .doOnComplete(() -> System.out.println("✅ SSE Flux 完成"))
+                .doOnComplete(() -> {
+                    System.out.println("✅ SSE Flux 完成");
+                    contextMemoryService.clearCancelled(convId);
+                })
+                .doOnCancel(() -> {
+                    System.out.println("⏹️ SSE Flux 被取消（前端断开连接）");
+                    contextMemoryService.clearCancelled(convId);
+                })
                 .doOnError(e -> log.error("Stream error", e))
                 .onErrorResume(e -> Flux.just(sseEvent("error",
                         Map.of("content", "处理请求失败: " + e.getMessage()), null, null)));
@@ -374,8 +413,9 @@ public class ChatController {
                 )
                 .concatWith(Flux.just(sseEvent("text_done",
                         Map.of("content", fullContent.toString()), assistantMsgId, null)))
-                .doOnComplete(() -> {
-                    // 存储助手消息（完整内容）
+                .doFinally(signal -> {
+                    // 存储助手消息：正常完成存完整内容；被强制终止（doOnCancel）时存已生成的部分内容
+                    // 这样强制停止后切换会话，中途已生成的内容仍保留在对话记录中
                     if (fullContent.length() > 0) {
                         Message asstMsg = new Message(assistantMsgId, "assistant",
                                 fullContent.toString(), Instant.now().toString());

@@ -74,10 +74,11 @@ public class HistoricalDDQuerySkill {
             }
         }
 
-        // 处理 _user_input（来自待处理技能的下一条用户消息）
+        // 处理 _user_input（用户原始输入：pending 路径由 ChatController 注入，
+        // Coordinator 路由路径由 CoordinatorService 注入，两条路径行为一致）
         // 注意：参数中的 company_name/credit_code 可能来自 Coordinator 的上下文自动补全
         // （复用上次查询的企业），并非用户本次明确提供，因此：
-        // - 首次发起（_user_input 为空）→ 一律走阶段二模糊匹配出选项卡让用户确认
+        // - 首次发起且用户输入清洗不出企业标识 → 清空企业参数走阶段一重新询问
         // - 用户已输入（_user_input 非空）→ 以用户输入为准覆盖企业参数（旧值作废）
         String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
         // 用户输入中是否携带合法信用代码（选项卡点击会携带"公司名+信用代码"，或直接输入代码）
@@ -128,6 +129,9 @@ public class HistoricalDDQuerySkill {
             String cleaned = userInput
                     .replaceAll("^(查询|查找|搜索|看一下|看看|帮我查|帮我找|找一下|查一下|查)\\s*", "")
                     .replaceAll("\\s*(的历史尽调报告|的历史报告|的尽调报告|的尽调|的报告|的记录)$", "")
+                    // 纯泛查询功能词（未携带企业名/代码，如"历史尽调""查看历史"）：整体剔除，
+                    // 避免被当作企业名称参与模糊匹配而误报未找到
+                    .replaceAll("^(历史尽调|尽调记录|历史报告|历史查询|查看历史|尽调历史|以前的报告|查询历史|以往的尽调|查一下之前|查一下之前的尽调|历史尽调报告|尽调报告)$", "")
                     .replaceAll("(近|最近|过去)\\s*[0-9一二两三四五六七八九十]+\\s*个?月", "")
                     .replaceAll("(近|最近|过去)\\s*[0-9一二两三四五六七八九十]+\\s*年", "")
                     .replaceAll("半年|季度", "")
@@ -169,6 +173,13 @@ public class HistoricalDDQuerySkill {
                 if (!codeFromUser) {
                     creditCode = "";
                 }
+            }
+            // 用户本次输入未携带企业标识（如仅输入"历史尽调""查看历史"等纯功能词），
+            // 也未提供时间区间 → 视为未指定企业，忽略 Coordinator/上下文自动补全注入的
+            // 企业参数（否则会直接复用上次查询企业输出旧结果），走阶段一重新询问
+            if (cleaned.isEmpty() && !codeFromUser && dateFrom.isEmpty() && dateTo.isEmpty()) {
+                companyName = "";
+                creditCode = "";
             }
         }
 
@@ -292,6 +303,12 @@ public class HistoricalDDQuerySkill {
         }
 
         result.put("action", "result");
+        // 信用代码直接查询场景 companyName 为空：从查询结果中回填企业名称，
+        // 保证结果卡片头部显示"企业：XXX"而非仅信用代码
+        if (companyName.isEmpty() && !records.isEmpty()) {
+            String recName = (String) records.get(0).getOrDefault("company_name", "");
+            if (!recName.isEmpty()) companyName = recName;
+        }
         result.put("company_name", companyName);
         result.put("credit_code", creditCode);
         result.put("total_count", records.size());

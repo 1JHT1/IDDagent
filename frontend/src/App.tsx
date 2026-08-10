@@ -199,6 +199,13 @@ const App: React.FC = () => {
               if (parsed.action === 'candidates') {
                 parsed.action = 'company_name_candidates';
               }
+              // info_needed（如"请问您要查询哪家企业"）：实时 SSE 路径是 text_delta/text_done
+              // 普通文本消息，而持久化的是 {"action":"info_needed","message":"..."} JSON；
+              // 若解析为 extra 则无对应渲染分支（消息消失），故归一化为普通文本，与实时路径一致
+              if (parsed.action === 'info_needed') {
+                const msg = typeof parsed.message === 'string' ? parsed.message : '';
+                return { ...base, content: msg || base.content };
+              }
               return { ...base, content: '', extra: parsed };
             }
           } catch {

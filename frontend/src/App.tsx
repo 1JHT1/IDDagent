@@ -60,7 +60,7 @@ const App: React.FC = () => {
     loadConversations();
   }, []);
 
-  const { messages, isSending, sendMessage, clearMessages, setMessages } =
+  const { messages, isSending, sendMessage, clearMessages, setMessages, stopStreaming } =
     useChat(conversationId, handleConversationIdChange, () => {
       loadConversations();
     });
@@ -357,6 +357,7 @@ const App: React.FC = () => {
           messages={messages}
           isSending={isSending}
           onSend={handleSend}
+          onStop={stopStreaming}
         />
       </div>
     </div>

@@ -5,6 +5,7 @@ import { uploadChatAttachment } from '../api/agent';
 interface ChatInputProps {
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
   disabled: boolean;
+  onStop?: () => void;
 }
 
 /** 本地附件项（含上传状态） */
@@ -33,7 +34,7 @@ function formatSize(bytes: number): string {
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_ATTACHMENTS = 5;
 
-const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
+const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled, onStop }) => {
   const [input, setInput] = useState('');
   const [attachments, setAttachments] = useState<LocalAttachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -217,15 +218,22 @@ const ChatInput: React.FC<ChatInputProps> = ({ onSend, disabled }) => {
             </div>
           </div>
           <button
-            onClick={handleSend}
-            disabled={!canSend}
-            className="flex-shrink-0 w-10 h-10 rounded-xl bg-blue-600 text-white
-                       hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed
+            onClick={disabled ? onStop : handleSend}
+            disabled={!disabled && !canSend}
+            className={`flex-shrink-0 w-10 h-10 rounded-xl text-white
                        transition-all duration-200 flex items-center justify-center
-                       active:scale-95"
+                       active:scale-95
+                       ${
+                         disabled
+                           ? 'bg-red-500 hover:bg-red-600 shadow-md shadow-red-200'
+                           : 'bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed'
+                       }`}
+            title={disabled ? '强制终止当前对话' : '发送'}
           >
             {disabled ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                <rect x="6" y="6" width="12" height="12" rx="2" />
+              </svg>
             ) : (
               <svg
                 className="w-5 h-5"

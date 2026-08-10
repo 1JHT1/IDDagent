@@ -2,6 +2,8 @@ package com.IDDagent.skill;
 
 import com.IDDagent.service.DDReportService;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -9,6 +11,7 @@ import java.util.*;
 @Component
 public class HistoricalDDQuerySkill {
 
+    private static final Logger log = LoggerFactory.getLogger(HistoricalDDQuerySkill.class);
     private final SkillRegistry registry;
     private final DDReportService ddReportService;
 
@@ -51,6 +54,9 @@ public class HistoricalDDQuerySkill {
         String dateTo = ((String) params.getOrDefault("date_to", "")).trim();
         String idType = ((String) params.getOrDefault("id_type", "")).trim();
         String idNumber = ((String) params.getOrDefault("id_number", "")).trim();
+        log.info("HistoricalDDQuerySkill.handle: userId={}, companyName='{}', creditCode='{}', dateFrom='{}', dateTo='{}', userInput='{}'",
+                userId, companyName, creditCode, dateFrom, dateTo,
+                ((String) params.getOrDefault("_user_input", "")).trim());
 
         // 规范化 LLM 可能直接传入的相对时间描述（如 date_from="近一个月"）
         {
@@ -224,6 +230,8 @@ public class HistoricalDDQuerySkill {
                     - ((Number) a.getOrDefault("_score", 0)).intValue());
 
             if (matches.isEmpty()) {
+                log.info("HistoricalDDQuerySkill 阶段二 not_found: companyName='{}', nameIndexSize={}",
+                        companyName, nameIndex.size());
                 Map<String, Object> result = new LinkedHashMap<>();
                 result.put("action", "not_found");
                 result.put("message", "未找到与「" + companyName + "」匹配的企业，请确认企业名称是否正确。");

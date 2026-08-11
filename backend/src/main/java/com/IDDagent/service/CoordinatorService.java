@@ -109,6 +109,12 @@ public class CoordinatorService {
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(this::parseResponse)          // 解析响应
+                .map(decision -> {                 // 技能决策注入用户原始输入（供技能层以 _user_input 为唯一可信输入源）
+                    if ("skill".equals(decision.get("action"))) {
+                        injectUserInput(decision, userMessage);
+                    }
+                    return decision;
+                })
                 .onErrorResume(e -> {              // 错误时降级
                     log.error("Coordinator LLM call failed: {}", e.getMessage());
                     return Mono.just(fallbackMap("意图识别请求失败"));
@@ -160,6 +166,24 @@ public class CoordinatorService {
             log.warn("JSON parse error: {}", e.getMessage());
             return fallbackMap("意图识别解析失败");
         }
+    }
+
+    /**
+     * 向技能决策 params 注入用户原始输入（与 pending 路径 ChatController 注入的 _user_input 保持一致）。
+     * 使技能层无论经 Coordinator 路由还是 pending 直连，都能以 _user_input 为唯一可信输入源，
+     * 从而识别用户本次是否明确提供了企业标识，避免上下文自动补全参数被误当作本次输入。
+     */
+    @SuppressWarnings("unchecked")
+    private void injectUserInput(Map<String, Object> decision, String userMessage) {
+        Object raw = decision.get("params");
+        Map<String, Object> params;
+        if (raw instanceof Map) {
+            params = (Map<String, Object>) raw;
+        } else {
+            params = new LinkedHashMap<>();
+            decision.put("params", params);
+        }
+        params.put("_user_input", userMessage == null ? "" : userMessage);
     }
 
     /**

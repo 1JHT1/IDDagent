@@ -1,5 +1,6 @@
 package com.IDDagent.skill;
 
+import com.IDDagent.service.CompanyNameExtractor;
 import com.IDDagent.service.DDReportService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -12,6 +13,13 @@ import java.util.*;
 public class HistoricalDDQuerySkill {
 
     private static final Logger log = LoggerFactory.getLogger(HistoricalDDQuerySkill.class);
+
+    /** _user_input 清洗用技能动词/查询后缀（供 CompanyNameExtractor 统一清洗链） */
+    private static final String DD_VERBS = "请查看|查看|请查|查询|查找|搜索|看一下|看看|帮我查|帮我找|找一下|查一下|查|看";
+    private static final String DD_SUFFIXES = "的历史尽调报告|的历史报告|的尽调报告|的尽调|的报告|的记录";
+    /** 纯泛查询功能词/相对时间残留（公共链清洗后仍残留则整体剔除，避免被当作企业名称参与模糊匹配） */
+    private static final String DD_FUNCTION_WORDS = "^(?:历史|尽调|记录|尽调记录|历史报告|历史查询|查看历史|尽调历史|历史尽调报告|尽调报告|之前|以往|以前).*$";
+
     private final SkillRegistry registry;
     private final DDReportService ddReportService;
 
@@ -45,7 +53,10 @@ public class HistoricalDDQuerySkill {
                         "id_number", new Skill.SkillParam("string",
                                 "证件号码（可选）", false, "")
                 )
-        ));
+        ).withMeta("历史尽调报告查询",
+                List.of("历史尽调", "查询历史", "尽调记录", "历史报告", "历史", "尽调报告"),
+                List.of("生成", "制作", "模板", "上传"),
+                "法人", 60, "report"));
     }
 
     @SuppressWarnings("unchecked")
@@ -126,28 +137,18 @@ public class HistoricalDDQuerySkill {
             // - 提取到代码（用户明确提供）→ 企业身份已确认，后续跳过模糊匹配直接查询
             // - 提取后剩余非空 → 作为 company_name 并清空旧 credit_code（含自动补全的旧值作废）
             // - 清洗后为空（如仅补充"近一月"时间）→ 保留原有企业信息
+            // 企业名清洗复用 CompanyNameExtractor 统一清洗链（与 RiskCheck/InfoCheck/CompanyQuery 一致），
+            // 时间描述（近N月/N年内/显式日期）由公共链删除，此处仅保留技能特有的泛功能词剔除
             String cleaned = userInput
-                    .replaceAll("^(查询|查找|搜索|看一下|看看|帮我查|帮我找|找一下|查一下|查)\\s*", "")
-                    .replaceAll("\\s*(的历史尽调报告|的历史报告|的尽调报告|的尽调|的报告|的记录)$", "")
                     // 纯泛查询功能词（未携带企业名/代码，如"历史尽调""查看历史"）：整体剔除，
                     // 避免被当作企业名称参与模糊匹配而误报未找到
-                    .replaceAll("^(历史尽调|尽调记录|历史报告|历史查询|查看历史|尽调历史|以前的报告|查询历史|以往的尽调|查一下之前|查一下之前的尽调|历史尽调报告|尽调报告)$", "")
-                    .replaceAll("(近|最近|过去)\\s*[0-9一二两三四五六七八九十]+\\s*个?月", "")
-                    .replaceAll("(近|最近|过去)\\s*[0-9一二两三四五六七八九十]+\\s*年", "")
-                    .replaceAll("半年|季度", "")
-                    .replaceAll("\\d{4}-\\d{2}-\\d{2}", "")
-                    .replaceAll("\\d{4}\\s*年\\s*\\d{1,2}\\s*月\\s*\\d{1,2}\\s*日?", "")
-                    .trim();
-            // 提取信用代码（选项卡点击/直接输入代码场景）：
-            // 1) 选项卡点击格式"公司：XXX\n统一信用代码：YYY"（前端按字段名发送）——
-            //    直接解析出企业名称与代码，视为企业身份已确认
-            // 2) 选项卡点击兼容格式"公司名 + 空格 + 代码"——识别尾部连续字母数字串（≥6 位）
-            //    兼容 18 位标准统一社会信用代码与测试用的短数字占位代码
-            // 3) 整串即为代码（直接手输信用代码）
-            java.util.regex.Matcher codeField = java.util.regex.Pattern.compile("统一信用代码[:：]\\s*([0-9A-Za-z]+)").matcher(cleaned);
-            if (codeField.find()) {
-                creditCode = codeField.group(1).toUpperCase();
+                    .replaceAll("^(历史尽调|尽调记录|历史报告|历史查询|查看历史|尽调历史|以前的报告|查询历史|以往的尽调|查一下之前|查一下之前的尽调|历史尽调报告|尽调报告)$", "");
+            // 1) 优先提取信用代码（公共链：支持前端"统一信用代码：XXX"卡片字段与 18 位裸码/短占位码）
+            String extractedCode = CompanyNameExtractor.extractCreditCode(cleaned);
+            if (!extractedCode.isEmpty()) {
+                creditCode = extractedCode;
                 codeFromUser = true;
+                // 卡片名称字段解析：前端 CompanyNameSelector 点击消息"公司：XXX\n统一信用代码：YYY"
                 java.util.regex.Matcher nameField = java.util.regex.Pattern.compile("公司[:：]\\s*([^\\n\\r]+)").matcher(cleaned);
                 if (nameField.find()) {
                     String nm = nameField.group(1).trim();
@@ -157,21 +158,20 @@ public class HistoricalDDQuerySkill {
                 }
                 cleaned = "";
             } else {
-                java.util.regex.Matcher ccMatcher = java.util.regex.Pattern.compile("\\s+[0-9A-Za-z]{6,}\\s*$").matcher(cleaned);
-                if (ccMatcher.find()) {
-                    creditCode = ccMatcher.group().trim().toUpperCase();
-                    codeFromUser = true;
-                    cleaned = cleaned.substring(0, ccMatcher.start()).trim();
-                } else if (cleaned.matches("[0-9A-Za-z]{6,}")) {
-                    creditCode = cleaned.toUpperCase();
-                    codeFromUser = true;
+                // 2) 无信用代码：公共清洗链提取企业名（覆盖旧 companyName，旧 credit_code 作废）
+                String extractedName = CompanyNameExtractor.extractCompanyName(cleaned, DD_VERBS, DD_SUFFIXES, null);
+                if (extractedName != null) {
+                    // 兜底：清洗后残留的纯功能词/相对时间残留
+                    // （"查询历史尽调"→"历史尽调"、"查一下之前的尽调"→"之前"）整体剔除
+                    extractedName = extractedName.replaceAll(DD_FUNCTION_WORDS, "");
+                    if (!extractedName.isEmpty()) {
+                        companyName = extractedName;
+                        creditCode = "";
+                    } else {
+                        cleaned = "";
+                    }
+                } else {
                     cleaned = "";
-                }
-            }
-            if (!cleaned.isEmpty()) {
-                companyName = cleaned;
-                if (!codeFromUser) {
-                    creditCode = "";
                 }
             }
             // 用户本次输入未携带企业标识（如仅输入"历史尽调""查看历史"等纯功能词），
@@ -355,8 +355,7 @@ public class HistoricalDDQuerySkill {
      * 此时仍应走企业名称模糊匹配出选项卡。
      */
     private static boolean isValidCreditCode(String code) {
-        if (code == null || code.isEmpty()) return false;
-        return code.toUpperCase().matches("[0-9A-Z]{18}");
+        return CompanyNameExtractor.isValidCreditCode(code);
     }
 
     /**

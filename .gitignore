@@ -16,3 +16,24 @@ node/
 
 # 日志
 *.log
+
+# 运行时用户数据与上传敏感文件（会话、用户、附件）
+/backend/data/
+/backend/static/
+/data/uploads/
+/data/uploaded_customers.json
+/data/*.png
+/data/*.PNG
+/data/*.jpg
+/data/*.jpeg
+
+# 评估脚本产物（截图、日志、报告）
+/scripts/eval-output/
+
+# 前端构建产物与 TS 增量编译缓存
+/frontend/dist/
+*.tsbuildinfo
+
+# 环境变量文件（含密钥）
+.env
+*.env

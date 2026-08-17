@@ -496,31 +496,6 @@
     "credit_granting": { "total_limit": "1500万元", "used": "600万元", "balance": "900万元", "rating": "A-" },
     "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-03-30" }
   },
-  "91440300MA5DCTJHQA1": {
-    "credit_code": "91440300MA5DCTJHQA1",
-    "company_name": "小米科技有限公司",
-    "basic_info": {
-      "legal_rep": "王强",
-      "registered_capital": "5000万元",
-      "establish_date": "2018-10-10",
-      "address": "广东省深圳市南山区深南大道9988号",
-      "industry": "软件和信息技术服务业",
-      "status": "存续",
-      "business_scope": "智能硬件研发；互联网技术服务；电子产品销售。"
-    },
-    "shareholders": [
-      { "name": "小米科技有限责任公司", "type": "法人股东", "ratio": "100%" }
-    ],
-    "beneficiaries": [
-      { "name": "王强", "type": "最终受益人", "ratio": "55%", "note": "通过小米科技有限责任公司间接持股认定" }
-    ],
-    "genealogy": { "parent": "小米科技有限责任公司", "children": [], "group": "小米集团" },
-    "customs_auth": { "status": "高级认证企业", "auth_code": "AEOC44032018004567", "valid_until": "2027-10-31" },
-    "customs_blacklist": { "in_list": false, "records": [] },
-    "freeze_tags": { "has_freeze": false, "tags": [], "accounts": [] },
-    "credit_granting": { "total_limit": "4000万元", "used": "1800万元", "balance": "2200万元", "rating": "A+" },
-    "pboc_account_control": { "control_type": "正常", "controls": [], "last_check": "2026-06-18" }
-  },
   "91440300MA5DCTJHQA2": {
     "credit_code": "91440300MA5DCTJHQA2",
     "company_name": "小米至善科技有限公司",

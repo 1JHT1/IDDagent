@@ -32,6 +32,8 @@ public class AppConfig {
         private String name = "deepseek-v4-flash";
         private String coordinator = "deepseek-v4-flash";
         private String followUp = "deepseek-v4-flash";
+        /** 便宜模型（级联第一层）：意图路由/参数提取先走此模型，低置信度才升级主模型 */
+        private String light = "deepseek-v4-flash";
     }
 
     @Getter @Setter

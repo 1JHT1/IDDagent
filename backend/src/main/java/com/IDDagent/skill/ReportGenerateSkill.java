@@ -34,7 +34,10 @@ public class ReportGenerateSkill {
                         "company_name", new Skill.SkillParam("string", "企业名称", false, ""),
                         "credit_code", new Skill.SkillParam("string", "统一信用代码", false, "")
                 )
-        ));
+        ).withMeta("尽调报告生成",
+                List.of("生成报告", "尽调报告", "财务分析报告", "授信评估", "报告模板", "生成尽调", "智能尽调", "上传资料生成报告", "生成"),
+                List.of("历史", "查询", "查一下", "查看", "查找"),
+                "法人", 60, "report"));
     }
 
     private Map<String, Object> handle(String userId, Map<String, Object> params) {

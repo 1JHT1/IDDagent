@@ -1,10 +1,12 @@
 package com.IDDagent.skill;
 
+import com.IDDagent.service.CompanyNameExtractor;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -17,11 +19,16 @@ public class CompanyQuerySkill {
 
     private static final String QUERY_FILE = "data-template/company_query_data.json";
     private static final String NAME_INDEX_FILE = "data-template/company_name_index.json";
+    /** _user_input 清洗用技能动词/查询后缀（供 CompanyNameExtractor 统一清洗链） */
+    private static final String QUERY_VERBS = "查询|查一下|查查|了解一下|查|看看|看一下|提供|获取|核实";
+    private static final String QUERY_SUFFIXES = "的人行账户管控情况|人行账户管控情况|的账户冻结标签|的海关认证信息|的海关失信记录|的受益人信息|海关认证信息|海关失信记录|账户冻结标签|的股东信息|的授信信息|的基本信息|的企业族谱|的授信情况|受益人信息|股东信息|基本信息|授信信息|企业族谱|授信情况|的信息|的资料|的情况|信息|资料|情况";
 
     /** 技能名 → 数据字段名（query_type） */
     private static final Map<String, String> SKILL_CONFIG = new LinkedHashMap<>();
     /** 技能名 → 中文标签，用于提示语与候选选择消息 */
     private static final Map<String, String> SKILL_LABEL = new LinkedHashMap<>();
+    /** 技能名 → 意图识别元数据 [keywords, excludeKeywords, priority, conflictGroup] */
+    private static final Map<String, Object[]> SKILL_META = new LinkedHashMap<>();
 
     static {
         SKILL_CONFIG.put("query_company_basic_info", "basic_info");
@@ -43,6 +50,17 @@ public class CompanyQuerySkill {
         SKILL_LABEL.put("query_account_freeze_tag", "账户冻结标签");
         SKILL_LABEL.put("query_credit_granting", "授信信息");
         SKILL_LABEL.put("query_pboc_account_control", "人行账户管控信息");
+
+        // 意图识别元数据：[keywords, excludeKeywords, priority, conflictGroup]
+        SKILL_META.put("query_company_basic_info", new Object[]{List.of("查询", "查一下", "查查", "提供", "获取", "看一下", "看看", "了解一下"), List.of("风险", "股东", "受益人", "族谱", "海关", "冻结", "授信", "账管", "核实", "核验", "核查", "报告", "尽调"), 10, "query"});
+        SKILL_META.put("query_shareholder_info", new Object[]{List.of("股东", "股权结构", "股权分布"), List.of(), 40, "query"});
+        SKILL_META.put("query_beneficiary_info", new Object[]{List.of("受益人", "实际控制人", "受益所有人"), List.of(), 40, "query"});
+        SKILL_META.put("query_company_genealogy", new Object[]{List.of("企业族谱", "家族图谱", "关联企业图谱"), List.of(), 40, "query"});
+        SKILL_META.put("query_customs_auth", new Object[]{List.of("海关认证", "海关高级认证", "AEO认证"), List.of("海关失信", "海关黑名单"), 40, "customs"});
+        SKILL_META.put("query_customs_blacklist", new Object[]{List.of("海关失信", "海关黑名单", "海关失信名单"), List.of("海关认证", "AEO认证"), 40, "customs"});
+        SKILL_META.put("query_account_freeze_tag", new Object[]{List.of("冻结", "司法冻结", "账户冻结"), List.of(), 40, "query"});
+        SKILL_META.put("query_credit_granting", new Object[]{List.of("授信", "授信额度", "综合授信", "授信余额"), List.of(), 40, "query"});
+        SKILL_META.put("query_pboc_account_control", new Object[]{List.of("人行账管", "人民银行账户管理", "账户管控", "央行账户管理"), List.of(), 40, "query"});
     }
 
     private final SkillRegistry registry;
@@ -64,7 +82,12 @@ public class CompanyQuerySkill {
                             "credit_code", new Skill.SkillParam("string", "企业统一信用代码，18位数字+字母", false, "91110108MA01B3XK2P"),
                             "company_name", new Skill.SkillParam("string", "企业名称，用于模糊匹配", false, "北京星河科技有限公司")
                     )
-            ));
+            ).withMeta(label,
+                    (List<String>) SKILL_META.get(skillName)[0],
+                    (List<String>) SKILL_META.get(skillName)[1],
+                    "法人",
+                    (int) SKILL_META.get(skillName)[2],
+                    (String) SKILL_META.get(skillName)[3]));
         }
     }
 
@@ -74,16 +97,19 @@ public class CompanyQuerySkill {
         String creditCode = ((String) params.getOrDefault("credit_code", "")).trim();
         String companyName = ((String) params.getOrDefault("company_name", "")).trim();
 
-        // 多轮交互：企业名与信用代码均未由 LLM 提供时，从用户下一条输入中提取企业名
-        if (creditCode.isEmpty() && companyName.isEmpty()) {
-            String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
-            if (!userInput.isEmpty()) {
-                String cleaned = userInput
-                        .replaceAll("^(请帮我|帮我|请|麻烦|辛苦)\\s*(查询|查一下|查|看看|看一下|提供|获取|核实)\\s*(一下|下)?\\s*", "")
-                        .replaceAll("^(查询|查一下|查|看看|看一下)\\s*", "")
-                        .replaceAll("\\s*(的股东信息|的受益人信息|的基本信息|的授信信息|的企业族谱|的海关认证信息|的海关失信记录|的账户冻结标签|的授信情况|的人行账户管控情况|的信息|的资料|的情况|情况|资料)$", "")
-                        .trim();
-                if (!cleaned.isEmpty() && cleaned.length() <= 100) {
+        // 多轮交互：_user_input 非空时以用户最新输入为准（覆盖 Coordinator 自动补全/污染的旧值），
+        // 防止卡片点击后旧 company_name 再次触发模糊匹配 → candidates → 卡片 → 死循环
+        String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
+        if (!userInput.isEmpty()) {
+            // 优先提取信用代码：支持前端 CompanyNameSelector 卡片点击发送的
+            // 格式化消息（"公司：XX\n统一信用代码：YYY"）、用户直接粘贴代码等场景
+            String extractedCode = CompanyNameExtractor.extractCreditCode(userInput);
+            if (!extractedCode.isEmpty()) {
+                creditCode = extractedCode;
+            } else {
+                // 无信用代码时，用公共清洗链提取企业名（覆盖旧 companyName）
+                String cleaned = CompanyNameExtractor.extractCompanyName(userInput, QUERY_VERBS, QUERY_SUFFIXES, null);
+                if (cleaned != null) {
                     companyName = cleaned;
                 }
             }

@@ -39,6 +39,19 @@ public class SkillRegistry {
         return new ArrayList<>(skills.keySet());
     }
 
+    /** 返回全部技能实例（供 IntentMatcher 遍历） */
+    public Collection<Skill> getSkills() {
+        return skills.values();
+    }
+
+    /** 取技能中文标签（取不到回退为 name） */
+    public String getSkillLabel(String name) {
+        Skill skill = skills.get(name);
+        if (skill == null) return name;
+        String label = skill.getLabel();
+        return (label != null && !label.isEmpty()) ? label : name;
+    }
+
     public Map<String, Object> invoke(String name, String userId, Map<String, Object> params) {
         Skill skill = skills.get(name);
         if (skill == null) {

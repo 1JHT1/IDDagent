@@ -1,0 +1,17 @@
+{
+  "name": "superpowers",
+  "displayName": "Superpowers",
+  "version": "0.1.0",
+  "description": "A complete agentic software development methodology: brainstorming, test-driven development, systematic debugging, subagent-driven development, code review and more.",
+  "descriptionZh": "一套完整的智能体软件开发方法论：头脑风暴设计、测试驱动开发、系统化调试、子代理驱动开发、代码审查等。",
+  "author": {
+    "name": "obra (Prime Radiant)"
+  },
+  "homepage": "https://github.com/obra/superpowers",
+  "repository": "https://github.com/obra/superpowers",
+  "logo": "./assets/superpowers-small.svg",
+  "keywords": ["qoder-plugin", "skill", "development-methodology", "tdd", "debugging"],
+  "category": "developer-tools",
+  "tags": ["skill"],
+  "skills": "./skills/"
+}

@@ -1,5 +1,6 @@
 package com.IDDagent.skill;
 
+import com.IDDagent.service.CompanyNameExtractor;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +11,9 @@ public class InformationCheckSkill {
 
     private static final String INFO_CHECK_FILE = "data-template/information_check.json";
     private static final String NAME_INDEX_FILE = "data-template/company_name_index.json";
+    /** _user_input 清洗用技能动词/查询后缀（供 CompanyNameExtractor 统一清洗链） */
+    private static final String INFO_VERBS = "核实|核验|核查|验证|查询|查一下|查";
+    private static final String INFO_SUFFIXES = "的营业执照|营业执照|的核实|的核查|的资料|的信息|核实|核查|资料|信息";
 
     private final SkillRegistry registry;
 
@@ -29,7 +33,10 @@ public class InformationCheckSkill {
                         "company_name", new Skill.SkillParam("string", "企业名称，用于自动匹配信用代码", false, "北京星河科技有限公司"),
                         "_attachment_url", new Skill.SkillParam("string", "上传的营业执照附件URL（系统内部传递）", false, "")
                 )
-        ));
+        ).withMeta("营业执照信息核实",
+                List.of("核实", "核验", "核查", "信息核实", "信息核查", "营业执照核实", "营业执照核验"),
+                List.of(),
+                "法人", 70, "verify"));
     }
 
     @SuppressWarnings("unchecked")
@@ -37,16 +44,19 @@ public class InformationCheckSkill {
         String creditCode = ((String) params.getOrDefault("credit_code", "")).trim();
         String companyName = ((String) params.getOrDefault("company_name", "")).trim();
 
-        // 多轮交互：当企业名与信用代码均未由 LLM 提供时，从用户下一条输入中提取企业名
-        if (creditCode.isEmpty() && companyName.isEmpty()) {
-            String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
-            if (!userInput.isEmpty()) {
-                String cleaned = userInput
-                        .replaceAll("^(请帮我|帮我|请|麻烦|辛苦)\\s*(核实|核验|核查|验证|查询|查一下|查)\\s*(一下|下)?\\s*", "")
-                        .replaceAll("^(信息核实|信息核查|核实信息|核查信息|核实|核查|查询|查一下|查)\\s*", "")
-                        .replaceAll("\\s*(的信息|的资料|的核实|的核查|的营业执照|营业执照)$", "")
-                        .trim();
-                if (!cleaned.isEmpty() && cleaned.length() <= 100) {
+        // 多轮交互：_user_input 非空时以用户最新输入为准（覆盖 Coordinator 自动补全/污染的旧值），
+        // 防止卡片点击后旧 company_name 再次触发模糊匹配 → candidates → 卡片 → 死循环
+        String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
+        if (!userInput.isEmpty()) {
+            // 优先从用户输入中提取信用代码
+            // 支持前端 CompanyNameSelector 卡片点击发送的格式化消息（"公司：XX\n统一信用代码：YYY"）、用户直接粘贴代码等场景
+            String extractedCode = CompanyNameExtractor.extractCreditCode(userInput);
+            if (!extractedCode.isEmpty()) {
+                creditCode = extractedCode;
+            } else {
+                // 无信用代码时，用公共清洗链提取企业名（覆盖旧 companyName）
+                String cleaned = CompanyNameExtractor.extractCompanyName(userInput, INFO_VERBS, INFO_SUFFIXES, null);
+                if (cleaned != null) {
                     companyName = cleaned;
                 }
             }

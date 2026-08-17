@@ -219,6 +219,94 @@ export interface CompanyNameCandidatesData {
 }
 
 // ============================================================
+// 意图澄清数据类型
+// ============================================================
+
+/** 意图澄清候选项 */
+export interface IntentCandidate {
+  skill: string;
+  label: string;
+  description: string;
+}
+
+/** 意图澄清事件数据 */
+export interface IntentCandidatesData {
+  message: string;
+  candidates: IntentCandidate[];
+}
+
+// ============================================================
+// 多意图任务管道类型
+// ============================================================
+
+/** 计划中的单个任务 */
+export interface PipelineTask {
+  skill: string;
+  label: string;
+  order: number;
+}
+
+/** planning 事件数据（后端 TaskPlanner 计划快照） */
+export interface PlanningData {
+  plan: PipelineTask[];
+  text?: string;
+  /** true = 暂停恢复（前端更新已有清单卡片）；false/缺省 = 首次规划（新建卡片） */
+  resume?: boolean;
+}
+
+/** task_start 事件数据（某个任务开始执行） */
+export interface TaskStartData {
+  index: number;
+  total: number;
+  skill: string;
+  label: string;
+  order: number;
+}
+
+/** pipeline_paused 事件数据（多意图管道暂停，等待用户补充信息） */
+export interface PipelinePausedData {
+  /** 当前任务等待用户补充的提示文案（如"请上传该企业的营业执照图片以进行信息核实。"） */
+  hint?: string;
+}
+
+/** task_done 事件数据（多意图管道中某个任务执行完成） */
+export interface TaskDoneData {
+  /** 已完成任务的 order（管道内任务序号，从 1 开始） */
+  order: number;
+  /** 已完成任务的技能标识 */
+  skill: string;
+  /** 已完成任务的展示标签 */
+  label: string;
+}
+
+/**
+ * 任务清单卡片的消息 extra 结构（action='pipeline'）。
+ * 任务清单作为对话中的一条可见消息持久化，由 planning/task_start/done 事件驱动更新，
+ * 不会因管道结束而消失；切换会话后通过消息持久化恢复展示（静态最终状态）。
+ * 注意：需为 type（而非 interface），否则无法赋给 Message.extra 的 Record<string, unknown>。
+ */
+export type PipelineExtra = {
+  action: 'pipeline';
+  /**
+   * 卡片形态（对话流内按时间顺序出现，而非单卡原地更新）：
+   * - plan：初始规划卡（首次规划时出现，仅一次，展示完整任务列表）
+   * - switch：任务切换卡（每进入新的一级任务时出现，轻量展示已完成 + 当前任务）
+   * - complete：最终完成卡（全部任务完成后汇总，形成闭环）
+   */
+  kind?: 'plan' | 'switch' | 'complete';
+  plan: PipelineTask[];
+  total: number;
+  /** 当前正在执行的任务 order（0 = 尚未开始；=== total 表示全部完成） */
+  currentOrder: number;
+  /** 是否因等待用户补充信息而暂停 */
+  paused?: boolean;
+  /** 管道是否已全部完成（done 事件后） */
+  completed?: boolean;
+  /** 规划文本（"我将依次为您执行：① …"） */
+  text?: string;
+};
+
+// ============================================================
 // SSE 事件类型定义
 // ============================================================
 
@@ -229,6 +317,8 @@ export type SSEEventType =
   | 'text_start'
   | 'text_delta'
   | 'text_done'
+  | 'planning'
+  | 'task_start'
   | 'risk_check_result'
   | 'report_generate_result'
   | 'information_check_result'
@@ -236,7 +326,10 @@ export type SSEEventType =
   | 'company_query_result'
   | 'follow_up_suggestion'
   | 'company_name_candidates'
+  | 'intent_candidates'
   | 'need_date_range'
+  | 'pipeline_paused'
+  | 'task_done'
   | 'done'
   | 'error';
 
@@ -246,7 +339,7 @@ export interface SSEEvent {
   content?: string;
   message_id?: string;
   conversation_id?: string;
-  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData;
+  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData | IntentCandidatesData | PlanningData | TaskStartData | PipelinePausedData | TaskDoneData;
 }
 
 // ============================================================

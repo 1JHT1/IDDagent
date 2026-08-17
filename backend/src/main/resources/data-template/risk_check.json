@@ -480,6 +480,127 @@
         }
       }
     },
+  "91330108MA27XK5B3E": {
+      "credit_code": "91330108MA27XK5B3E",
+      "enterprise_name": "杭州云禾科技有限公司",
+      "certificate_type": "身份证",
+      "risk_summary": "该客户整体风险较低，各项筛查均未命中异常，可按常规流程处理。",
+      "certificate_number": "33***********902",
+      "details": {
+        "business_info": {
+          "name": "工商信息",
+          "items": [
+            {
+              "name": "企业所属行业",
+              "detail": "信息技术服务"
+            },
+            {
+              "name": "法人一人多企",
+              "result": "未命中"
+            },
+            {
+              "name": "异常经营名录",
+              "result": "未命中"
+            },
+            {
+              "name": "空壳探查",
+              "result": "未命中",
+              "detail": "该企业存在0项异常特征"
+            },
+            {
+              "name": "企业基本信息",
+              "result": "未命中"
+            },
+            {
+              "name": "企业历史变革信息",
+              "detail": "该企业近3个月内无企业历史变更信息"
+            }
+          ]
+        },
+        "aml": {
+          "name": "反洗钱",
+          "items": [
+            {
+              "name": "客户身份识别",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "身份信息完整"
+            },
+            {
+              "name": "受益所有人识别",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "受益所有人信息完整"
+            },
+            {
+              "name": "交易对手筛查",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "未发现风险对手"
+            },
+            {
+              "name": "制裁名单筛查",
+              "result": "未命中",
+              "has_risk": false,
+              "detail": "未命中制裁名单"
+            },
+            {
+              "name": "负面舆情信息",
+              "result": "无",
+              "has_risk": false,
+              "detail": "无负面报道"
+            },
+            {
+              "name": "可疑交易报送",
+              "result": "无记录",
+              "has_risk": false,
+              "detail": "无可疑交易"
+            },
+            {
+              "name": "跨境交易审查",
+              "result": "正常",
+              "has_risk": false,
+              "detail": "无跨境交易"
+            },
+            {
+              "name": "客户洗钱风险评估",
+              "result": "低风险",
+              "has_risk": false,
+              "detail": "综合评分21分"
+            }
+          ]
+        },
+        "rongan": {
+          "name": "融安E信",
+          "items": [
+            {
+              "name": "失信被执行人",
+              "riskLevel": "low",
+              "detectDate": "2026-07-10",
+              "status": "CLEAR"
+            },
+            {
+              "name": "关联企业风险",
+              "riskLevel": "low",
+              "detectDate": "2026-07-08",
+              "status": "CLEAR"
+            },
+            {
+              "name": "行政处罚",
+              "riskLevel": "low",
+              "detectDate": "2026-06-20",
+              "status": "RESOLVED"
+            },
+            {
+              "name": "负面舆情",
+              "riskLevel": "low",
+              "detectDate": "2026-07-07",
+              "status": "CLEAR"
+            }
+          ]
+        }
+      }
+    },
   "91310115MA1K3L6M9Q": {
       "credit_code": "91310115MA1K3L6M9Q",
       "enterprise_name": "上海浦江智能装备制造有限公司",

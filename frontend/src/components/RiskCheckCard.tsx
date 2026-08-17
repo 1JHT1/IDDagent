@@ -52,6 +52,14 @@ const RiskCheckCard: React.FC<RiskCheckCardProps> = ({ data, onSendMessage }) =>
                 </svg>
               </button>
             ))}
+            <button
+              onClick={() => onSendMessage?.('以上都不是')}
+              className="w-full px-4 py-3 rounded-lg border border-dashed border-gray-300 bg-white/60
+                         hover:bg-gray-100 hover:border-gray-400 transition-all
+                         flex items-center justify-center gap-1.5 group cursor-pointer"
+            >
+              <span className="text-sm text-gray-500 group-hover:text-gray-700">以上都不是</span>
+            </button>
           </div>
         )}
       </div>
@@ -100,6 +108,14 @@ const RiskCheckCard: React.FC<RiskCheckCardProps> = ({ data, onSendMessage }) =>
               </svg>
             </button>
           ))}
+          <button
+            onClick={() => onSendMessage?.('以上都不是')}
+            className="w-full px-4 py-3 rounded-lg border border-dashed border-gray-300 bg-white/60
+                       hover:bg-gray-100 hover:border-gray-400 transition-all
+                       flex items-center justify-center gap-1.5 group cursor-pointer"
+          >
+            <span className="text-sm text-gray-500 group-hover:text-gray-700">以上都不是</span>
+          </button>
         </div>
       </div>
     )

@@ -391,8 +391,14 @@ const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMes
         templates={templates}
         organization={data.organization as string || getStoredOrganization()}
         onSelect={(t) => {
-          // 直接在前端生成跳转卡片，不走后端协调器（避免LLM提取template_id失败）
-          if (onAddMessage) {
+          // 向后端发送固定格式模板选择消息（【模板选择】<template_id>）：
+          // generate_report 展示模板列表后以 pendingSkill 等待此消息，后端解析注入
+          // template_id 重入技能返回跳转信息并推进任务完成状态。此前本地生成跳转卡
+          // 或走 LLM 提取模板 ID，多意图管道不感知模板选择，任务被误判为已完成
+          if (onSendMessage) {
+            onSendMessage(`【模板选择】${t.id}`);
+          } else if (onAddMessage) {
+            // fallback：无发送通道时本地生成跳转卡（仅渲染，不参与管道进度）
             onAddMessage({
               id: `redirect-${Date.now()}`,
               role: 'assistant',
@@ -408,9 +414,6 @@ const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMes
               },
               created_at: new Date().toISOString(),
             });
-          } else {
-            // fallback：如果没有onAddMessage，走原来的文本消息路由
-            onSendMessage?.(`使用"${t.name}"模板(ID:${t.id})生成尽调报告`);
           }
         }}
       />

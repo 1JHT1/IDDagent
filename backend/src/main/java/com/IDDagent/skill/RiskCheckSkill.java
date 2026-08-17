@@ -1,5 +1,6 @@
 package com.IDDagent.skill;
 
+import com.IDDagent.service.CompanyNameExtractor;
 import jakarta.annotation.PostConstruct;
 import org.springframework.stereotype.Component;
 
@@ -12,6 +13,9 @@ public class RiskCheckSkill {
     private static final String NAME_INDEX_FILE = "data-template/company_name_index.json";
     private static final int MIN_AUTO_MATCH_SCORE = 80;
     private static final int MAX_SUGGESTIONS = 3;
+    /** _user_input 清洗用技能动词/查询后缀（供 CompanyNameExtractor 统一清洗链） */
+    private static final String RISK_VERBS = "风险预查|风险筛查|风险识别|预查|筛查|查询|查一下|查|看看";
+    private static final String RISK_SUFFIXES = "的风险情况|的风险信息|的风险|风险情况|风险信息|风险|情况|信息";
 
     private final SkillRegistry registry;
 
@@ -31,12 +35,32 @@ public class RiskCheckSkill {
                         "credit_code", new Skill.SkillParam("string", "企业统一信用代码，18位数字+字母", false, "91110108MA01B3XK2P"),
                         "company_name", new Skill.SkillParam("string", "企业名称，用于模糊匹配", false, "北京星河科技有限公司")
                 )
-        ));
+        ).withMeta("企业风险预查",
+                List.of("风险预查", "风险筛查", "风险识别", "企业风险", "风险报告", "风险预检", "风险"),
+                List.of("得分", "评分", "评价", "打分"),
+                "法人", 50, "risk"));
     }
 
     private Map<String, Object> handle(String userId, Map<String, Object> params) {
         String creditCode = ((String) params.getOrDefault("credit_code", "")).trim();
         String companyName = ((String) params.getOrDefault("company_name", "")).trim();
+
+        // 多轮交互：当 _user_input 携带信用代码时（前端 CompanyNameSelector 卡片点击），
+        // 优先从用户输入中提取信用代码，防止因 pendingSkillParams 中的旧 company_name
+        // 再次触发 fuzzyMatch → candidates → 选择卡片 → 无限循环；
+        // 无信用代码时以公共清洗链提取的企业名覆盖旧 companyName（旧值作废）
+        String userInput = ((String) params.getOrDefault("_user_input", "")).trim();
+        if (!userInput.isEmpty()) {
+            String extractedCode = CompanyNameExtractor.extractCreditCode(userInput);
+            if (!extractedCode.isEmpty()) {
+                creditCode = extractedCode;
+            } else {
+                String cleaned = CompanyNameExtractor.extractCompanyName(userInput, RISK_VERBS, RISK_SUFFIXES, null);
+                if (cleaned != null) {
+                    companyName = cleaned;
+                }
+            }
+        }
 
         Map<String, Object> riskData = DataLoader.loadJson(RISK_FILE);
 
@@ -68,11 +92,13 @@ public class RiskCheckSkill {
                     return buildResult(result);
                 }
                 // 名称匹配成功但 risk_check.json 中无该企业风险数据（如索引中的混淆/无数据企业）：
-                // 返回"未找到"提示，避免返回无 action 的空响应导致前端无反馈
+                // 区分"未收录"与"名称有误"，避免把存在企业误报为"未找到"
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("action", "not_found");
-                resp.put("message", "未找到与「" + companyName + "」匹配的企业，请确认企业名称是否正确。" +
-                        "可尝试使用更简短的关键词，或提供统一信用代码查询。");
+                String matchedName = nameIndex.get(resolved.get("credit_code"));
+                resp.put("message", matchedName != null
+                        ? "已找到「" + matchedName + "」，但当前风险数据库中暂无该企业的风险数据，后续将陆续补充。"
+                        : "未找到「" + companyName + "」的风险数据，请确认企业名称是否正确。");
                 return resp;
             }
 
@@ -269,8 +295,8 @@ public class RiskCheckSkill {
         if (matches.isEmpty()) {
             Map<String, Object> resp = new HashMap<>();
             resp.put("action", "not_found");
-            resp.put("message", "未找到与「" + query + "」匹配的企业，请确认企业名称是否正确。" +
-                    "可尝试使用更简短的关键词，或提供统一信用代码查询。");
+            resp.put("message", "未找到与「" + query + "」匹配的企业。请检查企业名称是否正确（可尝试更简短的关键词），" +
+                    "或提供统一信用代码查询；若名称无误，该企业可能尚未收录于当前数据库。");
             return resp;
         }
 
@@ -375,13 +401,19 @@ public class RiskCheckSkill {
             String name = entry.getKey();
             String cleanName = name.replace("有限公司", "").replace("有限责任", "")
                     .replace("股份", "").replace("集团", "").replace("公司", "");
-            if (isSubsequence(cleanQuery, cleanName)) {
+            if (cleanQuery.isEmpty() || isSubsequence(cleanQuery, cleanName)) {
+                if (cleanQuery.isEmpty()) continue;
                 int score;
                 if (cleanQuery.equals(cleanName)) {
                     score = 95;
                 } else {
                     double density = (double) query.length() / name.length();
                     score = 60 + (int) (density * 30);
+                    // 简称高置信加分：核心名子序列全命中且查询覆盖企业名核心 40% 以上时视为高置信简称
+                    // （如"云栖大数据"→"杭州云栖大数据技术有限公司"，否则密度公式对简称偏低无法自动匹配）
+                    if (cleanQuery.length() >= cleanName.length() * 0.4) {
+                        score = Math.max(score, 85);
+                    }
                 }
                 Map<String, Object> m = new HashMap<>();
                 m.put("credit_code", entry.getValue());
@@ -401,6 +433,26 @@ public class RiskCheckSkill {
                     m.put("_score", 40);
                     results.put(entry.getValue(), m);
                 }
+            }
+        }
+
+        // 5. 宽松窗口兜底：cleanQuery 的连续子串（最长优先）包含匹配，仅作候选不做自动匹配
+        //    （如"云禾科技"误输入为"云禾科支"时，窗口"云禾科"仍可命中候选供用户确认）
+        if (results.isEmpty()) {
+            for (int winLen = cleanQuery.length() - 1; winLen >= 2; winLen--) {
+                for (int i = 0; i + winLen <= cleanQuery.length(); i++) {
+                    String sub = cleanQuery.substring(i, i + winLen);
+                    for (var entry : reverseIndex.entrySet()) {
+                        if (entry.getKey().contains(sub)) {
+                            Map<String, Object> m = new HashMap<>();
+                            m.put("credit_code", entry.getValue());
+                            m.put("company_name", entry.getKey());
+                            m.put("_score", 45);
+                            results.putIfAbsent(entry.getValue(), m);
+                        }
+                    }
+                }
+                if (!results.isEmpty()) break;
             }
         }
 

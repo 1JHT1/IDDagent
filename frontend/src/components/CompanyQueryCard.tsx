@@ -60,6 +60,8 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
   const action = data.action as string | undefined
   const queryLabel = (data.query_label as string) || '企业信息'
   const queryType = (data.query_type as string) || ''
+  // 所属任务标识（useChat 在候选事件处理时推断并持久化，重载后仍可恢复；旧消息降级）
+  const taskLabel = data.task_label as string | undefined
 
   // ========== 未找到 / 名称歧义（候选选择） ==========
   if (action === 'not_found' || action === 'ambiguous') {
@@ -75,7 +77,11 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
         <div className={`px-4 py-3 border-b bg-white/60 ${isAmbiguous ? 'border-amber-100' : 'border-gray-100'}`}>
           <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
             <span className="text-lg">{isAmbiguous ? '🔍' : 'ℹ️'}</span>
-            {isAmbiguous ? `请确认要查询${queryLabel}的企业` : '未找到匹配企业'}
+            {isAmbiguous
+              ? taskLabel
+                ? `${taskLabel} · 请确认要查询${queryLabel}的企业`
+                : `请确认要查询${queryLabel}的企业`
+              : '未找到匹配企业'}
           </h3>
           {keyword && (
             <p className="text-xs text-gray-500 mt-1">
@@ -103,6 +109,14 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
               </svg>
             </button>
           ))}
+          <button
+            onClick={() => onSendMessage?.('以上都不是')}
+            className="w-full px-4 py-3 rounded-lg border border-dashed border-gray-300 bg-white/60
+                       hover:bg-gray-100 hover:border-gray-400 transition-all
+                       flex items-center justify-center gap-1.5 group cursor-pointer"
+          >
+            <span className="text-sm text-gray-500 group-hover:text-gray-700">以上都不是</span>
+          </button>
         </div>
       </div>
     )

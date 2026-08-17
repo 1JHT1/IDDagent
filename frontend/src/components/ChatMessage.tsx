@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { ChatMessage, ChatAttachment } from '../types';
+import type { ChatMessage, ChatAttachment, PipelineExtra } from '../types';
 import { isStreamingMessage } from '../types';
 import RiskCheckCard from './RiskCheckCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
@@ -9,7 +9,9 @@ import InformationCheckCard from './InformationCheckCard';
 import ReportGenerateCard from './ReportGenerateCard';
 import CompanyQueryCard from './CompanyQueryCard';
 import CompanyNameSelector from './CompanyNameSelector';
+import IntentSelector from './IntentSelector';
 import FollowUpChip from './FollowUpChip';
+import TaskProgressCard from './TaskProgressCard';
 
 interface ChatMessageProps {
   message: ChatMessage;
@@ -163,6 +165,11 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         );
       }
 
+      // 多意图任务清单卡片（对话中可见、随管道进度更新、持久保留）
+      if (extraAction === 'pipeline') {
+        return <TaskProgressCard data={message.extra as unknown as PipelineExtra} />;
+      }
+
       // 结构化卡片渲染（优先根据 _skill_name 路由，兜底按字段匹配）
       if (extraAction === 'result' || extraAction === 'ambiguous' || extraAction === 'not_found') {
         const skillName = message.extra._skill_name as string | undefined;
@@ -189,23 +196,34 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
       }
 
       // 候选企业选择器（企业名匹配到多条结果时让用户选择）
-      // 说明文本作为独立回答气泡显示在选项卡之前，不放在卡片底部
+      // 仅渲染选择卡片：匹配数量说明由卡片头部展示（"搜索到 N 家名称包含「XX」的企业"），
+      // 不再额外输出独立文字气泡，避免重复
       if (extraAction === 'company_name_candidates') {
         const options = message.extra.options as { credit_code: string; company_name: string }[] | undefined;
         if (options && options.length > 0) {
           return (
-            <>
-              {typeof message.extra.message === 'string' && message.extra.message ? (
-                <div className="bg-white text-gray-800 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm border border-gray-100 text-sm leading-relaxed mb-3 max-w-[75%]">
-                  {message.extra.message}
-                </div>
-              ) : null}
-              <CompanyNameSelector
-                options={options}
-                keyword={message.extra.keyword as string}
-                onSendMessage={onSendMessage}
-              />
-            </>
+            <CompanyNameSelector
+              options={options}
+              keyword={message.extra.keyword as string}
+              // 所属任务标识（如"历史尽调报告查询"）：useChat 在事件处理时已从最后一张
+              // 任务清单卡片推断并持久化，重载会话后仍可恢复展示；旧消息无此字段时降级
+              taskLabel={message.extra.task_label as string | undefined}
+              onSendMessage={onSendMessage}
+            />
+          );
+        }
+      }
+
+      // 意图澄清选择器（多候选仲裁低置信度时让用户选择）
+      if (extraAction === 'intent_candidates') {
+        const candidates = message.extra.candidates as { skill: string; label: string; description: string }[] | undefined;
+        if (candidates && candidates.length > 0) {
+          return (
+            <IntentSelector
+              candidates={candidates}
+              message={message.extra.message as string}
+              onSendMessage={onSendMessage}
+            />
           );
         }
       }

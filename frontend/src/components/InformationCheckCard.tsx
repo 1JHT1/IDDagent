@@ -14,6 +14,8 @@ interface InformationCheckCardProps {
 // ============================================================
 const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSendMessage }) => {
   const action = data.action as string | undefined
+  // 所属任务标识（useChat 在候选事件处理时推断并持久化，重载后仍可恢复；旧消息降级）
+  const taskLabel = data.task_label as string | undefined
 
   // ========== 未找到 ==========
   if (action === 'not_found') {
@@ -32,7 +34,8 @@ const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSen
                 key={opt.credit_code}
                 onClick={() =>
                   onSendMessage?.(
-                    `帮我核实${opt.company_name}的信息`
+                    // 携带信用代码（与 CompanyNameSelector 一致），技能可直接定位企业，避免二次歧义选项卡
+                    `公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`
                   )
                 }
                 className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white
@@ -52,6 +55,14 @@ const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSen
                 </svg>
               </button>
             ))}
+            <button
+              onClick={() => onSendMessage?.('以上都不是')}
+              className="w-full px-4 py-3 rounded-lg border border-dashed border-gray-300 bg-white/60
+                         hover:bg-gray-100 hover:border-gray-400 transition-all
+                         flex items-center justify-center gap-1.5 group cursor-pointer"
+            >
+              <span className="text-sm text-gray-500 group-hover:text-gray-700">以上都不是</span>
+            </button>
           </div>
         )}
       </div>
@@ -68,7 +79,7 @@ const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSen
         <div className="px-4 py-3 border-b border-amber-100 bg-white/60">
           <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
             <span className="text-lg">🔍</span>
-            请确认要核实的企业
+            {taskLabel ? `${taskLabel} · 请确认要核实的企业` : '请确认要核实的企业'}
           </h3>
           {keyword && (
             <p className="text-xs text-gray-500 mt-1">
@@ -82,7 +93,8 @@ const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSen
               key={opt.credit_code}
               onClick={() =>
                 onSendMessage?.(
-                  `帮我核实${opt.company_name}的信息`
+                  // 携带信用代码（与 CompanyNameSelector 一致），技能可直接定位企业，避免二次歧义选项卡
+                  `公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`
                 )
               }
               className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white
@@ -102,6 +114,14 @@ const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSen
               </svg>
             </button>
           ))}
+          <button
+            onClick={() => onSendMessage?.('以上都不是')}
+            className="w-full px-4 py-3 rounded-lg border border-dashed border-gray-300 bg-white/60
+                       hover:bg-gray-100 hover:border-gray-400 transition-all
+                       flex items-center justify-center gap-1.5 group cursor-pointer"
+          >
+            <span className="text-sm text-gray-500 group-hover:text-gray-700">以上都不是</span>
+          </button>
         </div>
       </div>
     )

@@ -3,18 +3,19 @@ import type { CompanyNameCandidate } from '../types'
 
 interface CompanyNameSelectorProps {
   options: CompanyNameCandidate[]
-  message?: string
   keyword?: string
+  /** 所属任务标识（多意图管道中如"历史尽调报告查询"），候选选择与任务关联，用户清楚是谁在询问 */
+  taskLabel?: string
   onSendMessage?: (content: string) => void
 }
 
-const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({ options, message, keyword, onSendMessage }) => {
+const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({ options, keyword, taskLabel, onSendMessage }) => {
   return (
     <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 overflow-hidden">
       <div className="px-4 py-3 border-b border-blue-100 bg-white/60">
         <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
           <span className="text-lg">🔍</span>
-          请选择要查询的企业
+          {taskLabel ? `${taskLabel} · 请选择要查询的企业` : '请选择要查询的企业'}
         </h3>
         {keyword && (
           <p className="text-xs text-gray-500 mt-1">
@@ -49,12 +50,15 @@ const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({ options, mess
             </svg>
           </button>
         ))}
+        <button
+          onClick={() => onSendMessage?.('以上都不是')}
+          className="w-full px-4 py-3 rounded-lg border border-dashed border-gray-300 bg-white/60
+                     hover:bg-gray-100 hover:border-gray-400 transition-all
+                     flex items-center justify-center gap-1.5 group cursor-pointer"
+        >
+          <span className="text-sm text-gray-500 group-hover:text-gray-700">以上都不是</span>
+        </button>
       </div>
-      {message && (
-        <div className="px-4 py-2 bg-blue-50/80 border-t border-blue-100">
-          <p className="text-xs text-gray-500">{message}</p>
-        </div>
-      )}
     </div>
   )
 }

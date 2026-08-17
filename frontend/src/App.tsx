@@ -9,8 +9,9 @@ import {
   getConversation,
   deleteConversation as deleteConversationApi,
   checkHealth,
+  notifyReportCompleted,
 } from './api/agent';
-import type { ConversationListItem, ChatMessage, ChatAttachment } from './types';
+import type { ConversationListItem, ChatMessage, ChatAttachment, PipelineExtra } from './types';
 
 interface UserData {
   id: string;
@@ -114,6 +115,86 @@ const App: React.FC = () => {
     });
   }, [setMessages]);
 
+  /**
+   * 报告生成完成后通知后端推进管道（POST /api/chat/report-completed）。
+   * 后端无法感知 H5 编辑页报告的完成时机，故仅在前端轮询/状态检测到报告
+   * status === 'completed' 时调用；后端清除 waitingReportTask 并推进管道，
+   * 本地同步任务卡片：
+   * - allDone：最后任务完成 → 原地将最后一张管道卡转为完成卡（kind='complete'）
+   * - 中间任务完成 → 仅解除最后一张管道卡 paused，用户下条消息 resume 续跑剩余任务
+   * - skipped（无挂起报告任务）→ 直接返回，接口幂等
+   */
+  const advancePipelineAfterReport = useCallback(async (convId: string) => {
+    try {
+      // 必须携带 Authorization：/api/chat/report-completed 不在 JwtAuthFilter
+      // 白名单内，裸 fetch 会 401，导致管道永久停留在 waitingReportTask 挂起
+      // 状态、完成卡永不出现（本次 bug 根因）
+      const data = await notifyReportCompleted(convId);
+      if (data.skipped || !data.ok) return;
+      setMessages((prev) => {
+        const next = [...prev];
+        // 定位最后一张管道卡：allDone 时以其 plan/total 为准追加最终完成卡
+        let lastIdx = -1;
+        for (let i = next.length - 1; i >= 0; i--) {
+          const ex = (next[i] as { extra?: Record<string, unknown> }).extra;
+          if (ex && ex.action === 'pipeline') {
+            lastIdx = i;
+            break;
+          }
+        }
+        if (lastIdx === -1) return next;
+        const lastEx = next[lastIdx].extra as unknown as PipelineExtra;
+        if (data.allDone) {
+          const total = Math.max(lastEx.total ?? 0, lastEx.plan.length);
+          // 1) 同步所有管道卡进度为完成态（执行计划卡 + 任务切换卡）：标记
+          //    completed=true（蓝色完成态，保留 plan/switch 形态），避免中段卡片
+          //    停留在"进行中"与末尾最终完成卡矛盾
+          for (let i = 0; i < next.length; i++) {
+            const ex = (next[i] as { extra?: Record<string, unknown> }).extra;
+            if (ex && ex.action === 'pipeline' && (ex as unknown as PipelineExtra).kind !== 'complete') {
+              const p = ex as unknown as PipelineExtra;
+              next[i] = {
+                ...next[i],
+                extra: {
+                  ...p,
+                  currentOrder: total,
+                  paused: false,
+                  completed: true,
+                } as PipelineExtra,
+              };
+            }
+          }
+          // 2) 对话末尾追加最终完成卡（绿色闭环，与 SSE done 事件行为一致）；
+          //    幂等：最后一张已是 complete（重复轮询/会话重载后）则不重复追加
+          if (lastEx.kind !== 'complete') {
+            return [
+              ...next,
+              {
+                id: `pipeline-complete-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                role: 'assistant' as const,
+                content: '',
+                extra: {
+                  action: 'pipeline',
+                  kind: 'complete',
+                  plan: lastEx.plan,
+                  total,
+                  currentOrder: total,
+                  paused: false,
+                  completed: true,
+                } as PipelineExtra,
+                created_at: new Date().toISOString(),
+              },
+            ];
+          }
+        } else {
+          // 中间任务完成：仅解除最后一张卡 paused（剩余任务由下条消息 resume 续跑）
+          next[lastIdx] = { ...next[lastIdx], extra: { ...lastEx, paused: false } };
+        }
+        return next;
+      });
+    } catch { /* ignore */ }
+  }, [setMessages]);
+
   /** 拉取指定会话的待处理报告并注入进度卡片（切换会话时立即调用，无需等待轮询） */
   const injectConversationReports = useCallback(async (convId: string) => {
     try {
@@ -123,10 +204,12 @@ const App: React.FC = () => {
       if (data.reports && data.reports.length > 0) {
         for (const r of data.reports) {
           injectProgressMessage(r.reportId, r.createdAt as string | undefined);
+          // 报告已完成且管道挂起等待推进：通知后端推进管道
+          if (r.status === 'completed') advancePipelineAfterReport(convId);
         }
       }
     } catch { /* ignore */ }
-  }, [injectProgressMessage]);
+  }, [injectProgressMessage, advancePipelineAfterReport]);
 
   // 定时轮询当前用户的活跃报告（捕获 H5 标签页关闭后发起的生成）
   useEffect(() => {
@@ -162,6 +245,8 @@ const App: React.FC = () => {
         if (data.reports && data.reports.length > 0) {
           for (const r of data.reports) {
             injectProgressMessage(r.reportId, r.createdAt as string | undefined);
+            // 报告已完成且管道挂起等待推进：通知后端推进管道（含最后任务完成转 complete 卡）
+            if (r.status === 'completed') advancePipelineAfterReport(conversationId);
           }
         }
       } catch { /* ignore */ }
@@ -170,7 +255,7 @@ const App: React.FC = () => {
     checkConversationPending();
     const interval = setInterval(checkConversationPending, 3000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, conversationId, injectProgressMessage]);
+  }, [isAuthenticated, conversationId, injectProgressMessage, advancePipelineAfterReport]);
 
   // 检查后端服务状态
   useEffect(() => {
@@ -319,6 +404,10 @@ const App: React.FC = () => {
             if (res.ok) {
               const data = await res.json();
               injectProgressMessage(rid, data.createdAt as string | undefined);
+              // 报告已完成：通过 status 返回的 conversationId 反查会话并推进挂起的管道
+              if (data.status === 'completed' && data.conversationId) {
+                advancePipelineAfterReport(data.conversationId);
+              }
             } else {
               injectProgressMessage(rid);
             }

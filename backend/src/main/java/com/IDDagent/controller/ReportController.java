@@ -205,6 +205,7 @@ public class ReportController {
         result.put("progress", task.getProgress());
         result.put("templateName", task.getTemplateName());
         result.put("companyName", task.getCompanyName());
+        result.put("conversationId", task.getConversationId());
         result.put("createdAt", task.getCreatedAt().toString());
         result.put("completedAt", task.getCompletedAt() != null ? task.getCompletedAt().toString() : null);
         result.put("errorMessage", task.getErrorMessage() != null ? task.getErrorMessage() : "");

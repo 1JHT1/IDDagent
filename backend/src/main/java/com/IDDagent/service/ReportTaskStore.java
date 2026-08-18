@@ -136,4 +136,12 @@ public class ReportTaskStore {
                 .filter(t -> "generating".equals(t.getStatus()) || "completed".equals(t.getStatus()))
                 .toList();
     }
+
+    /** 按对话 ID 获取全部任务（不过滤状态，供恢复挂起规划时兜底解析最新 report_id，含失败任务） */
+    public List<ReportTask> getAllTasksByConversation(String conversationId) {
+        if (conversationId == null || conversationId.isEmpty()) return List.of();
+        return tasks.values().stream()
+                .filter(t -> conversationId.equals(t.getConversationId()))
+                .toList();
+    }
 }

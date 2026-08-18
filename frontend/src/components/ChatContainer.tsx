@@ -1,5 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import type { ChatMessage, ChatAttachment } from '../types';
+import { isResumeConfirmConsumed } from '../hooks/useChat';
 import ChatMessageComponent from './ChatMessage';
 import ChatInput from './ChatInput';
 
@@ -8,6 +9,8 @@ interface ChatContainerProps {
   isSending: boolean;
   onSend: (message: string, attachments?: ChatAttachment[]) => void;
   onStop?: () => void;
+  /** 本地生成卡片消息（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
+  onAddMessage?: (msg: ChatMessage) => void;
 }
 
 const ChatContainer: React.FC<ChatContainerProps> = ({
@@ -15,6 +18,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   isSending,
   onSend,
   onStop,
+  onAddMessage,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -76,8 +80,14 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               </div>
             </div>
           ) : (
-            messages.map((msg) => (
-              <ChatMessageComponent key={msg.id} message={msg} onSendMessage={onSend} />
+            messages.map((msg, index) => (
+              <ChatMessageComponent
+                key={msg.id}
+                message={msg}
+                onSendMessage={onSend}
+                onAddMessage={onAddMessage}
+                interleaveDisabled={computeInterleaveDisabled(messages, index)}
+              />
             ))
           )}
           <div ref={bottomRef} />
@@ -97,3 +107,24 @@ const QUICK_QUESTIONS = [
 ];
 
 export default ChatContainer;
+
+/**
+ * 计算消息的穿插禁用状态：该消息之后存在 resume_confirm 卡片且该卡片已被消费
+ * （用户点击“回到之前的任务”/“不需要”，穿插区域已结束）→ 穿插区域内的功能卡片
+ * （追问 chip、结果操作按钮、歧义选项等）不应再可点击执行，任务规划已结束。
+ * 自身是已消费的 resume_confirm 卡片 → 同样禁用（避免恢复后旧卡误操作）。
+ * 嵌套多轮穿插-恢复天然支持：每张 resume_confirm 标记一个穿插区域，各自独立判定。
+ */
+function computeInterleaveDisabled(msgs: ChatMessage[], index: number): boolean {
+  const selfExtra = msgs[index].extra as { action?: string } | undefined;
+  if (selfExtra?.action === 'resume_confirm') {
+    return isResumeConfirmConsumed(msgs, index);
+  }
+  for (let i = index + 1; i < msgs.length; i++) {
+    const extra = msgs[i].extra as { action?: string } | undefined;
+    if (extra?.action === 'resume_confirm') {
+      return isResumeConfirmConsumed(msgs, i);
+    }
+  }
+  return false;
+}

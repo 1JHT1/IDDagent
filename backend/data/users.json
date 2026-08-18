@@ -1,0 +1,51 @@
+{
+  "458cf012-ba26-4fd3-82e4-b900780d8df7" : {
+    "password" : "abb6c76a84eb7ad861e620bfc4122c7e$daa3bf8d44cd4d0e4945ab4d170c79748503fa7629dda48059b5e05a7a3456cf",
+    "bank_institution" : "Hubei",
+    "created_at" : "2026-08-13T08:31:41.863773500Z",
+    "id" : "458cf012-ba26-4fd3-82e4-b900780d8df7",
+    "username" : "test_verify_163141"
+  },
+  "b061ccdf-c607-43f2-8334-db0344bb92de" : {
+    "password" : "7931b65f4ae0a9ef7273505229d49631$3a96733726bb7cd773b5f056c78d6821ce8fabf968c7ffd86e002d715ab94b97",
+    "bank_institution" : "湖北分行",
+    "created_at" : "2026-08-13T08:29:18.171300700Z",
+    "id" : "b061ccdf-c607-43f2-8334-db0344bb92de",
+    "username" : "test_dbg_002"
+  },
+  "bfe6768a-8e42-4e25-b6b4-71d133117b07" : {
+    "password" : "819de7fe379f9de91dbecf0c5297f19e$dc2fbe3088b6c4235fb604069f89c3b75ad4512a15ae4ddcc150122822499605",
+    "bank_institution" : "湖北分行",
+    "created_at" : "2026-08-13T08:27:16.337612Z",
+    "id" : "bfe6768a-8e42-4e25-b6b4-71d133117b07",
+    "username" : "test_verify_001"
+  },
+  "28c776fa-cce0-4b3b-9915-7b5684b26b86" : {
+    "password" : "38d7e7579a3987b1c06c08f0533e75ee$17b9460f34c9e3584d50cf016e57bc4d3660856f37ae26d0a088984c373cb8e4",
+    "bank_institution" : "Hubei",
+    "created_at" : "2026-08-13T08:30:27.696561900Z",
+    "id" : "28c776fa-cce0-4b3b-9915-7b5684b26b86",
+    "username" : "test_verify_163027"
+  },
+  "467a72dd-9aac-4261-989c-5dbc2b07951e" : {
+    "password" : "db69b66b400fc0d86fbd683a83b5ad2e$b2d77573a5966ed8e230ea7d9e30f233c991e765273b76cf9a90b39601caf4b0",
+    "bank_institution" : "Hubei",
+    "created_at" : "2026-08-13T08:47:26.766887500Z",
+    "id" : "467a72dd-9aac-4261-989c-5dbc2b07951e",
+    "username" : "test_verify_164726"
+  },
+  "03e09df0-0d21-4a6e-b4cb-09d99e2f137f" : {
+    "password" : "528b7e176cf79ad5209b7b8fcbf49747$c73241bf2ca9fb2a04265fee7b09594120b8f14cd0963a725cfa925db2b4de83",
+    "bank_institution" : "婀栧寳鍒嗚",
+    "created_at" : "2026-08-13T08:29:46.531314300Z",
+    "id" : "03e09df0-0d21-4a6e-b4cb-09d99e2f137f",
+    "username" : "test_verify_162946"
+  },
+  "ebb836e1-0514-42f9-ac01-90deb5f959a0" : {
+    "password" : "ccc1bd44311aed2e3acf116de55dfce0$d6ea0d46bebdbd7c4fe7d04d60224fcd7d41ca10f14a745ddbe6122d72013e60",
+    "bank_institution" : "Hubei",
+    "created_at" : "2026-08-13T08:33:35.859954300Z",
+    "id" : "ebb836e1-0514-42f9-ac01-90deb5f959a0",
+    "username" : "test_verify_163335"
+  }
+}

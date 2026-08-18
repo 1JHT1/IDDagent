@@ -219,92 +219,52 @@ export interface CompanyNameCandidatesData {
 }
 
 // ============================================================
-// 意图澄清数据类型
+// 意图澄清（Phase 4）与任务规划进度数据类型
 // ============================================================
 
-/** 意图澄清候选项 */
-export interface IntentCandidate {
-  skill: string;
+/** 澄清选项 */
+export interface ClarificationOption {
   label: string;
-  description: string;
+  value: string;
 }
 
-/** 意图澄清事件数据 */
-export interface IntentCandidatesData {
-  message: string;
-  candidates: IntentCandidate[];
+/** 意图澄清事件数据（同技能多主体冲突时让用户确认执行对象） */
+export interface ClarificationData {
+  action: 'clarification';
+  question: string;
+  options: ClarificationOption[];
+  context?: {
+    skill: string;
+    params: Record<string, unknown>;
+  };
 }
 
 // ============================================================
-// 多意图任务管道类型
+// 任务规划状态类型（plan_status 事件 / GET /api/plan/{id}/status）
 // ============================================================
 
-/** 计划中的单个任务 */
-export interface PipelineTask {
+/** 规划步骤状态（与后端 ContextMemoryService.PlanStatus 一致） */
+export type PlanStepStatus = 'PENDING' | 'WAITING_INPUT' | 'RUNNING' | 'DONE' | 'FAILED' | 'WAITING_EXTERNAL';
+
+/** 规划步骤快照 */
+export interface PlanStatusStep {
   skill: string;
-  label: string;
-  order: number;
+  summary?: string;
+  status: PlanStepStatus;
+  needsInput?: boolean;
 }
 
-/** planning 事件数据（后端 TaskPlanner 计划快照） */
-export interface PlanningData {
-  plan: PipelineTask[];
-  text?: string;
-  /** true = 暂停恢复（前端更新已有清单卡片）；false/缺省 = 首次规划（新建卡片） */
-  resume?: boolean;
-}
-
-/** task_start 事件数据（某个任务开始执行） */
-export interface TaskStartData {
+/** 规划状态数据（plan_status 事件 data / GET /api/plan/{id}/status 返回的 plan 字段） */
+export interface PlanStatusData {
+  active: boolean;
+  steps: PlanStatusStep[];
   index: number;
-  total: number;
-  skill: string;
-  label: string;
-  order: number;
+  confirming: boolean;
+  suspended: boolean;
+  planId?: string;
+  /** 收尾汇总文本（全部完成/提前结束的总结文案，面板终态展示） */
+  summary?: string;
 }
-
-/** pipeline_paused 事件数据（多意图管道暂停，等待用户补充信息） */
-export interface PipelinePausedData {
-  /** 当前任务等待用户补充的提示文案（如"请上传该企业的营业执照图片以进行信息核实。"） */
-  hint?: string;
-}
-
-/** task_done 事件数据（多意图管道中某个任务执行完成） */
-export interface TaskDoneData {
-  /** 已完成任务的 order（管道内任务序号，从 1 开始） */
-  order: number;
-  /** 已完成任务的技能标识 */
-  skill: string;
-  /** 已完成任务的展示标签 */
-  label: string;
-}
-
-/**
- * 任务清单卡片的消息 extra 结构（action='pipeline'）。
- * 任务清单作为对话中的一条可见消息持久化，由 planning/task_start/done 事件驱动更新，
- * 不会因管道结束而消失；切换会话后通过消息持久化恢复展示（静态最终状态）。
- * 注意：需为 type（而非 interface），否则无法赋给 Message.extra 的 Record<string, unknown>。
- */
-export type PipelineExtra = {
-  action: 'pipeline';
-  /**
-   * 卡片形态（对话流内按时间顺序出现，而非单卡原地更新）：
-   * - plan：初始规划卡（首次规划时出现，仅一次，展示完整任务列表）
-   * - switch：任务切换卡（每进入新的一级任务时出现，轻量展示已完成 + 当前任务）
-   * - complete：最终完成卡（全部任务完成后汇总，形成闭环）
-   */
-  kind?: 'plan' | 'switch' | 'complete';
-  plan: PipelineTask[];
-  total: number;
-  /** 当前正在执行的任务 order（0 = 尚未开始；=== total 表示全部完成） */
-  currentOrder: number;
-  /** 是否因等待用户补充信息而暂停 */
-  paused?: boolean;
-  /** 管道是否已全部完成（done 事件后） */
-  completed?: boolean;
-  /** 规划文本（"我将依次为您执行：① …"） */
-  text?: string;
-};
 
 // ============================================================
 // SSE 事件类型定义
@@ -328,8 +288,13 @@ export type SSEEventType =
   | 'company_name_candidates'
   | 'intent_candidates'
   | 'need_date_range'
-  | 'pipeline_paused'
-  | 'task_done'
+  | 'clarification'
+  | 'plan_progress'
+  | 'plan_preview'
+  | 'plan_summary'
+  | 'plan_step_confirm'
+  | 'plan_status'
+  | 'resume_confirm'
   | 'done'
   | 'error';
 
@@ -339,7 +304,7 @@ export interface SSEEvent {
   content?: string;
   message_id?: string;
   conversation_id?: string;
-  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData | IntentCandidatesData | PlanningData | TaskStartData | PipelinePausedData | TaskDoneData;
+  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData | ClarificationData | PlanStatusData;
 }
 
 // ============================================================

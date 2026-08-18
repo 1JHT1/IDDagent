@@ -2,6 +2,8 @@ import React from 'react'
 
 interface FollowUpChipProps {
   text: string
+  /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
+  disabled?: boolean
   onSendMessage?: (content: string) => void
 }
 
@@ -17,7 +19,7 @@ function convertToRequest(question: string): string {
     .trim()
 }
 
-const FollowUpChip: React.FC<FollowUpChipProps> = ({ text, onSendMessage }) => {
+const FollowUpChip: React.FC<FollowUpChipProps> = ({ text, onSendMessage, disabled }) => {
   const requestText = convertToRequest(text)
 
   return (
@@ -26,10 +28,12 @@ const FollowUpChip: React.FC<FollowUpChipProps> = ({ text, onSendMessage }) => {
         <span className="text-xs text-gray-400 flex-shrink-0">💭</span>
         <button
           onClick={() => onSendMessage?.(requestText)}
+          disabled={disabled}
           className="flex-1 text-left px-3 py-2 rounded-lg border border-blue-200 bg-blue-50/80
                      hover:bg-blue-100 hover:border-blue-300 transition-all
                      text-sm text-blue-700 font-medium
-                     cursor-pointer group"
+                     cursor-pointer group
+                     disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-50/80 disabled:hover:border-blue-200"
         >
           <span className="group-hover:underline">{text}</span>
           <svg

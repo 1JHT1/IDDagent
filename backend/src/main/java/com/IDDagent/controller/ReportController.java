@@ -1,5 +1,6 @@
 package com.IDDagent.controller;
 
+import com.IDDagent.service.ContextMemoryService;
 import com.IDDagent.service.FileParserService;
 import com.IDDagent.service.LLMFieldExtractor;
 import com.IDDagent.service.ReportStoreService;
@@ -34,6 +35,7 @@ public class ReportController {
     private final ReportTaskStore taskStore;
     private final FileParserService fileParser;
     private final LLMFieldExtractor llmFieldExtractor;
+    private final ContextMemoryService contextMemoryService;
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final Path UPLOAD_DIR = Paths.get("data", "uploads", "report-files");
 
@@ -52,10 +54,11 @@ public class ReportController {
     }
 
     public ReportController(ReportTaskStore taskStore, FileParserService fileParser,
-                            LLMFieldExtractor llmFieldExtractor) {
+                            LLMFieldExtractor llmFieldExtractor, ContextMemoryService contextMemoryService) {
         this.taskStore = taskStore;
         this.fileParser = fileParser;
         this.llmFieldExtractor = llmFieldExtractor;
+        this.contextMemoryService = contextMemoryService;
         try { Files.createDirectories(UPLOAD_DIR); } catch (Exception ignored) {}
     }
 
@@ -135,6 +138,11 @@ public class ReportController {
         String sourceFile = (String) body.getOrDefault("sourceFile", "");
         String organization = (String) body.getOrDefault("organization", "");
         String conversationId = (String) body.getOrDefault("conversationId", "");
+        // 实证：H5 生成请求未携带 conversationId（旧标签页/旧链接进入）会导致任务无法关联回会话，
+        // 穿插挂起恢复时按会话解析不到 report_id（日志可见根因）
+        if (conversationId == null || conversationId.isBlank()) {
+            log.warn("报告任务创建请求未携带 conversationId（H5 旧标签页进入？），任务将无法关联回会话: templateId={}", templateId);
+        }
 
         @SuppressWarnings("unchecked")
         List<String> attachmentNames = (List<String>) body.getOrDefault("attachmentNames", List.of());
@@ -156,6 +164,11 @@ public class ReportController {
         ReportTask task = taskStore.createTask(templateId, templateName, companyName,
                 creditCode, userId, sourceFile, organization, conversationId, attachmentNames, attachmentFileIds);
 
+        // 将报告任务 report_id 关联到该会话的"生成尽调报告"步骤（激活态当前步骤或穿插挂起快照）：
+        // 报告生成中穿插新意图时步骤 params 尚无 report_id（仅 reportComplete 收尾时写回），任务创建后
+        // 立即写回，使穿插挂起恢复（confirmResume）时能解析到 report_id 重发报告生成进度卡片
+        linkReportToConversationStep(conversationId, task.getReportId());
+
         // 在 boundedElastic 线程中阻塞解析 LLM，不阻塞 Netty 事件循环
         return Mono.fromCallable(() -> {
             try {
@@ -174,6 +187,39 @@ public class ReportController {
             result.put("progress", 0);
             return ResponseEntity.ok(result);
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    /**
+     * 将报告任务 report_id 关联到会话的"生成尽调报告"步骤：优先写回激活态当前步骤（WAITING_EXTERNAL），
+     * 再检查穿插挂起快照（suspendPlan 深拷贝后同对象回填，恢复时 params 保留），命中其一即可。
+     */
+    private void linkReportToConversationStep(String conversationId, String reportId) {
+        if (conversationId == null || conversationId.isBlank()
+                || reportId == null || reportId.isBlank()) {
+            if (conversationId != null && conversationId.isBlank()) {
+                log.warn("跳过报告任务 {} 与会话的关联：请求 conversationId 为空（H5 未携带，任务归属丢失）", reportId);
+            }
+            return;
+        }
+        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(conversationId);
+        if (ctx == null) return;
+        ContextMemoryService.PlanStep cur = contextMemoryService.getCurrentPlanStep(conversationId);
+        if (cur != null && "generate_report".equals(cur.skill)
+                && cur.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
+            cur.params.put("report_id", reportId);
+            log.info("已关联报告任务 {} 到会话 {} 激活态报告步骤", reportId, conversationId);
+        }
+        if (contextMemoryService.hasSuspendedPlan(conversationId)) {
+            int idx = ctx.suspendedIndex;
+            if (idx >= 0 && idx < ctx.suspendedPlan.size()) {
+                ContextMemoryService.PlanStep sp = ctx.suspendedPlan.get(idx);
+                if ("generate_report".equals(sp.skill)
+                        && sp.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
+                    sp.params.put("report_id", reportId);
+                    log.info("已关联报告任务 {} 到会话 {} 挂起快照报告步骤", reportId, conversationId);
+                }
+            }
+        }
     }
 
     /** 被 ReportGenerateSkill 直接调用的入口（旧版，保留兼容） */
@@ -337,6 +383,9 @@ public class ReportController {
             item.put("companyName", task.getCompanyName());
             item.put("progress", task.getProgress());
             item.put("createdAt", task.getCreatedAt().toString());
+            // 报告所属会话：前端据此只将进度卡注入对应会话的消息流，
+            // 避免新建对话/切换会话后旧会话的生成中报告串入当前会话
+            item.put("conversationId", task.getConversationId());
             return item;
         }).toList();
         Map<String, Object> result = new LinkedHashMap<>();
@@ -356,6 +405,10 @@ public class ReportController {
             item.put("companyName", task.getCompanyName());
             item.put("progress", task.getProgress());
             item.put("createdAt", task.getCreatedAt().toString());
+            // 报告所属会话：供前端防切会话瞬间旧响应晚到导致的跨会话注入
+            item.put("conversationId", task.getConversationId());
+            // 完成时间供前端将完成卡排序到穿插意图之后（生成中任务为 null）
+            item.put("completedAt", task.getCompletedAt() != null ? task.getCompletedAt().toString() : null);
             return item;
         }).toList();
         Map<String, Object> result = new LinkedHashMap<>();

@@ -34,10 +34,7 @@ public class ReportGenerateSkill {
                         "company_name", new Skill.SkillParam("string", "企业名称", false, ""),
                         "credit_code", new Skill.SkillParam("string", "统一信用代码", false, "")
                 )
-        ).withMeta("尽调报告生成",
-                List.of("生成报告", "尽调报告", "财务分析报告", "授信评估", "报告模板", "生成尽调", "智能尽调", "上传资料生成报告", "生成"),
-                List.of("历史", "查询", "查一下", "查看", "查找"),
-                "法人", 60, "report"));
+        ), List.of("生成报告", "报告生产", "报告生成", "尽调报告", "财务分析报告", "出报告", "写报告", "做尽调", "授信评估报告", "模板报告"));
     }
 
     private Map<String, Object> handle(String userId, Map<String, Object> params) {
@@ -61,6 +58,8 @@ public class ReportGenerateSkill {
         if (template == null) {
             Map<String, Object> resp = new LinkedHashMap<>();
             resp.put("action", "not_found");
+            // 到达步骤结束点：模板不存在，步骤完成
+            resp.put(Skill.KEY_STEP_DONE, true);
             resp.put("message", "未找到模板 ID=" + templateId);
             return resp;
         }
@@ -69,6 +68,9 @@ public class ReportGenerateSkill {
 
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("action", "result");
+        // 未到达步骤结束点：仅把用户引导出对话流（H5 编辑页异步生成报告），
+        // 报告生成完成由前端调 report-complete 收尾标 DONE/FAILED
+        resp.put(Skill.KEY_STEP_DONE, false);
         resp.put("_skill_name", "generate_report");
         resp.put("stage", "redirect");
         resp.put("template_id", templateId);
@@ -79,6 +81,20 @@ public class ReportGenerateSkill {
         resp.put("required_fields", template.get("required_fields"));
         resp.put("message", "请在报告编辑页面中上传附件并生成报告");
         return resp;
+    }
+
+    /**
+     * 对外暴露模板列表（含机构过滤）：穿插挂起恢复时兜底重发"选择模板"卡片使用。
+     *
+     * @param organization 机构，为空返回全部模板
+     */
+    public Map<String, Object> showTemplatesFor(String organization) {
+        return showTemplates(organization);
+    }
+
+    /** 对外暴露按 ID 查询模板：恢复兜底重发"跳转编辑页"卡片时补全模板名/图标 */
+    public Map<String, Object> findTemplateFor(String templateId) {
+        return findTemplate(templateId);
     }
 
     @SuppressWarnings("unchecked")
@@ -98,6 +114,8 @@ public class ReportGenerateSkill {
 
         Map<String, Object> resp = new LinkedHashMap<>();
         resp.put("action", "result");
+        // 未到达步骤结束点：仅展示模板列表等待用户选择，选择后重跑当前步骤
+        resp.put(Skill.KEY_STEP_DONE, false);
         resp.put("_skill_name", "generate_report");
         resp.put("stage", "templates");
         resp.put("templates", templates);

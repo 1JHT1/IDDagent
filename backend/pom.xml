@@ -20,6 +20,11 @@
     <properties>
         <java.version>17</java.version>
         <jjwt.version>0.12.3</jjwt.version>
+        <!-- 本机 JDK 25（.jdks/openjdk-25）下 Lombok 注解处理失效（JDK 23+ 默认禁用 classpath 隐式注解处理），
+             导致 @Data/@AllArgsConstructor 等生成的 getter/setter/构造器缺失，编译报大量
+             "找不到符号: 方法 getXxx()"。需使用 JDK 17/21（D:/download/Computer/JDK/jdk21）编译；
+             此处覆盖为 1.18.44 仅为兼容性加固，与现有注解用法完全兼容。 -->
+        <lombok.version>1.18.44</lombok.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
 

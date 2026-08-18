@@ -6,6 +6,14 @@ import java.util.Map;
 import java.util.function.BiFunction;
 
 public class Skill {
+    /**
+     * 步骤结束点声明键：技能返回结果中携带此键（boolean）显式声明本次返回是否到达
+     * 步骤结束点——true=步骤已完成（协调器据此标记 DONE）；false=步骤未结束（等待
+     * 用户输入补充/选择，或如尽调报告引导阶段等待外部异步完成后由 report-complete 收尾）。
+     * 协调器以技能声明为准标记步骤状态，不再硬编码 action 名称集合判定"结束"。
+     */
+    public static final String KEY_STEP_DONE = "_step_done";
+
     private final String name;
     private final String description;
     private final BiFunction<String, Map<String, Object>, Map<String, Object>> handler;

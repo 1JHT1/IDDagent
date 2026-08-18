@@ -2,7 +2,9 @@ package com.IDDagent.controller;
 
 import com.IDDagent.model.*;
 import com.IDDagent.service.*;
+import com.IDDagent.skill.Skill;
 import com.IDDagent.skill.SkillRegistry;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +16,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
 import java.util.*;
+import java.util.regex.Pattern;
 
 @RestController
 @RequestMapping("/api")
@@ -26,13 +29,22 @@ public class ChatController {
     // 后端在 generate_report 重入时解析注入 template_id（见 handleSkill）
     private static final String TEMPLATE_SELECT_PREFIX = "【模板选择】";
 
+    /** 模糊匹配候选列表「以上选项均不是」回复的识别模式（各技能候选卡片点击按钮后发送的固定短语） */
+    private static final Pattern NONE_OF_ABOVE_PATTERN = Pattern.compile(
+            "^(?:以上(?:选项)?(?:均|都)?不是|以上(?:选项)?均不是|以上(?:选项)?都不是|均不是|都不是|没有(?:匹配|符合|我要|想找|想选)的|都不符合|都没有)$");
+    /** 模糊匹配候选列表「以上选项均不是」的统一引导回复 */
+    private static final String NONE_OF_ABOVE_REPLY =
+            "以上选项均不是您要查询的企业。请提供准确的企业名称，或直接输入 18 位统一社会信用代码，我将为您重新查询。";
+
     private final ConversationService conversationService;
     private final ContextMemoryService contextMemoryService;
     private final CoordinatorService coordinatorService;
     private final FollowUpService followUpService;
     private final AgentService agentService;
     private final SkillRegistry skillRegistry;
-    private final TaskPlanner taskPlanner;
+    private final IntentPlannerService intentPlannerService;
+    private final IntentConflictResolver intentConflictResolver;
+    private final ReportTaskStore reportTaskStore;
 
     public ChatController(ConversationService conversationService,
                           ContextMemoryService contextMemoryService,
@@ -40,14 +52,18 @@ public class ChatController {
                           FollowUpService followUpService,
                           AgentService agentService,
                           SkillRegistry skillRegistry,
-                          TaskPlanner taskPlanner) {
+                          IntentPlannerService intentPlannerService,
+                          IntentConflictResolver intentConflictResolver,
+                          ReportTaskStore reportTaskStore) {
         this.conversationService = conversationService;
         this.contextMemoryService = contextMemoryService;
         this.coordinatorService = coordinatorService;
         this.followUpService = followUpService;
         this.agentService = agentService;
         this.skillRegistry = skillRegistry;
-        this.taskPlanner = taskPlanner;
+        this.intentPlannerService = intentPlannerService;
+        this.intentConflictResolver = intentConflictResolver;
+        this.reportTaskStore = reportTaskStore;
     }
 
     /**
@@ -78,82 +94,212 @@ public class ChatController {
     }
 
     /**
-     * 报告生成完成通知：前端轮询到报告状态 completed 后调用，推进被挂起的多意图管道。
-     * 幂等：无等待报告任务（waitingReportTask）时直接返回，不重复推进。
-     * - 最后任务完成：持久化最终完成卡（kind=complete）+ 清理计划快照，返回 allDone=true
-     * - 中间任务完成：把 pendingPipeline 首项升级为 pendingSkill（用户下一条消息 resume 续跑），
-     *   返回 allDone=false 与剩余任务数
+     * 持久化前端本地生成的卡片消息（如模板选择后的"已选择模板"跳转卡）：
+     * 该卡由前端 ReportGenerateCard 点击模板时直接生成（不经协调器，避免 LLM 提取
+     * template_id 失败），若不持久化则穿插恢复后切换对话框"原来提供的模板记录"丢失。
+     * 按穿插边界规则插入消息流（穿插中保持在恢复确认卡上方），切换会话后前端按原位置渲染恢复。
      */
-    @PostMapping("/chat/report-completed")
-    public Mono<Map<String, Object>> reportCompleted(@RequestBody Map<String, String> body,
-                                                     @RequestAttribute("currentUser") UserInfo currentUser) {
-        String conversationId = body.get("conversationId");
+    @PostMapping("/chat/card")
+    public Mono<Map<String, Object>> persistCardMessage(@RequestBody Map<String, Object> body,
+                                                        @RequestAttribute("currentUser") UserInfo currentUser) {
         Map<String, Object> resp = new LinkedHashMap<>();
-        if (conversationId == null || conversationId.isBlank()) {
+        String conversationId = body.get("conversationId") == null ? "" : String.valueOf(body.get("conversationId"));
+        if (conversationId.isBlank()) {
             resp.put("ok", false);
             resp.put("message", "conversationId 不能为空");
             return Mono.just(resp);
         }
+        // 仅允许操作当前用户自己的会话
         Map<String, Conversation> userConvs = conversationService.getUserConvs(currentUser.getId());
         if (!userConvs.containsKey(conversationId)) {
             resp.put("ok", false);
             resp.put("message", "会话不存在");
             return Mono.just(resp);
         }
-        Conversation conv = userConvs.get(conversationId);
-        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(conversationId);
-        if (ctx.waitingReportTask == null) {
-            // 幂等：无挂起的报告任务（已推进过或非管道任务），直接返回
-            resp.put("ok", true);
-            resp.put("skipped", true);
+        Object msgObj = body.get("message");
+        if (!(msgObj instanceof Map<?, ?>)) {
+            resp.put("ok", false);
+            resp.put("message", "message 不能为空");
             return Mono.just(resp);
         }
-        int reportOrder = (int) ctx.waitingReportTask.getOrDefault("order", 0);
-        // 完整计划快照（含已完成任务）：优先内存快照，丢失时从对话历史恢复
-        List<Map<String, Object>> fullPlan = (ctx.pipelinePlan != null && !ctx.pipelinePlan.isEmpty())
-                ? new ArrayList<>(ctx.pipelinePlan) : findPipelinePlanFromHistory(conv);
-        int total = fullPlan != null ? fullPlan.size() : reportOrder;
-        // 更新已持久化的初始执行计划卡（首卡）进度
-        updatePipelinePlanCardOrder(conv, reportOrder);
-        ctx.waitingReportTask = null;
-        if (reportOrder >= total) {
-            // 报告任务为管道最后一个任务：全部完成 → 持久化最终完成卡 + 清理计划快照
-            if (fullPlan != null && !fullPlan.isEmpty()) {
-                Map<String, Object> completeCard = new LinkedHashMap<>();
-                completeCard.put("action", "pipeline");
-                completeCard.put("kind", "complete");
-                completeCard.put("plan", fullPlan);
-                completeCard.put("total", fullPlan.size());
-                completeCard.put("currentOrder", fullPlan.size());
-                completeCard.put("paused", false);
-                completeCard.put("completed", true);
-                persistPipelineCard(conv, completeCard);
-                // 全部完成：同步标记 plan/switch 卡完成态（与 executePipeline 完成分支一致）
-                markPipelineCardsCompleted(conv);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> msg = (Map<String, Object>) msgObj;
+        String msgId = msg.get("id") == null ? UUID.randomUUID().toString() : String.valueOf(msg.get("id"));
+        Conversation conv = userConvs.get(conversationId);
+        // 幂等：同 id 已存在（前端网络重试/重复点击同一模板）时不重复插入
+        for (Message m : conv.getMessages()) {
+            if (msgId.equals(m.getId())) {
+                resp.put("ok", true);
+                resp.put("status", "exists");
+                return Mono.just(resp);
             }
-            if (ctx.pipelinePlan != null) ctx.pipelinePlan.clear();
-            log.info("Pipeline completed after report generation: conv={}, order={}/{}",
-                    conversationId, reportOrder, total);
-            resp.put("ok", true);
-            resp.put("completed", true);
-            resp.put("allDone", true);
-        } else {
-            // 报告任务为中间任务：把 pendingPipeline 首项升级为 pendingSkill，
-            // 用户下一条消息将 resume 续跑剩余任务
-            if (ctx.pendingPipeline != null && !ctx.pendingPipeline.isEmpty()) {
-                Map<String, Object> next = ctx.pendingPipeline.remove(0);
-                Map<String, Object> params = next.get("params") instanceof Map
-                        ? (Map<String, Object>) next.get("params") : new LinkedHashMap<>();
-                contextMemoryService.setPendingSkill(conversationId, (String) next.get("skill"), params);
-                log.info("Pipeline advanced after report generation: conv={}, task {}/{} done, next pendingSkill={}",
-                        conversationId, reportOrder, total, next.get("skill"));
-            }
-            resp.put("ok", true);
-            resp.put("completed", true);
-            resp.put("allDone", false);
-            resp.put("remaining", ctx.pendingPipeline != null ? ctx.pendingPipeline.size() : 0);
         }
+        Object extraObj = msg.get("extra");
+        Map<String, Object> extra = extraObj instanceof Map<?, ?>
+                ? (Map<String, Object>) extraObj : new LinkedHashMap<>();
+        Message card = new Message(msgId, "assistant", "", Instant.now().toString());
+        card.setExtra(extra);
+        // 按穿插边界规则定位插入（与后端 result 分支持久化一致）：
+        // 穿插中结果卡保持在恢复确认卡上方，避免切换会话后跑到穿插对话之后位置错乱
+        insertBeforeBoundaryCard(conv.getMessages(), card);
+        conv.setUpdatedAt(card.getCreatedAt());
+        conversationService.persist();
+        resp.put("ok", true);
         return Mono.just(resp);
+    }
+
+    /**
+     * 报告生成完成通知（前端进度卡轮询到 completed/failed 后调用）：
+     * 将处于 WAITING_EXTERNAL 的 generate_report 步骤标记 DONE/FAILED 并完成规划收尾准备：
+     * - 还有下一步 → 设置 planConfirming 并返回 next（含确认卡片数据，前端据此插入确认卡片），
+     *   用户点击"继续"后走 chatStream 的 planConfirming 分支推进下一步；
+     * - 已是最后一步 → 关闭规划并返回 finished（含汇总文案，前端展示"全部任务已完成"）。
+     * 非等待外部状态的请求返回 ignored（幂等，重复轮询/并发通知安全）。
+     */
+    @PostMapping("/plan/report-complete")
+    public Mono<Map<String, Object>> reportComplete(@RequestBody Map<String, String> body,
+                                                    @RequestAttribute("currentUser") UserInfo currentUser) {
+        String conversationId = body.get("conversationId");
+        String reportId = body.get("reportId");
+        String status = body.getOrDefault("status", "");
+        Map<String, Object> resp = new LinkedHashMap<>();
+        if (conversationId == null || conversationId.isBlank()) {
+            resp.put("ok", false);
+            resp.put("message", "conversationId 不能为空");
+            return Mono.just(resp);
+        }
+        // 仅允许操作当前用户自己的会话
+        Map<String, Conversation> userConvs = conversationService.getUserConvs(currentUser.getId());
+        if (!userConvs.containsKey(conversationId)) {
+            resp.put("ok", false);
+            resp.put("message", "会话不存在");
+            return Mono.just(resp);
+        }
+        // 报告任务归属校验：reportId 关联的任务必须属于该会话（H5 直接发起、无会话归属的任务除外），
+        // 防止前端轮询回调晚到（用户已切换会话）时用错误会话推进规划、把本会话收尾写入其他会话
+        if (reportId != null && !reportId.isEmpty()) {
+            ReportTaskStore.ReportTask task = reportTaskStore.getTask(reportId);
+            if (task != null && !task.getConversationId().isEmpty()
+                    && !conversationId.equals(task.getConversationId())) {
+                resp.put("ok", true);
+                resp.put("status", "ignored");
+                return Mono.just(resp);
+            }
+        }
+        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(conversationId);
+        ContextMemoryService.PlanStep cur = ctx == null ? null
+                : contextMemoryService.getCurrentPlanStep(conversationId);
+        // 穿插挂起期间规划未激活（suspendPlan 已把 pendingPlan 移到 suspendedPlan 快照），
+        // getCurrentPlanStep 返回 null——从挂起快照中找报告步骤穿透标记状态；收尾（确认下一步/
+        // 关闭规划）留待用户确认恢复挂起规划后进行，避免穿插流程中被确认卡片干扰
+        if (cur == null && ctx != null && contextMemoryService.hasSuspendedPlan(conversationId)) {
+            int spIdx = ctx.suspendedIndex;
+            if (spIdx >= 0 && spIdx < ctx.suspendedPlan.size()) {
+                ContextMemoryService.PlanStep sp = ctx.suspendedPlan.get(spIdx);
+                if ("generate_report".equals(sp.skill)
+                        && sp.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
+                    boolean spCompleted = "completed".equalsIgnoreCase(status);
+                    sp.status = spCompleted ? ContextMemoryService.PlanStatus.DONE
+                            : ContextMemoryService.PlanStatus.FAILED;
+                    sp.summary = spCompleted ? "生成尽调报告（完成）" : "生成尽调报告（失败）";
+                    if (reportId != null && !reportId.isEmpty()) {
+                        sp.params.put("report_id", reportId);
+                    }
+                    log.info("Report {} for suspended conversation {} {} (marked in suspended snapshot)",
+                            reportId, conversationId, spCompleted ? "completed" : "failed");
+                    resp.put("ok", true);
+                    resp.put("status", "marked");
+                    return Mono.just(resp);
+                }
+            }
+        }
+        // 仅当当前步骤为 generate_report 且处于等待外部完成状态时才推进，其余幂等忽略
+        // （如单技能模式无规划、报告已在别处收尾、或重复通知）
+        if (cur == null || !"generate_report".equals(cur.skill)
+                || cur.status != ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
+            resp.put("ok", true);
+            resp.put("status", "ignored");
+            return Mono.just(resp);
+        }
+        boolean completed = "completed".equalsIgnoreCase(status);
+        cur.status = completed ? ContextMemoryService.PlanStatus.DONE
+                : ContextMemoryService.PlanStatus.FAILED;
+        cur.summary = completed ? "生成尽调报告（完成）" : "生成尽调报告（失败）";
+        if (reportId != null && !reportId.isEmpty()) {
+            cur.params.put("report_id", reportId);
+        }
+        log.info("Report {} for conversation {} {}, finalizing plan step", reportId, conversationId,
+                completed ? "completed" : "failed");
+
+        int nextIdx = ctx.planIndex + 1;
+        if (nextIdx < ctx.pendingPlan.size()) {
+            // 还有下一步 → 设置确认标记，返回确认卡片数据（与 SSE plan_step_confirm 同结构，前端本地渲染）
+            ContextMemoryService.PlanStep next = ctx.pendingPlan.get(nextIdx);
+            contextMemoryService.setPlanConfirming(conversationId, true);
+            int total = ctx.pendingPlan.size();
+            int doneIdx = ctx.planIndex + 1;
+            String nextDesc = describePlanStep(next);
+            // 携带规划状态快照（当前步 DONE + confirming=true），供前端直接更新规划面板
+            resp.put("plan", contextMemoryService.getPlanStatusData(conversationId));
+            // 持久化收尾快照：reportComplete 的本地注入不落库，切换会话/刷新后消息流若仍只有
+            // 过时的"执行中"快照，面板会永久停留在执行中态——按 planId 原地 upsert 终态快照，
+            // 恢复渲染时面板与后端状态一致
+            persistPlanCardEvent(userConvs.get(conversationId),
+                    planSnapshotToEventJson((Map<String, Object>) resp.get("plan")));
+            resp.put("ok", true);
+            resp.put("status", "next");
+            resp.put("text", "第 " + doneIdx + "/" + total + " 步已完成，是否继续执行第 " + (doneIdx + 1)
+                    + "/" + total + " 步（" + nextDesc + "）？");
+            resp.put("current_step", doneIdx);
+            resp.put("total_steps", total);
+            resp.put("next_step", nextDesc);
+            return Mono.just(resp);
+        }
+        // 最后一步 → 关闭规划，返回汇总文案（前端展示"全部任务已完成"）
+        String summaryText = intentPlannerService.buildPlanSummary(ctx);
+        // 终态快照（全部步骤 DONE）须在 clearPendingPlan 之前取，供前端规划面板刷新完成态
+        resp.put("plan", contextMemoryService.getPlanStatusData(conversationId));
+        // 持久化终态快照（同上：不落库则切换/刷新后面板停留在过时的"执行中"快照）
+        persistPlanCardEvent(userConvs.get(conversationId),
+                planSnapshotToEventJson((Map<String, Object>) resp.get("plan")));
+        contextMemoryService.clearPendingPlan(conversationId);
+        resp.put("ok", true);
+        resp.put("status", "finished");
+        resp.put("text", summaryText);
+        return Mono.just(resp);
+    }
+
+    /**
+     * 查询会话当前任务规划状态（切换会话/页面刷新时前端恢复规划面板）：
+     * 返回与 plan_status 事件 data 同结构的快照：steps/index/active/confirming/suspended/planId。
+     */
+    @GetMapping("/plan/{conversationId}/status")
+    public Mono<Map<String, Object>> planStatus(@PathVariable String conversationId,
+                                                @RequestAttribute("currentUser") UserInfo currentUser) {
+        Map<String, Object> resp = new LinkedHashMap<>();
+        Map<String, Conversation> userConvs = conversationService.getUserConvs(currentUser.getId());
+        if (!userConvs.containsKey(conversationId)) {
+            resp.put("ok", false);
+            resp.put("message", "会话不存在");
+            return Mono.just(resp);
+        }
+        resp.put("ok", true);
+        resp.put("plan", contextMemoryService.getPlanStatusData(conversationId));
+        return Mono.just(resp);
+    }
+
+    /**
+     * 生成规划步骤显示名（chat → 对话问答；其余 → 技能名（主体）），与 IntentPlannerService 展示逻辑一致。
+     */
+    private String describePlanStep(ContextMemoryService.PlanStep step) {
+        boolean isChat = "chat".equals(step.skill);
+        String displayName = isChat ? "对话问答" : step.skill;
+        Object company = step.params.get("company_name");
+        String companyStr = company == null ? "" : String.valueOf(company);
+        if (!isChat && companyStr != null && !companyStr.isBlank()) {
+            displayName += "（" + companyStr + "）";
+        }
+        return displayName;
     }
 
     @PostMapping(value = "/chat/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -209,7 +355,19 @@ public class ChatController {
 
         Message userMsg = new Message(userMsgId, "user", body.getMessage(), now);
         userMsg.setAttachments(attachments);
-        conv.getMessages().add(userMsg);
+        // 按前端实时插入规则定位（useChat.ts insertInterleavingAware）：确认动作/穿插恢复文本回复
+        // 追加在卡片之后（消费该卡片）；穿插中（未消费 resume_confirm）新消息插到恢复卡之前；
+        // 其余消息移除失效的未消费"下一步"确认卡后追加（穿插挂起时旧确认卡实时流中会被移除）。
+        // 否则切换会话后残留的确认卡/穿插对话位置与实时显示不一致
+        String rawUserMsg = body.getMessage();
+        if (isConfirmAction(rawUserMsg)) {
+            conv.getMessages().add(userMsg);
+        } else if (lastUnconsumedCardIndex(conv.getMessages(), "resume_confirm") >= 0
+                && isResumeReplyText(rawUserMsg)) {
+            conv.getMessages().add(userMsg);
+        } else {
+            insertInterleavingAware(conv.getMessages(), userMsg);
+        }
         conv.setUpdatedAt(now);
         // 消息追加后立即落盘：对话记录实时写入 data/conversations.json，
         // 否则消息只存内存、后端重启后全部丢失（persist 原本仅在创建/删除会话时触发）
@@ -229,35 +387,177 @@ public class ChatController {
         // 每次新消息开始时重置该会话的终止标记（强制终止后允许继续对话）
         contextMemoryService.clearCancelled(convId);
 
-        // 检查是否有待处理技能（上次技能正在等待用户补充信息）
+        // 检查会话状态：待确认澄清（pendingClarification）优先于一切，其次任务规划（pendingPlan），最后待处理技能（pendingSkill）
         ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
+        boolean hasPendingClarification = ctx.pendingClarification != null && !ctx.pendingClarification.isEmpty();
+        boolean hasPendingPlan = ctx.planActive && !ctx.pendingPlan.isEmpty();
         boolean hasPendingSkill = ctx.hasPendingSkill();
-        boolean hasPendingPipeline = ctx.hasPendingPipeline();
+        ContextMemoryService.PlanStep currentPlanStep =
+                hasPendingPlan ? contextMemoryService.getCurrentPlanStep(convId) : null;
+        boolean planNeedsInput = currentPlanStep != null && currentPlanStep.needsInput;
+        // 当前步骤等待外部异步完成（如 generate_report 在 H5 编辑页面异步生成报告）：
+        // 期间用户输入一律拦截（不推进规划、不重跑步骤），收尾由前端轮询到报告生成完成后
+        // 调用 /api/plan/report-complete 通知后端标记结束
+        boolean planWaitingExternal = currentPlanStep != null
+                && currentPlanStep.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL;
 
-        // 初始事件
-        String thinkingText = (hasPendingSkill || hasPendingPipeline) ? "正在查询，请稍候..." : "正在分析您的问题...";
+        // 初始事件：根据状态选择更准确的提示文案
+        String thinkingText;
+        if (hasPendingClarification) {
+            thinkingText = "正在处理您的选择...";
+        } else if (ctx.planConfirming) {
+            thinkingText = "正在处理您的确认...";
+        } else if (ctx.resumeConfirming) {
+            thinkingText = "正在处理您的选择...";
+        } else if (hasPendingPlan) {
+            thinkingText = "正在执行任务，请稍候...";
+        } else if (hasPendingSkill) {
+            thinkingText = "正在查询，请稍候...";
+        } else {
+            thinkingText = "正在分析您的问题...";
+        }
         Flux<String> initEvent = Flux.just(sseEvent("thinking",
                 Map.of("content", thinkingText), null, convId));
 
         // 主流程：isWaitingReport（报告生成中）→ pendingPipeline → pendingSkill → 前缀 → routeIntent
         Flux<String> mainFlow;
-        if (ctx.isWaitingReport()) {
-            // 异步报告仍在生成中（generate_report 跳转 H5 后挂起管道）：忽略本次消息，
-            // 提示用户等待报告生成完成后自动继续（report-completed 接口推进管道）
-            log.info("Conversation waiting for report completion, ignoring message: {}", finalMessage);
-            mainFlow = Flux.just(sseEvent("pipeline_paused",
-                    Map.of("hint", "报告正在生成中，请等待生成完成后自动继续"), null, convId));
-        } else if (hasPendingPipeline) {
-            // 恢复多意图管道：继续当前暂停任务 → 完成后执行剩余任务
-            log.info("Resuming pending pipeline for conv: {}, remaining tasks: {}", convId, ctx.pendingPipeline.size());
-            mainFlow = handleMultiResume(convId, userId, finalConv, finalMessage);
+        // 6.5 模糊匹配候选「以上选项均不是」统一拦截：所有出候选列表的公司模糊匹配技能
+        //     （历史尽调报告 candidates / 企业查询、风险预查、信息核实的 ambiguous/not_found）
+        //     点击该选项后发送本固定短语，直接返回引导提示：
+        //     - 规划步骤等待输入 → 本步视为结束（跳过）并追加步骤确认卡；
+        //     - 非规划模式（意图穿插/单技能，上下文在 pendingSkill）→ 消费并清除待处理技能，
+        //       穿插场景由主流程统一 resumePlanIfSuspended 返回"穿插任务已完成"确认卡；
+        //     用户下一条消息不再回到原技能上下文，可提供准确企业名称或信用代码重试
+        if (NONE_OF_ABOVE_PATTERN.matcher(finalMessage.trim()).matches()) {
+            log.info("User selected none-of-the-above for fuzzy match candidates, guiding re-entry: {}", finalMessage);
+            // 拦截分支不经过 handleChat/handleSingleSkill 的统一保存逻辑，需手动将引导回复写入会话历史，
+            // 否则切换会话后该条回复不可见（用户消息已在上面保存，此回复对应用户交互必须一起持久化）
+            Message guideMsg = new Message(UUID.randomUUID().toString(), "assistant",
+                    NONE_OF_ABOVE_REPLY, Instant.now().toString());
+            // 与前端占位消息位置一致：穿插中保持在恢复确认卡上方
+            insertBeforeBoundaryCard(conv.getMessages(), guideMsg);
+            conv.setUpdatedAt(guideMsg.getCreatedAt());
+            Flux<String> guideFlow = Flux.just(
+                    sseEvent("text_delta", Map.of("content", NONE_OF_ABOVE_REPLY), null, convId),
+                    sseEvent("text_done", Map.of("content", NONE_OF_ABOVE_REPLY), null, convId)
+            );
+            // 规划步骤等待模糊匹配输入时，用户明确表示候选均不对 → 提示语后本步视为结束（跳过），
+            // 追加"是否继续执行下一步"确认卡；确认卡下用户可点"继续"推进下一步，或直接输入
+            // 准确企业名称/信用代码（走 handlePlanConfirmReply 其他输入分支挂起-路由）重试当前步骤
+            if (hasPendingPlan && planNeedsInput) {
+                int stepNo = ctx.planIndex + 1;
+                int totalSteps = ctx.pendingPlan.size();
+                String note = "以上选项均不是您要查询的企业，第 " + stepNo + "/" + totalSteps + " 步未匹配到企业已跳过";
+                mainFlow = guideFlow.concatWith(
+                        intentPlannerService.stepDoneAndConfirm(convId, planInvoker(convId, userId, finalConv), note));
+            } else {
+                // 非规划模式的模糊匹配等待（意图穿插/单技能，上下文暂存在 pendingSkill）：
+                // 点击"以上选项均不是"视为该穿插意图结束——清除待处理技能上下文，引导文本后
+                // 由主流程统一 resumePlanIfSuspended 检测挂起的旧规划，返回"穿插任务已完成"
+                // 确认卡。不清理的话 pendingSkill 占用使 resumePlanIfSuspended 提前跳过
+                // （hasPendingSkill() 为 true），且用户下一条消息仍被分支 5 拦截重跑技能，
+                // 反复返回候选列表死循环
+                if (hasPendingSkill) {
+                    log.info("None-of-the-above ends pending skill {} (interleaved/single skill fuzzy match)",
+                            ctx.pendingSkillName);
+                    contextMemoryService.clearPendingSkill(convId);
+                    contextMemoryService.clearAttachment(convId);
+                    ctx.pendingSkillRetry = 0;
+                }
+                mainFlow = guideFlow;
+            }
+        } else if (hasPendingClarification) {
+            // 1. 用户回复了澄清选项 → 取走澄清上下文，解析用户输入为参数，直接执行技能（不重新走 LLM，最高优先级）
+            log.info("Pending clarification reply received: {}", finalMessage);
+            mainFlow = handleClarificationReply(convId, userId, finalConv, finalMessage);
+        } else if (ctx.planConfirming) {
+            // 2. 步骤完成后等待用户确认是否继续下一步（步骤间确认）→ 解析确认/停止指令
+            log.info("Plan step confirmation reply received: {}", finalMessage);
+            mainFlow = handlePlanConfirmReply(convId, userId, finalConv, finalMessage);
+        } else if (ctx.resumeConfirming) {
+            // 2.5 穿插的新意图已完成，等待用户确认是否回到穿插前那一步（resume_confirm 卡片）
+            //     → 解析恢复/拒绝指令（其他输入视为新意图，丢弃挂起规划后正常路由）
+            log.info("Resume confirm reply received: {}", finalMessage);
+            mainFlow = handleResumeConfirmReply(convId, userId, finalConv, finalMessage);
+        } else if (planWaitingExternal) {
+            // 2.6 报告生成步骤等待外部异步完成：报告在 H5 编辑页面异步生成，聊天中的输入无法服务
+            //     该步骤——用户穿插其他意图（如"帮我查下小米风险"）不应被"正在生成中"提示拦截，
+            //     挂起当前规划优先执行穿插意图（与分支 3/4 一致）；报告生成完成的收尾由前端进度卡
+            //     轮询调 /api/plan/report-complete（穿插期间穿透挂起快照标记，恢复后按状态分支继续）
+            if (intentPlannerService.isInterleavingIntent(currentPlanStep.skill, finalMessage)) {
+                log.info("Interleaving intent while plan step waits external, suspending plan: {}", finalMessage);
+                contextMemoryService.suspendPlan(convId);
+                // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
+                mainFlow = Flux.concat(
+                        Flux.just(intentPlannerService.planStatusEvent(convId)),
+                        coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                                .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+            } else {
+                // 非穿插输入（无技能命中/与报告步骤无关的闲聊）→ 拦截提示等待，不推进规划
+                log.info("Plan step {} waiting external report generation, ignoring input: {}",
+                        currentPlanStep == null ? "?" : currentPlanStep.skill, finalMessage);
+                String waitText = "尽调报告正在生成中，请稍候…";
+                // 与 6.5 拦截分支一致：拦截回复不经过统一保存逻辑，手动写入会话历史，切换会话后仍可见
+                Message waitMsg = new Message(UUID.randomUUID().toString(), "assistant",
+                        waitText, Instant.now().toString());
+                // 与前端占位消息位置一致：穿插中保持在恢复确认卡上方
+                insertBeforeBoundaryCard(conv.getMessages(), waitMsg);
+                conv.setUpdatedAt(waitMsg.getCreatedAt());
+                mainFlow = Flux.just(
+                        sseEvent("text_delta", Map.of("content", waitText), null, convId),
+                        sseEvent("text_done", Map.of("content", waitText), null, convId)
+                );
+            }
+        } else if (hasPendingPlan && planNeedsInput) {
+            // 3. 规划中当前步骤等待模糊匹配选择（needsInput）：先做意图穿插检测——用户提出
+            //    其他技能的新意图（如"顺便查下华为的融资"）→ 挂起当前规划，优先处理新意图，
+            //    完成后断点再续；否则视为对当前步骤的参数补充，合并输入后重跑当前步骤
+            //    （不重新走 LLM）。needsInput 状态下点击候选选项/补充企业名都是对当前步骤
+            //    询问的回复，不算意图穿插（suppressSkillHit=true，仅显式穿插标记仍视为穿插）。
+            //    例外：等附件类步骤（verify_business_license 已解析出信用代码、仅缺上传的
+            //    营业执照）——文本输入永远不可能是对该步骤的有效回复（附件只能通过上传获得），
+            //    无技能命中的文本合并重跑后技能仍返回"请上传营业执照"，穿插意图一直不被执行
+            //    （死循环）；故等附件时恢复技能关键词穿插检测（suppressSkillHit=false），
+            //    命中其他技能即视为穿插，优先执行后经 resume_confirm 回到该步骤继续等待附件
+            boolean waitingAttachment = "verify_business_license".equals(currentPlanStep.skill)
+                    && currentPlanStep.params.get("credit_code") != null
+                    && !String.valueOf(currentPlanStep.params.get("credit_code")).trim().isEmpty();
+            if (intentPlannerService.isInterleavingIntent(currentPlanStep.skill, finalMessage, !waitingAttachment)) {
+                log.info("Interleaving intent while plan step waits input, suspending plan: {}", finalMessage);
+                contextMemoryService.suspendPlan(convId);
+                // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
+                mainFlow = Flux.concat(
+                        Flux.just(intentPlannerService.planStatusEvent(convId)),
+                        coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                                .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+            } else {
+                log.info("Plan step needs input, merging user input: {}", finalMessage);
+                intentPlannerService.mergeUserInput(convId, currentPlanStep, finalMessage);
+                mainFlow = intentPlannerService.runPlan(convId, planInvoker(convId, userId, finalConv));
+            }
+        } else if (hasPendingPlan) {
+            // 4. 规划激活但当前步骤无输入等待：输入可能是穿插的新意图（→ 挂起规划优先处理），
+            //    否则视为步骤疑似已完成，发确认卡片或收尾（正常流程由技能结果链式触发）
+            if (intentPlannerService.isInterleavingIntent(currentPlanStep.skill, finalMessage)) {
+                log.info("Interleaving intent during plan execution, suspending plan: {}", finalMessage);
+                contextMemoryService.suspendPlan(convId);
+                // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
+                mainFlow = Flux.concat(
+                        Flux.just(intentPlannerService.planStatusEvent(convId)),
+                        coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                                .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+            } else {
+                log.info("Plan active with no pending input, finalizing current step for confirmation");
+                mainFlow = intentPlannerService.stepDoneAndConfirm(convId, planInvoker(convId, userId, finalConv));
+            }
         } else if (hasPendingSkill) {
-            // 检查重试上限：防止 pending skill 死循环
+            // 5. 待处理技能 → 现有逻辑不动
+            // 检查重试上限：防止 pending skill 死循环（如参数丢失导致永不到达 result）
             if (ctx.pendingSkillRetry >= 3) {
                 log.warn("Pending skill {} exceeded retry limit, clearing and falling back to Coordinator",
                         ctx.pendingSkillName);
                 contextMemoryService.clearPendingSkill(convId);
-                mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages(), convId)
+                mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
                         .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage));
             } else {
                 ctx.pendingSkillRetry++;
@@ -272,38 +572,44 @@ public class ChatController {
                 decision.put("reason", "继续待处理技能: " + pendingSkill);
                 contextMemoryService.clearPendingSkill(convId);
                 log.info("Routing to pending skill: {}, user_input: {}", pendingSkill, finalMessage);
-                mainFlow = handleSkill(decision, convId, userId, finalConv, -1);
-            }
-        } else if (body.getMessage() != null && body.getMessage().startsWith(INTENT_SELECT_PREFIX)) {
-            // 意图选择前缀：跳过 LLM，直接路由
-            String skillName = body.getMessage().substring(INTENT_SELECT_PREFIX.length()).trim();
-            if (skillRegistry.get(skillName) != null) {
-                log.info("Intent select prefix detected, routing directly to skill: {}", skillName);
-                Map<String, Object> decision = new LinkedHashMap<>();
-                decision.put("action", "skill");
-                decision.put("skill", skillName);
-                decision.put("params", new LinkedHashMap<>());
-                decision.put("reason", "用户意图选择");
-                mainFlow = handleSkill(decision, convId, userId, finalConv, -1);
-            } else {
-                log.warn("Intent select prefix with unknown skill: {}, falling back to Coordinator", skillName);
-                mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages(), convId)
-                        .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage));
+                mainFlow = handleSingleSkill(decision, convId, userId, finalConv);
             }
         } else if (body.getMessage() == null || body.getMessage().trim().isEmpty()) {
+            // 5. 仅上传附件、无文字输入：跳过意图识别，直接走对话助手
+            // 由 Agent 按 system prompt 规则主动询问附件用途（信息核实 / 生成尽调报告）
             log.info("Empty message with attachments, routing directly to chat for purpose inquiry");
             mainFlow = handleChat(convId, finalConv, finalMessage);
         } else {
-            // 无待处理技能 → 走 Coordinator 三层路由
-            mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages(), convId)
-                    .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage));
+            // 6. 无待处理状态 → 走 Coordinator 意图识别（携带对话历史以便 LLM 理解上下文）
+            mainFlow = coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                    .flatMapMany(decision -> {
+                        String action = (String) decision.getOrDefault("action", "");
+                        if ("multi_skill".equals(action)) {
+                            // 多意图决策 → 统一走规划模式串行执行：
+                            // 技能步骤等待用户输入时不推进后续意图；只有当前技能真正结束才执行下一个
+                            @SuppressWarnings("unchecked")
+                            List<Map<String, Object>> intents =
+                                    (List<Map<String, Object>>) decision.getOrDefault("intents", List.of());
+                            return planMultiSkill(intents, convId, userId, finalConv, finalMessage);
+                        }
+                        return dispatchDecision(decision, convId, userId, finalConv, finalMessage);
+                    });
         }
 
         return initEvent.concatWith(mainFlow)
+                // 意图穿插恢复询问：新意图（单技能/chat/澄清/pendingSkill）处理完成后，若存在挂起的
+                // 旧规划则发 resume_confirm 确认卡片，询问用户是否回到穿插前那一步（不自动恢复；
+                // 嵌套规划完成时在 stepDoneAndConfirm 内即时触发，此处作为统一兜底）
+                .concatWith(Flux.defer(() -> intentPlannerService.resumePlanIfSuspended(convId,
+                        planInvoker(convId, userId, finalConv))))
                 // 强制终止检查：一旦该会话被标记为取消，立即截断剩余事件流
                 .takeWhile(e -> !contextMemoryService.isCancelled(convId))
                 // 所有事件流结束后发送 done 事件
                 .concatWith(Flux.just(sseEvent("done", Map.of("conversation_id", convId), null, convId)))
+                // 统一拦截持久化任务规划相关卡片事件（切换会话后卡片按原位置恢复，不消失）：
+                // plan_status 按 planId 原地 upsert 面板，确认卡/进度气泡按事件顺序追加；
+                // 覆盖拦截分支/意图穿插挂起快照等所有路径，且顺序与前端接收一致
+                .doOnNext(event -> persistPlanCardEvent(finalConv, event))
                 .doOnSubscribe(s -> System.out.println("🔵 SSE Flux 被订阅!"))
                 //.doOnNext(event -> System.out.println("📤 发送 SSE: " + event.substring(0, Math.min(120, event.length()))))
                 .doOnComplete(() -> {
@@ -320,88 +626,286 @@ public class ChatController {
     }
 
     /**
-     * 统一分发决策：skill / chat / clarify / multi
+     * 决策分发：multi_skill → 串行多技能；skill → 单技能；clarification → 澄清；其他 → 聊天兜底
      */
     private Flux<String> dispatchDecision(Map<String, Object> decision, String convId,
                                           String userId, Conversation conv, String userMessage) {
-        String action = (String) decision.getOrDefault("action", "chat");
+        String action = (String) decision.getOrDefault("action", "");
         return switch (action) {
-            case "skill" -> handleSkill(decision, convId, userId, conv, -1);
-            case "clarify" -> handleClarify(decision, convId, conv);
-            case "multi" -> handleMulti(decision, convId, userId, conv);
+            case "multi_skill" -> {
+                // 统一走规划模式串行执行（与 chatStream 拦截路径一致）：
+                // 技能等待输入时不推进后续意图，只有当前技能真正结束才执行下一个
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> intents =
+                        (List<Map<String, Object>>) decision.getOrDefault("intents", List.of());
+                yield planMultiSkill(intents, convId, userId, conv, userMessage);
+            }
+            case "skill" -> handleSingleSkill(decision, convId, userId, conv);
+            case "clarification" -> {
+                // LLM 直接产出 clarification（暂不期望，保留解析）：暂存澄清上下文，发澄清事件，本轮结束
+                @SuppressWarnings("unchecked")
+                Map<String, Object> clarContext = (Map<String, Object>) decision.getOrDefault("context", Map.of());
+                if (clarContext.isEmpty()) {
+                    log.warn("clarification decision without context, falling back to chat");
+                    yield handleChat(convId, conv, userMessage);
+                }
+                contextMemoryService.setPendingClarification(convId, clarContext);
+                log.info("Coordinator returned clarification: {}", decision.getOrDefault("question", ""));
+                yield Flux.just(sseEvent("clarification", decision, null, convId));
+            }
             default -> handleChat(convId, conv, userMessage);
         };
     }
 
     /**
-     * 处理技能分支（非阻塞）
-     * @param multiIndex 多意图管道中的任务序号（-1 表示单技能）
+     * 处理澄清选项回复（pendingClarification 分支，最高优先级，不重新走 LLM）：
+     * 取走澄清上下文 → 解析用户消息为参数（JSON 合并 / 视为 company_name）→ 构造单意图决策直接执行技能。
      */
-    private Flux<String> handleSkill(Map<String, Object> decision, String convId,
-                                     String userId, Conversation conv, int multiIndex) {
+    @SuppressWarnings("unchecked")
+    private Flux<String> handleClarificationReply(String convId, String userId,
+                                                  Conversation conv, String userMessage) {
+        Map<String, Object> clarContext = contextMemoryService.consumePendingClarification(convId);
+        if (clarContext == null || clarContext.isEmpty()) {
+            log.warn("Pending clarification flag set but context empty, clearing and falling back to chat");
+            return handleChat(convId, conv, userMessage);
+        }
+        String skill = (String) clarContext.getOrDefault("skill", "");
+        Map<String, Object> params = new LinkedHashMap<>(
+                (Map<String, Object>) clarContext.getOrDefault("params", Map.of()));
+
+        // 解析用户回复：JSON（选项点击原样发送）→ 合并字段；否则视为公司名/补充输入
+        String trimmed = userMessage == null ? "" : userMessage.trim();
+        Map<String, Object> replyJson = null;
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            try {
+                replyJson = mapper.readValue(trimmed, Map.class);
+            } catch (Exception e) {
+                log.warn("Clarification reply JSON parse failed, treat as company name: {}", e.getMessage());
+            }
+        }
+        // "全部执行"：放行澄清上下文保存的完整 intents 到任务规划（跳过冲突检测，用户已确认）
+        if (replyJson != null && "execute_all".equals(replyJson.get("action"))) {
+            return executeAllAfterClarification(convId, userId, conv, clarContext, userMessage);
+        }
+        if (replyJson != null) {
+            replyJson.forEach(params::put);
+            log.info("Clarification reply merged JSON params: {}", replyJson.keySet());
+        } else if (!trimmed.isEmpty()) {
+            params.put("company_name", trimmed);
+        }
+        params.put("_user_input", userMessage);
+
+        Map<String, Object> decision = new LinkedHashMap<>();
+        decision.put("action", "skill");
+        decision.put("skill", skill);
+        decision.put("params", params);
+        decision.put("reason", "澄清选项确认后执行");
+        log.info("Executing skill after clarification: {}, params: {}", skill, params);
+        return handleSingleSkill(decision, convId, userId, conv);
+    }
+
+    /**
+     * 处理步骤间确认回复（ctx.planConfirming 分支，步骤真正结束后等待用户决定是否继续下一步）：
+     * - 确认卡片"继续"按钮发送 {"action":"plan_continue"} → 推进并执行下一步（唯一入口）
+     * - 确认卡片"结束"按钮发送 {"action":"plan_stop"} → 结束规划
+     * - 文本"继续/下一步"类回复 → 推进下一步；停止类文本 → 结束规划
+     * - 其他任何输入（已结束步骤后的新请求/新话题）→ 结束当前规划，
+     *   交给 Coordinator 重新识别意图（重跑已 DONE 的步骤只会重复输出旧结果）
+     */
+    private Flux<String> handlePlanConfirmReply(String convId, String userId,
+                                                Conversation conv, String userMessage) {
+        String trimmed = userMessage == null ? "" : userMessage.trim();
+        String action = "";
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            try {
+                Map<String, Object> replyJson = mapper.readValue(trimmed, Map.class);
+                action = String.valueOf(replyJson.getOrDefault("action", ""));
+            } catch (Exception e) {
+                log.warn("Plan confirm reply JSON parse failed, treat as text: {}", e.getMessage());
+            }
+        }
+        // 明确停止：确认卡片"结束任务"按钮（plan_stop）或停止类文本
+        if ("plan_stop".equals(action)
+                || trimmed.contains("结束") || trimmed.contains("停止")
+                || trimmed.contains("不用") || trimmed.contains("不需要")
+                || trimmed.contains("算了") || trimmed.contains("跳过")) {
+            log.info("User chose to stop the plan");
+            return intentPlannerService.confirmStop(convId, planInvoker(convId, userId, conv));
+        }
+        // 明确继续：确认卡片"继续执行下一步"按钮（plan_continue）或继续类文本
+        if ("plan_continue".equals(action)
+                || trimmed.contains("继续") || trimmed.contains("下一步")
+                || trimmed.contains("接着执行") || trimmed.contains("接着来")) {
+            log.info("User confirmed to continue the plan");
+            return intentPlannerService.confirmContinue(convId, planInvoker(convId, userId, conv));
+        }
+        // 其他输入（已 DONE 步骤之后的新请求/新话题）：挂起当前规划（保留断点），交给 Coordinator
+        // 识别为新意图执行；新意图处理完成后由 resumePlanIfSuspended 发 resume_confirm 确认卡片
+        // 询问用户是否回到穿插前那一步（不自动恢复）。
+        // （旧行为是直接结束规划丢弃断点；意图穿插需求下改为挂起-恢复）
+        // 注意：能走到本分支说明当前步骤已真正结束（result/not_found 等），此时重跑已完成的步骤
+        // 只会再次返回同样结果（如 generate_report 的模板卡片），造成"点完卡片输入新请求却一直
+        // 输出第一步内容"的死循环；而第一步流程内的卡片点击（candidates/info_needed，needsInput=true）
+        // 走 chatStream 分支 3 合并输入重跑，不经过本方法，因此此处可安全视为"用户发起了新请求"。
+        log.info("Plan confirm stage got non-confirm input '{}', suspending plan and re-routing intent", trimmed);
+        contextMemoryService.suspendPlan(convId);
+        // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
+        return Flux.concat(
+                Flux.just(intentPlannerService.planStatusEvent(convId)),
+                coordinatorService.routeIntent(trimmed, conv.getMessages())
+                        .flatMapMany(decision -> dispatchDecision(decision, convId, userId, conv, trimmed)));
+    }
+
+    /**
+     * 处理穿插恢复确认回复（ctx.resumeConfirming 分支，穿插的新意图完成后等待用户决定是否回到
+     * 穿插进来前的那一步）：
+     * - 确认卡片"回到之前的任务"按钮发送 {"action":"plan_resume_yes"} → 恢复挂起规划继续
+     * - 确认卡片"不需要"按钮发送 {"action":"plan_resume_no"} → 丢弃挂起规划，旧任务结束
+     * - 文本"回到/恢复"类回复 → 恢复；否定类文本 → 丢弃
+     * - 其他任何输入 → 视为新意图继续穿插：保留挂起规划（不恢复也不丢弃），按新意图正常路由，
+     *   处理完成后 resumePlanIfSuspended 会再次发送确认卡片询问（连续穿插时卡片始终在对话最底部）
+     */
+    private Flux<String> handleResumeConfirmReply(String convId, String userId,
+                                                  Conversation conv, String userMessage) {
+        String trimmed = userMessage == null ? "" : userMessage.trim();
+        String action = "";
+        if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+            try {
+                Map<String, Object> replyJson = mapper.readValue(trimmed, Map.class);
+                action = String.valueOf(replyJson.getOrDefault("action", ""));
+            } catch (Exception e) {
+                log.warn("Resume confirm reply JSON parse failed, treat as text: {}", e.getMessage());
+            }
+        }
+        // 明确不恢复：确认卡片"不需要"按钮（plan_resume_no）或否定类文本
+        if ("plan_resume_no".equals(action)
+                || trimmed.contains("不用") || trimmed.contains("不需要")
+                || trimmed.contains("算了") || trimmed.contains("不了")
+                || trimmed.contains("不必") || trimmed.contains("不要")) {
+            log.info("User chose not to resume suspended plan");
+            return intentPlannerService.rejectResume(convId);
+        }
+        // 明确恢复：确认卡片"回到之前的任务"按钮（plan_resume_yes）或肯定类文本
+        if ("plan_resume_yes".equals(action)
+                || trimmed.contains("回到") || trimmed.contains("回去")
+                || trimmed.contains("恢复") || trimmed.contains("继续之前的")
+                || trimmed.contains("接着之前") || trimmed.equals("要") || trimmed.equals("是")) {
+            log.info("User confirmed to resume suspended plan");
+            return intentPlannerService.confirmResume(convId, userId, planInvoker(convId, userId, conv));
+        }
+        // 其他输入：保留挂起规划继续穿插（不恢复也不丢弃），按新意图正常路由；
+        // 新意图处理完成后 resumePlanIfSuspended 会再次发送确认卡片询问是否回到穿插前那一步
+        log.info("Resume confirm got non-answer input '{}', keeping suspended plan and routing intent", trimmed);
+        contextMemoryService.setResumeConfirming(convId, false);
+        return coordinatorService.routeIntent(trimmed, conv.getMessages())
+                .flatMapMany(decision -> dispatchDecision(decision, convId, userId, conv, trimmed));
+    }
+
+    /**
+     * 澄清"全部执行"分支：将澄清上下文保存的完整 intents 放行到任务规划，
+     * 跳过冲突检测（用户已确认全部执行），多个主体各自成步骤串行执行。
+     */
+    @SuppressWarnings("unchecked")
+    private Flux<String> executeAllAfterClarification(String convId, String userId,
+                                                      Conversation conv,
+                                                      Map<String, Object> clarContext,
+                                                      String userMessage) {
+        Object rawIntents = clarContext.get("intents");
+        List<Map<String, Object>> intents = new ArrayList<>();
+        if (rawIntents instanceof List<?> list) {
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m) {
+                    intents.add(new LinkedHashMap<>((Map<String, Object>) m));
+                }
+            }
+        }
+        if (intents.isEmpty()) {
+            log.warn("Clarification execute_all but no valid intents, falling back to chat");
+            return handleChat(convId, conv, userMessage == null ? "" : userMessage);
+        }
+        ContextMemoryService.ConversationContext planCtx = contextMemoryService.get(convId);
+        List<ContextMemoryService.PlanStep> steps = intentPlannerService.buildPlan(intents, planCtx);
+        if (steps.isEmpty()) {
+            log.warn("Clarification execute_all produced no plan steps, falling back to chat");
+            return handleChat(convId, conv, userMessage == null ? "" : userMessage);
+        }
+        contextMemoryService.setPendingPlan(convId, steps);
+        log.info("Clarification execute_all: plan built with {} steps", steps.size());
+        return intentPlannerService.runPlan(convId, planInvoker(convId, userId, conv));
+    }
+
+    /**
+     * 多意图统一入口（chatStream 拦截路径与 dispatchDecision 共用）：
+     * 冲突检测 → 构建规划步骤 → 规划模式串行执行。
+     * 串行保证：技能步骤只有真正结束（result/not_found/ambiguous/summary/detail/error）
+     * 才链式推进下一个意图；info_needed/candidates 仅标记当前步骤等待用户输入，绝不提前开始后续意图。
+     */
+    @SuppressWarnings("unchecked")
+    private Flux<String> planMultiSkill(List<Map<String, Object>> intents, String convId,
+                                        String userId, Conversation conv, String userMessage) {
+        if (intents.isEmpty()) {
+            log.warn("multi_skill decision without intents, falling back to chat");
+            return handleChat(convId, conv, userMessage == null ? "" : userMessage);
+        }
+        // 冲突检测：同技能不同主体需要用户澄清（Phase 4）
+        ContextMemoryService.ConversationContext planCtx = contextMemoryService.get(convId);
+        Map<String, Object> conflict = intentConflictResolver.detectAndResolve(intents, planCtx);
+        if (conflict != null) {
+            Map<String, Object> clarContext =
+                    (Map<String, Object>) conflict.getOrDefault("context", Map.of());
+            contextMemoryService.setPendingClarification(convId, clarContext);
+            log.info("Intent conflict needs clarification: {}", conflict.getOrDefault("question", ""));
+            // 发 clarification 事件，本轮结束（不执行任何技能）
+            return Flux.just(sseEvent("clarification", conflict, null, convId));
+        }
+        // 无冲突 → 转为任务规划模式串行执行（可穿插等待用户输入）
+        List<ContextMemoryService.PlanStep> steps = intentPlannerService.buildPlan(intents, planCtx);
+        if (steps.isEmpty()) {
+            log.warn("multi_skill decision produced no valid plan steps, falling back to chat");
+            return handleChat(convId, conv, userMessage == null ? "" : userMessage);
+        }
+        contextMemoryService.setPendingPlan(convId, steps);
+        log.info("Plan built with {} steps for conversation {}", steps.size(), convId);
+        return intentPlannerService.runPlan(convId, planInvoker(convId, userId, conv));
+    }
+
+    /**
+     * 处理单技能分支（非阻塞）。
+     * 支持规划模式（ctx.planActive）：
+     * - info_needed/candidates：不设 pendingSkill，改为标记当前规划步骤等待用户输入
+     * - result/not_found：当前步骤标 DONE 后链式推进下一步（advanceAndContinue）
+     * 非规划模式行为与旧 handleSkill 完全一致。
+     */
+    private Flux<String> handleSingleSkill(Map<String, Object> decision, String convId,
+                                           String userId, Conversation conv) {
         String skillName = (String) decision.getOrDefault("skill", "");
         @SuppressWarnings("unchecked")
         Map<String, Object> skillParams = new LinkedHashMap<>(
                 (Map<String, Object>) decision.getOrDefault("params", Map.of()));
 
-        // 模板选择消息协议：【模板选择】<template_id>（前端模板卡片点击后发送）。
-        // generate_report 展示模板列表时已设置 pendingSkill，用户点击模板后此消息
-        // 重入本技能；在此解析并注入 template_id，使技能跳过模板列表直接返回跳转信息。
-        // 解析放在 handleSkill 而非各分支：主流程 pendingSkill 分支与 handleMultiResume
-        // 都经此方法重入技能，单点覆盖所有路径（含单技能与多意图管道场景）
-        String pendingInput = (String) skillParams.get("_user_input");
-        if ("generate_report".equals(skillName) && pendingInput != null
-                && pendingInput.startsWith(TEMPLATE_SELECT_PREFIX)) {
-            String tid = pendingInput.substring(TEMPLATE_SELECT_PREFIX.length()).trim();
-            if (!tid.isEmpty()) {
-                skillParams.put("template_id", tid);
-                log.info("Template selection resolved for generate_report: {}", tid);
-            }
-        }
-
-        // 上下文记忆补全
+        // 上下文记忆补全（仅非规划模式）：规划步骤的主体由 buildPlan/mergeUserInput/broadcastParams 管理，
+        // 若规划中再用 ctx 补全，会把其他步骤的主体记忆（如第一步小米）串扰进当前步骤（如第二步华为），
+        // 导致"查小米风险再查华为"时第二步仍查小米；非规划模式保持旧行为（"查下风险"用 ctx 记忆补全）。
         ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
-
-        // LLM 提取结果守卫（必须在 ctx 检查之外）：company_name 与 credit_code 独立校验、互不连坐——
-        // - company_name 若是上下文指代词（"这家公司"，LLM 误提取）、泛企业指称（"企业/个企业"）、
-        //   疑问句残留或明显非企业名，仅移除 company_name，交由上下文补全/缺参询问
-        // - credit_code 显式携带但非 18 位合法格式（如 LLM 误把公司名塞入）时仅移除 credit_code
-        //   避免技能拿脏值做模糊匹配永远 not_found，堵死缺企业名的询问提示
-        String paramCompany = (String) skillParams.get("company_name");
-        if (paramCompany != null && !CompanyNameExtractor.isValidCompanyName(paramCompany)) {
-            skillParams.remove("company_name");
-            log.info("Removed invalid company_name '{}', will ask user for a real company name", paramCompany);
-        }
-        String paramCode = (String) skillParams.get("credit_code");
-        if (paramCode != null && !CompanyNameExtractor.isValidCreditCode(paramCode)) {
-            skillParams.remove("credit_code");
-            log.info("Removed invalid credit_code '{}'", paramCode);
-        }
-
-        // 上下文记忆补全（宽松策略）：credit_code / company_name 各自独立补全，
-        // 只要技能参数中缺失且上下文有值即补——此前要求两个参数同时缺失才补全，
-        // 导致多意图管道后续任务（如企业风险预查）LLM 只提取了 company_name
-        // 而缺 credit_code 时跳过补全，技能拿不到精确信用代码再次模糊匹配弹企业选择卡。
-        // 例外：本次消息已明确给出新的企业名（与上下文企业不同）时视为切换查询对象，
-        // 不补全旧企业的 credit_code——技能内部 credit_code 优先于 company_name，
-        // 强行补全会查到旧企业而忽略用户新指定的企业（如先查小米，再问"云禾科技的法人信息"
-        // 却返回小米数据）。用 skillParams 当前值判断（无效名已被守卫移除后视为指代上下文企业）
-        if (!ctx.isEmpty()) {
-            String effectiveCompany = (String) skillParams.get("company_name");
-            boolean sameCompany = effectiveCompany == null || effectiveCompany.isEmpty()
-                    || ctx.companyName == null || ctx.companyName.isEmpty()
-                    || ctx.companyName.contains(effectiveCompany)
-                    || effectiveCompany.contains(ctx.companyName);
-            if (!skillParams.containsKey("credit_code")
-                    && ctx.creditCode != null && !ctx.creditCode.isEmpty()
-                    && sameCompany) {
-                skillParams.put("credit_code", ctx.creditCode);
-                log.info("Auto-filled credit_code: {}", ctx.creditCode);
-            }
-            if (!skillParams.containsKey("company_name")
-                    && ctx.companyName != null && !ctx.companyName.isEmpty()) {
-                skillParams.put("company_name", ctx.companyName);
-                log.info("Auto-filled company_name: {}", ctx.companyName);
+        // 历史尽调报告查询/信息核实/风险识别跳过 ctx 补全（与规划模式 buildPlan 跳过预补全一致）：
+        // 查询/核实/风险识别主体必须由用户显式提供，ctx 记忆主体直接补全会导致"查询历史尽调报告"
+        // /"信息核实"/"风险识别"（无主体）按旧主体直接查询而误报"未查询到报告"/"未找到匹配企业"，
+        // 应退回技能层询问主体。
+        if (!ctx.planActive && !ctx.isEmpty()
+                && !"query_due_diligence_reports".equals(skillName)
+                && !"verify_business_license".equals(skillName)
+                && !"check_company_risk".equals(skillName)) {
+            if (!skillParams.containsKey("company_name") && !skillParams.containsKey("credit_code")) {
+                if (ctx.creditCode != null && !ctx.creditCode.isEmpty()) {
+                    skillParams.put("credit_code", ctx.creditCode);
+                    if (ctx.companyName != null && !ctx.companyName.isEmpty()) {
+                        skillParams.put("company_name", ctx.companyName);
+                    }
+                    log.info("Auto-filled credit_code: {}, company_name: {}", ctx.creditCode, ctx.companyName);
+                } else if (ctx.companyName != null && !ctx.companyName.isEmpty()) {
+                    skillParams.put("company_name", ctx.companyName);
+                    log.info("Auto-filled company_name: {}", ctx.companyName);
+                }
             }
         }
 
@@ -413,6 +917,17 @@ public class ChatController {
 
         log.info("Coordinator routed to skill: {}, params: {}", skillName, skillParams);
         skillParams.put("_conversation_id", convId);
+
+        // 候选点击协议文本主体提取（穿插/pendingSkill 重跑场景）：分支 5 重跑时 pendingParams 保留
+        // 旧模糊词（如"小米"），技能层因 company_name 非空跳过 _user_input 兜底提取 → 点击候选后
+        // 仍匹配同一批候选循环。此处按候选卡片固定句式（"帮我核实{企业名}的信息"）提取中间的新企业名
+        // 覆盖旧值；含 18 位码的协议文本（RiskCheckCard）以码为主体，跳过名称提取
+        String protocolName = intentPlannerService.extractCandidateClickName(
+                String.valueOf(skillParams.getOrDefault("_user_input", "")));
+        if (protocolName != null && !protocolName.isEmpty()) {
+            skillParams.put("company_name", protocolName);
+            log.info("Overrode company_name from candidate-click protocol text: '{}'", protocolName);
+        }
 
         String assistantMsgId = UUID.randomUUID().toString();
 
@@ -457,8 +972,41 @@ public class ChatController {
                                 sseEvent("text_delta", Map.of("content", errorMsg), assistantMsgId, null),
                                 sseEvent("text_done", Map.of("content", errorMsg), assistantMsgId, null)
                         );
+                        // 技能执行出错也视为本步骤真正结束：规划模式下标记 FAILED 并暂停征求用户确认是否继续（否则规划会卡住）
+                        if (ctx.planActive) {
+                            ContextMemoryService.PlanStep curStep = contextMemoryService.getCurrentPlanStep(convId);
+                            if (curStep != null) {
+                                curStep.status = ContextMemoryService.PlanStatus.FAILED;
+                                curStep.summary = skillName + "（失败）";
+                            }
+                            log.info("Plan step {} failed with error, pausing for user confirmation", skillName);
+                            eventFlux = eventFlux.concatWith(
+                                    intentPlannerService.stepDoneAndConfirm(convId,
+                                            planInvoker(convId, userId, conv)));
+                        }
                     } else {
                         String action = (String) result.getOrDefault("action", "");
+                        // 报告生成引导阶段：generate_report 返回模板列表/跳转编辑页（stage=templates/redirect）
+                        // 仅把用户引导出对话流，报告实际在 H5 编辑页面异步生成——此阶段不算步骤结束，
+                        // 规划模式下标记 WAITING_EXTERNAL，等前端轮询到报告生成完成后才标 DONE/FAILED
+                        boolean isReportStage = "generate_report".equals(skillName)
+                                && ("templates".equals(result.get("stage"))
+                                    || "redirect".equals(result.get("stage")));
+                        // 模糊匹配候选待确认：技能返回 options 候选列表（ambiguous/not_found 的相似企业
+                        // 选项）时，当前规划步骤尚未真正结束——必须等用户点击某个候选（或重新提供准确
+                        // 名称/信用代码）后才结束推进下一步；与 candidates 分支的"等待用户输入"语义一致
+                        boolean hasFuzzyOptions = result.get("options") instanceof List<?> fuzzyOpts
+                                && !fuzzyOpts.isEmpty();
+                        // 步骤结束点：技能显式声明 _step_done（true=本次返回已到达步骤结束点，协调器据此
+                        // 标记 DONE；false=步骤未结束——等待用户输入补充/选择，或如尽调报告引导阶段等待
+                        // 外部异步完成）。技能未声明时按 action 兜底推导旧终结性集合
+                        // （result/summary/detail、不带候选列表的 not_found/ambiguous），保证未改造的
+                        // 技能/兜底路径行为与改造前一致
+                        boolean stepDone = result.containsKey(Skill.KEY_STEP_DONE)
+                                ? Boolean.TRUE.equals(result.get(Skill.KEY_STEP_DONE))
+                                : ("result".equals(action) || "summary".equals(action) || "detail".equals(action)
+                                    || ("not_found".equals(action) && !hasFuzzyOptions)
+                                    || ("ambiguous".equals(action) && !hasFuzzyOptions));
                         if ("summary".equals(action)) {
                             eventFlux = Flux.just(sseEvent("potential_customer_summary", result, assistantMsgId, null));
                         } else if ("detail".equals(action)) {
@@ -472,28 +1020,37 @@ public class ChatController {
                             if (result.containsKey("keyword") && !skillParams.containsKey("company_name")) {
                                 skillParams.put("company_name", result.get("keyword"));
                             }
-                            // 保存待处理技能上下文，下一条用户消息将直接回到此技能
-                            contextMemoryService.setPendingSkill(convId, skillName, skillParams);
-                            log.info("Pending skill set: {} ({})", skillName, action);
-                            // 多意图管道内任务等待企业选择同样属于"暂停"：追加 pipeline_paused 事件，
-                            // 前端据此把任务清单卡标记 paused，避免本条 SSE 流结束时 done 事件
-                            // 误判"currentOrder >= total"而弹出"N 项任务已完成"完成卡
-                            if (multiIndex >= 0
-                                    || (ctx.pipelinePlan != null && !ctx.pipelinePlan.isEmpty())) {
-                                Map<String, Object> pausedData = new LinkedHashMap<>();
-                                pausedData.put("hint", result.getOrDefault("message", "请选择企业"));
+                            if (ctx.planActive) {
+                                // 规划模式：不设 pendingSkill，标记当前规划步骤等待用户输入
+                                // 技能解析出的候选关键词写回当前步骤 params，作为后续无主体步骤的继承源
+                                ContextMemoryService.PlanStep curStep = contextMemoryService.getCurrentPlanStep(convId);
+                                if (curStep != null && skillParams.containsKey("company_name")) {
+                                    curStep.params.put("company_name", skillParams.get("company_name"));
+                                    // 技能解析出真实主体关键词 → 清除静态继承占位标记
+                                    curStep.params.remove("_inherited_subject");
+                                }
+                                contextMemoryService.setPlanStepNeedsInput(convId, true);
+                                log.info("Plan step waiting for input: {} (candidates)", skillName);
+                                // 步骤进入等待用户输入态 → 发状态快照同步面板（WAITING_INPUT 徽章）
                                 eventFlux = eventFlux.concatWith(
-                                        Flux.just(sseEvent("pipeline_paused", pausedData, null, convId)));
+                                        Flux.just(intentPlannerService.planStatusEvent(convId)));
+                            } else {
+                                // 保存待处理技能上下文，下一条用户消息将直接回到此技能
+                                contextMemoryService.setPendingSkill(convId, skillName, skillParams);
+                                log.info("Pending skill set: {} (candidates)", skillName);
                             }
+                            // 候选选项卡消息由下方统一"存储助手消息"持久化（JSON 版，前端加载时
+                            // 归一化 action=candidates → company_name_candidates），不在分支内重复插入
+                            // ——否则与统一持久化双写同 id 消息，切换会话后候选列表重复显示
                         } else if ("info_needed".equals(action)) {
                             String prompt = (String) result.getOrDefault("message", "");
                             eventFlux = Flux.just(
                                     sseEvent("text_delta", Map.of("content", prompt), assistantMsgId, null),
                                     sseEvent("text_done", Map.of("content", prompt), assistantMsgId, null)
                             );
-                            // 记录暂停提示（如"请上传营业执照图片"），多意图管道暂停时透传给前端任务清单卡片，
-                            // 明确提醒用户需要上传附件还是补充文本信息
-                            contextMemoryService.setPendingInputHint(convId, prompt);
+                            // 引导提问由下方统一"存储助手消息"持久化（JSON 版，前端加载时归一化为
+                            // 纯文本，与实时 text_delta/text_done 路径一致）——不在分支内重复插入，
+                            // 否则与统一持久化双写同 id 消息，切换会话后"请问您要查询哪家企业"重复
                             // 将技能已解析的参数字段合并回 skillParams（如 company_name, credit_code）
                             // 避免下一轮参数丢失导致技能重新从阶段一/二开始
                             if (result.containsKey("company_name")) {
@@ -502,10 +1059,63 @@ public class ChatController {
                             if (result.containsKey("credit_code")) {
                                 skillParams.put("credit_code", result.get("credit_code"));
                             }
-                            // 保存待处理技能上下文，下一条用户消息将直接回到此技能
-                            contextMemoryService.setPendingSkill(convId, skillName, skillParams);
-                            log.info("Pending skill set: {} (info_needed), params: {}", skillName, skillParams);
-                        } else if ("result".equals(action) || "not_found".equals(action)) {
+                            if (ctx.planActive) {
+                                // 规划模式：技能识别出的关键参数先写回当前步骤 params（作为后续无主体步骤的
+                                // 继承源）并广播到规划中其他缺失该键的步骤（一次问清），再标记当前步骤等待
+                                // 用户输入补充剩余参数。写回/广播仅限非空值：技能层清洗功能词残渣后返回的
+                                // 空主体（如 LLM 把"股东信息"填进 company_name，清洗后为空）若写回会污染
+                                // 参数，空值广播会使其他无主体步骤 needsInput 被误置为 false。此时 result
+                                // 含该键但值为空、而步骤 params 原参数非空（垃圾键）→ 移除垃圾键，否则
+                                // mergeUserInput 因"已有主体"拒绝覆盖用户新输入 → 每次重跑仍询问 → 死循环。
+                                ContextMemoryService.PlanStep curStep = contextMemoryService.getCurrentPlanStep(convId);
+                                if (result.containsKey("company_name")) {
+                                    String resolvedName = result.get("company_name") == null
+                                            ? "" : String.valueOf(result.get("company_name")).trim();
+                                    if (!resolvedName.isEmpty()) {
+                                        if (curStep != null) {
+                                            curStep.params.put("company_name", resolvedName);
+                                            // 技能解析出真实主体 → 清除静态继承占位标记
+                                            curStep.params.remove("_inherited_subject");
+                                        }
+                                        intentPlannerService.broadcastParams(convId, "company_name", resolvedName);
+                                    } else if (curStep != null
+                                            && skillParams.containsKey("company_name")
+                                            && !String.valueOf(skillParams.get("company_name")).trim().isEmpty()) {
+                                        // 技能清洗判定原参数为功能词垃圾值 → 从步骤参数移除，让用户新输入可覆盖
+                                        curStep.params.remove("company_name");
+                                        log.info("Plan step removed garbage company_name param (cleaned empty): {}",
+                                                skillParams.get("company_name"));
+                                    }
+                                }
+                                if (result.containsKey("credit_code")) {
+                                    String resolvedCode = result.get("credit_code") == null
+                                            ? "" : String.valueOf(result.get("credit_code")).trim();
+                                    if (!resolvedCode.isEmpty()) {
+                                        if (curStep != null) {
+                                            curStep.params.put("credit_code", resolvedCode);
+                                            curStep.params.remove("_inherited_subject");
+                                        }
+                                        intentPlannerService.broadcastParams(convId, "credit_code", resolvedCode);
+                                    } else if (curStep != null
+                                            && skillParams.containsKey("credit_code")
+                                            && !String.valueOf(skillParams.get("credit_code")).trim().isEmpty()) {
+                                        // 技能清洗判定原参数为功能词垃圾值 → 从步骤参数移除，让用户新输入可覆盖
+                                        curStep.params.remove("credit_code");
+                                        log.info("Plan step removed garbage credit_code param (cleaned empty): {}",
+                                                skillParams.get("credit_code"));
+                                    }
+                                }
+                                contextMemoryService.setPlanStepNeedsInput(convId, true);
+                                log.info("Plan step waiting for input: {} (info_needed)", skillName);
+                                // 步骤进入等待用户输入态 → 发状态快照同步面板（WAITING_INPUT 徽章）
+                                eventFlux = eventFlux.concatWith(
+                                        Flux.just(intentPlannerService.planStatusEvent(convId)));
+                            } else {
+                                // 保存待处理技能上下文，下一条用户消息将直接回到此技能
+                                contextMemoryService.setPendingSkill(convId, skillName, skillParams);
+                                log.info("Pending skill set: {} (info_needed), params: {}", skillName, skillParams);
+                            }
+                        } else if ("result".equals(action) || "ambiguous".equals(action) || "not_found".equals(action)) {
                             String eventType = switch (skillName) {
                                 case "query_due_diligence_reports" -> "historical_dd_query_result";
                                 case "verify_business_license" -> "information_check_result";
@@ -520,86 +1130,40 @@ public class ChatController {
                             result.put("_skill_name", skillName);
                             if (multiIndex >= 0) result.put("_multi_index", multiIndex);
                             eventFlux = Flux.just(sseEvent(eventType, result, assistantMsgId, null));
-                            // 任务完成事件：多意图管道内的任务执行完毕时通知前端将该任务
-                            // 标记为已完成（解除等待补充信息的暂停状态），让"第 X 项任务已完成"
-                            // 的进度反馈及时出现，而非等整条流结束时由 done 一次性收尾。
-                            // 例外：模板选择阶段（stage=templates）与跳转阶段（stage=redirect）
-                            // 任务均未真正完成（报告尚未生成），不发 task_done
-                            if (!templateStage && !redirectStage && (multiIndex >= 0
-                                    || (ctx.pipelinePlan != null && !ctx.pipelinePlan.isEmpty()))) {
-                                Map<String, Object> taskDoneData = new LinkedHashMap<>();
-                                // order 计算：管道内直接取 multiIndex + 1；但模板选择恢复路径
-                                // handleSkill 以 multiIndex=-1 重入且 pipelinePlan 非空（暂停时
-                                // 完整快照仍在），按 multiIndex + 1 会发出 order=0 的错误事件，
-                                // 需按 skill 反查全局序号
-                                int doneOrder = multiIndex + 1;
-                                if (multiIndex < 0 && ctx.pipelinePlan != null && !ctx.pipelinePlan.isEmpty()) {
-                                    for (Map<String, Object> item : ctx.pipelinePlan) {
-                                        if (skillName.equals(item.get("skill"))) {
-                                            doneOrder = (int) item.getOrDefault("order", multiIndex + 1);
-                                            break;
-                                        }
+                            // 规划模式：ambiguous/not_found 带候选列表 → 本步骤不结束，标记当前步骤等待用户
+                            // 显式选择（与 candidates 分支一致）；技能解析出的 keyword 写回步骤 params，作为
+                            // 后续无主体步骤的继承源；选择结果由下一轮用户输入合并后重跑当前步骤，命中后才
+                            // 结束并推进下一步
+                            if (ctx.planActive && hasFuzzyOptions) {
+                                ContextMemoryService.PlanStep curStep = contextMemoryService.getCurrentPlanStep(convId);
+                                if (curStep != null && result.containsKey("keyword")) {
+                                    Object kw = result.get("keyword");
+                                    if (kw != null && !String.valueOf(kw).trim().isEmpty()) {
+                                        curStep.params.put("company_name", String.valueOf(kw).trim());
+                                        // 技能解析出真实主体关键词 → 清除静态继承占位标记
+                                        curStep.params.remove("_inherited_subject");
                                     }
                                 }
-                                taskDoneData.put("order", doneOrder);
-                                taskDoneData.put("skill", skillName);
-                                taskDoneData.put("label", skillRegistry.getSkillLabel(skillName));
+                                contextMemoryService.setPlanStepNeedsInput(convId, true);
+                                log.info("Plan step waiting for input: {} ({}+options)", skillName, action);
+                                // 步骤进入等待用户输入态 → 发状态快照同步面板（WAITING_INPUT 徽章）
                                 eventFlux = eventFlux.concatWith(
-                                        Flux.just(sseEvent("task_done", taskDoneData, null, convId)));
-                            }
-                            // 模板选择阶段：保存待处理技能，使 executePipeline 检测到
-                            // hasPendingSkill 后记录剩余任务并停止续跑；下一条
-                            // 【模板选择】<template_id> 消息将重入本技能注入模板 ID
-                            if (templateStage) {
+                                        Flux.just(intentPlannerService.planStatusEvent(convId)));
+                            } else if (hasFuzzyOptions) {
+                                // 非规划模式（意图穿插/单技能）：模糊匹配候选待用户点击选择——保存待处理技能
+                                // 上下文，下一条用户消息直接回到此技能重跑（与 candidates/info_needed 分支一致）。
+                                // 关键：pendingSkill 占用使 resumePlanIfSuspended 推迟"穿插任务已完成"确认卡片，
+                                // 直到用户点击候选命中结果、clearPendingSkill 后才发送——穿插任务的模糊匹配
+                                // 同样必须点击候选选项才算完成
+                                if (result.containsKey("keyword")
+                                        && !skillParams.containsKey("company_name")
+                                        && result.get("keyword") != null
+                                        && !String.valueOf(result.get("keyword")).trim().isEmpty()) {
+                                    skillParams.put("company_name", String.valueOf(result.get("keyword")).trim());
+                                }
                                 contextMemoryService.setPendingSkill(convId, skillName, skillParams);
-                                log.info("Pending skill set: {} (template selection)", skillName);
-                                // 多意图管道内等待模板选择同样属于"暂停"：追加 pipeline_paused 事件，
-                                // 前端据此把任务清单卡标记 paused，避免本条 SSE 流结束时 done 事件
-                                // 误判"currentOrder >= total"而弹出"N 项任务已完成"完成卡
-                                if (multiIndex >= 0
-                                        || (ctx.pipelinePlan != null && !ctx.pipelinePlan.isEmpty())) {
-                                    Map<String, Object> pausedData = new LinkedHashMap<>();
-                                    pausedData.put("hint", result.getOrDefault("message", "请选择报告模板"));
-                                    eventFlux = eventFlux.concatWith(
-                                            Flux.just(sseEvent("pipeline_paused", pausedData, null, convId)));
-                                }
-                            }
-                            // 跳转阶段（stage=redirect）：任务挂起等待 H5 异步报告生成。
-                            // 设置 waitingReportTask 使 executePipeline 的 defer 检测到后保存
-                            // 剩余任务并暂停续跑；报告生成完成后前端轮询到 completed 调用
-                            // report-completed 接口推进管道（而非用户消息 resume）
-                            if (redirectStage) {
-                                // 管道判断兜底：multiIndex>=0 直接成立；pendingSkill 重入路径
-                                // （multiIndex=-1）时内存快照 pipelinePlan 可能为空，用 snapshotPlan
-                                // 从对话历史恢复完整计划，避免 waitingReportTask 漏设导致
-                                // report-completed 走 skipped 幂等分支、管道永不推进
-                                List<Map<String, Object>> planSnapshot = snapshotPlan(convId, conv);
-                                if (multiIndex >= 0
-                                        || (planSnapshot != null && !planSnapshot.isEmpty())) {
-                                    Map<String, Object> waitingTask = new LinkedHashMap<>();
-                                    waitingTask.put("skill", skillName);
-                                    waitingTask.put("label", skillRegistry.getSkillLabel(skillName));
-                                    // 序号同样按 skill 反查全局 order（multiIndex=-1 恢复路径）
-                                    int reportOrder = multiIndex + 1;
-                                    if (multiIndex < 0 && planSnapshot != null && !planSnapshot.isEmpty()) {
-                                        for (Map<String, Object> item : planSnapshot) {
-                                            if (skillName.equals(item.get("skill"))) {
-                                                reportOrder = (int) item.getOrDefault("order", reportOrder);
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    waitingTask.put("order", reportOrder);
-                                    contextMemoryService.setWaitingReportTask(convId, waitingTask);
-                                    log.info("Waiting report task set: {} (order {}), pipeline suspended",
-                                            skillName, reportOrder);
-                                    // 追加 pipeline_paused 事件，避免本条 SSE 流结束时 done 事件
-                                    // 误判"currentOrder >= total"而弹出"N 项任务已完成"完成卡
-                                    Map<String, Object> pausedData = new LinkedHashMap<>();
-                                    pausedData.put("hint", "报告将在编辑页面生成，生成完成后将自动继续");
-                                    eventFlux = eventFlux.concatWith(
-                                            Flux.just(sseEvent("pipeline_paused", pausedData, null, convId)));
-                                }
+                                log.info("Pending skill set: {} ({}+options), awaiting user selection",
+                                        skillName, action);
                             }
                         } else {
                             eventFlux = Flux.empty();
@@ -613,15 +1177,54 @@ public class ChatController {
                             log.info("Context updated: {} ({})", result.get("company_name"), result.get("credit_code"));
                         }
 
-                        // 清理待处理技能（技能已完成或未找到结果），并清除已使用的附件。
-                        // 例外：模板选择阶段（stage=templates）任务尚未完成，保留 pendingSkill
-                        // 等待用户点击模板后重入，此处不能清理
-                        if (("result".equals(action) || "not_found".equals(action)) && !templateStage) {
+                        // 规划模式：记录本步骤结果摘要（供 plan_summary 汇总）并标记 DONE（推进由下方链式触发）
+                        // 步骤结束点以技能声明的 _step_done 为准：info_needed/candidates/带候选列表的
+                        // not_found、ambiguous（等待用户输入补充/选择）不算步骤结束，不在此标 DONE
+                        if (ctx.planActive) {
+                            ContextMemoryService.PlanStep curStep = contextMemoryService.getCurrentPlanStep(convId);
+                            if (curStep != null) {
+                                if (isReportStage) {
+                                    // 报告生成仅停留在"选模板/跳转编辑页"引导阶段（H5 异步生成中）：
+                                    // 不标 DONE、不结束，置 WAITING_EXTERNAL 由前端进度卡轮询完成后通知收尾
+                                    curStep.status = ContextMemoryService.PlanStatus.WAITING_EXTERNAL;
+                                    curStep.summary = "生成尽调报告（等待报告生成完成）";
+                                    log.info("Plan step {} marked WAITING_EXTERNAL (stage={})",
+                                            skillName, result.get("stage"));
+                                    // 步骤等待外部异步完成 → 发状态快照同步面板（WAITING_EXTERNAL 徽章）
+                                    eventFlux = eventFlux.concatWith(
+                                            Flux.just(intentPlannerService.planStatusEvent(convId)));
+                                } else if (stepDone) {
+                                    // 技能结果解析出的主体写回步骤 params，作为后续无主体步骤的继承源
+                                    // （如第一步只给了 company_name，执行中才解析出 credit_code）
+                                    // 同时清除静态继承占位标记：写回的是执行期解析出的真实主体
+                                    if (result.containsKey("credit_code")) {
+                                        curStep.params.put("credit_code", result.get("credit_code"));
+                                        curStep.params.remove("_inherited_subject");
+                                    }
+                                    if (result.containsKey("company_name")) {
+                                        curStep.params.put("company_name", result.get("company_name"));
+                                        curStep.params.remove("_inherited_subject");
+                                    }
+                                    if ("result".equals(action)) {
+                                        Object company = result.getOrDefault("company_name", "");
+                                        curStep.summary = skillName + "（" + (company == null ? "" : company) + "）";
+                                    } else {
+                                        curStep.summary = skillName + "（未找到）";
+                                    }
+                                    curStep.status = ContextMemoryService.PlanStatus.DONE;
+                                }
+                            }
+                        }
+
+                        // 清理待处理技能（技能已完成或未找到结果），并清除已使用的附件
+                        // 模糊匹配待确认（带候选列表的 not_found）保留待处理上下文，等待用户选择后重试
+                        if ("result".equals(action) || ("not_found".equals(action) && !hasFuzzyOptions)) {
                             contextMemoryService.clearPendingSkill(convId);
                             contextMemoryService.clearAttachment(convId);
                         }
                         // reset或result/not_found时重置重试计数（新技能调用从0开始）
-                        if (!"candidates".equals(action) && !"ambiguous".equals(action) && !"info_needed".equals(action)) {
+                        // 模糊匹配待确认（带候选列表的 ambiguous/not_found）不重置，与 candidates 一致
+                        if (!"candidates".equals(action) && !"info_needed".equals(action) && !hasFuzzyOptions) {
                             ctx.pendingSkillRetry = 0;
                         }
 
@@ -629,7 +1232,10 @@ public class ChatController {
                         try {
                             String summaryText = mapper.writeValueAsString(result);
                             Message asstMsg = new Message(assistantMsgId, "assistant", summaryText, Instant.now().toString());
-                            conv.getMessages().add(asstMsg);
+                            // 按穿插边界规则定位插入（与前端 upsertCardMessage 占位消费后的
+                            // insertBeforeBoundaryCard 一致）：穿插中结果卡保持在恢复确认卡上方，
+                            // 避免切换会话后结果卡跑到穿插对话之后位置错乱
+                            insertBeforeBoundaryCard(conv.getMessages(), asstMsg);
                             conv.setUpdatedAt(asstMsg.getCreatedAt());
                             // 消息追加后立即落盘（与用户消息存储处一致）
                             conversationService.persist();
@@ -637,8 +1243,8 @@ public class ChatController {
                             log.error("Failed to serialize result: {}", e.getMessage());
                         }
 
-                        // 跟踪技能调用 + 后续建议（模板选择阶段不算完成，跳过）
-                        if ("result".equals(action) && !templateStage) {
+                        // 跟踪技能调用 + 后续建议（报告引导阶段不预测，避免模板卡后追加多余建议）
+                        if ("result".equals(action) && !isReportStage) {
                             String credit = (String) result.getOrDefault("credit_code", "");
                             if (credit != null && !credit.isEmpty()) {
                                 conversationService.recordSkillCall(convId, credit, skillName);
@@ -662,6 +1268,17 @@ public class ChatController {
                                 );
                             }
                         }
+
+                        // 规划模式：步骤结束点（技能声明 _step_done=true）→ 暂停征求用户确认是否继续下一步。
+                        // 只有 info_needed/candidates/带候选列表的 ambiguous、not_found（等待用户输入补充/选择）不结束，
+                        // 由用户补充或点击候选后重跑当前步骤；报告引导阶段（templates/redirect）也不结束，
+                        // 等待 H5 报告生成完成后由 report-complete 通知收尾
+                        if (stepDone && ctx.planActive && !isReportStage) {
+                            log.info("Plan step {} completed ({}), pausing for user confirmation", skillName, action);
+                            eventFlux = eventFlux.concatWith(
+                                    intentPlannerService.stepDoneAndConfirm(convId,
+                                            planInvoker(convId, userId, conv)));
+                        }
                     }
 
                     // 在最前面发送 meta 事件
@@ -680,6 +1297,37 @@ public class ChatController {
                         }
                     }
                 });
+    }
+
+    /**
+     * 规划模式技能执行器：把单意图 decision 交给对应的处理器。
+     * chat 意图（非技能问答）→ 对话助手流式回答 params.question；其余 → 单技能执行。
+     */
+    private IntentPlannerService.SkillInvoker planInvoker(String convId, String userId, Conversation conv) {
+        return decision -> {
+            String skill = (String) decision.getOrDefault("skill", "");
+            if ("chat".equals(skill)) {
+                log.info("Plan chat step answering: {}", extractChatQuestion(decision));
+                return handleChat(convId, conv, extractChatQuestion(decision));
+            }
+            return handleSingleSkill(decision, convId, userId, conv);
+        };
+    }
+
+    /**
+     * 从决策/意图中提取 chat 步骤的问题文本：优先 params.question，其次 _user_input（整条用户消息）。
+     */
+    @SuppressWarnings("unchecked")
+    private String extractChatQuestion(Map<String, Object> decision) {
+        Object rawParams = decision.getOrDefault("params", Map.of());
+        if (!(rawParams instanceof Map<?, ?> params)) return "请继续";
+        Object q = params.get("question");
+        String question = q == null ? "" : String.valueOf(q);
+        if (question.isBlank()) {
+            Object u = params.get("_user_input");
+            question = u == null ? "" : String.valueOf(u);
+        }
+        return question.isBlank() ? "请继续" : question.trim();
     }
 
     /**
@@ -709,7 +1357,9 @@ public class ChatController {
                     if (fullContent.length() > 0) {
                         Message asstMsg = new Message(assistantMsgId, "assistant",
                                 fullContent.toString(), Instant.now().toString());
-                        conv.getMessages().add(asstMsg);
+                        // 与前端占位消息位置一致：穿插中回复保持在恢复确认卡上方，
+                        // 避免穿插对话落在恢复确认卡之后位置错乱
+                        insertBeforeBoundaryCard(conv.getMessages(), asstMsg);
                         conv.setUpdatedAt(asstMsg.getCreatedAt());
                         // 流式生成结束/被强制终止时保存已生成内容，随后立即落盘
                         conversationService.persist();
@@ -727,321 +1377,278 @@ public class ChatController {
                 });
     }
 
+    // ---------- 任务规划卡片消息持久化（切换会话后卡片按原位置恢复，不消失） ----------
+
     /**
-     * 处理意图澄清决策：发送 intent_candidates 事件
+     * plan 状态快照 → plan_status SSE 事件 JSON（供 persistPlanCardEvent 复用持久化：
+     * reportComplete 收尾的终态/确认态快照按 planId 原地更新消息流面板，避免切换会话/刷新后
+     * 面板停留在过时的"执行中"快照；快照 steps 为空（规划收尾清除）时移除面板）。
      */
-    @SuppressWarnings("unchecked")
-    private Flux<String> handleClarify(Map<String, Object> decision, String convId, Conversation conv) {
-        String assistantMsgId = UUID.randomUUID().toString();
-        String message = (String) decision.getOrDefault("message", "您的问题可能有多种理解，请选择您想要的操作：");
-        List<Map<String, Object>> candidates = (List<Map<String, Object>>) decision.getOrDefault("candidates", List.of());
-
-        Map<String, Object> eventData = new LinkedHashMap<>();
-        eventData.put("message", message);
-        eventData.put("candidates", candidates);
-
-        // 存储助手消息
-        try {
-            String summaryText = mapper.writeValueAsString(eventData);
-            Message asstMsg = new Message(assistantMsgId, "assistant", summaryText, Instant.now().toString());
-            conv.getMessages().add(asstMsg);
-            conv.setUpdatedAt(asstMsg.getCreatedAt());
-            // 消息追加后立即落盘（与用户消息存储处一致）
-            conversationService.persist();
-        } catch (Exception e) {
-            log.error("Failed to serialize clarify result: {}", e.getMessage());
+    private String planSnapshotToEventJson(Map<String, Object> plan) {
+        Map<String, Object> event = new LinkedHashMap<>();
+        event.put("type", "plan_status");
+        if (plan != null) {
+            event.putAll(plan);
         }
-
-        return Flux.just(
-                sseEvent("meta", Map.of("conversation_id", convId), assistantMsgId, null),
-                sseEvent("intent_candidates", eventData, assistantMsgId, null)
-        );
+        try {
+            return mapper.writeValueAsString(event);
+        } catch (Exception e) {
+            log.warn("Failed to serialize plan snapshot for persistence: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**
-     * 处理多意图决策：生成执行计划并顺序执行
+     * 统一拦截任务规划涉及的 SSE 事件，将卡片消息写入会话消息流（extra 承载结构化数据），
+     * 切换会话后前端按消息顺序恢复渲染：
+     * - plan_status → 按 planId 固定 id（plan-status-${planId}）upsert 规划面板消息；
+     *   快照 steps 为空（规划收尾清除/被丢弃）→ 移除面板消息（与前端实时 upsert 语义一致）；
+     * - plan_step_confirm / resume_confirm / plan_progress / plan_preview / plan_summary
+     *   → 追加独立消息，extra 结构与前端 useChat.ts 本地生成完全一致；
+     * - 其他事件不处理：技能结果（content=JSON）由 handleSingleSkill 持久化、
+     *   report_generate_result 由前端 injectConversationReports 按报告任务恢复，避免重复。
      */
-    @SuppressWarnings("unchecked")
-    private Flux<String> handleMulti(Map<String, Object> decision, String convId,
-                                     String userId, Conversation conv) {
-        List<Map<String, Object>> skills = (List<Map<String, Object>>) decision.getOrDefault("skills", List.of());
-        List<TaskPlanner.PlanTask> plan = taskPlanner.plan(skills);
-
-        if (plan.isEmpty()) {
-            return handleChat(convId, conv, "");
-        }
-
-        String planText = taskPlanner.buildPlanText(plan);
-        log.info("Multi-intent plan: {} tasks, text: {}", plan.size(), planText);
-
-        // 保存计划快照（含 label/order），供暂停恢复时重建 planning 事件（前端任务清单）
-        List<Map<String, Object>> planSnapshot = new ArrayList<>();
-        for (TaskPlanner.PlanTask t : plan) {
-            Map<String, Object> item = new LinkedHashMap<>();
-            item.put("skill", t.skill());
-            item.put("label", skillRegistry.getSkillLabel(t.skill()));
-            item.put("order", t.order());
-            planSnapshot.add(item);
-        }
-        contextMemoryService.get(convId).pipelinePlan = planSnapshot;
-
-        // 发送规划文本 + 顺序执行每个任务
-        String assistantMsgId = UUID.randomUUID().toString();
-        Map<String, Object> planningData = new LinkedHashMap<>();
-        planningData.put("plan", planSnapshot);
-        planningData.put("text", planText);
-        // resume=false 表示首次规划（前端据此新建任务清单卡片；true 为暂停恢复时更新已有卡片）
-        planningData.put("resume", false);
-
-        // 将任务清单作为可见消息持久化（与其他结果卡片一致），
-        // 这样切换会话/刷新后任务清单仍保留在对话流中，不会因管道结束而消失
+    private void persistPlanCardEvent(Conversation conv, String eventJson) {
+        if (eventJson == null || eventJson.isBlank()) return;
         try {
-            Map<String, Object> planMsgData = new LinkedHashMap<>();
-            planMsgData.put("action", "pipeline");
-            planMsgData.put("kind", "plan");
-            planMsgData.put("plan", planSnapshot);
-            planMsgData.put("total", planSnapshot.size());
-            planMsgData.put("currentOrder", 0);
-            planMsgData.put("paused", false);
-            planMsgData.put("text", planText);
-            String planSummary = mapper.writeValueAsString(planMsgData);
-            Message planMsg = new Message(UUID.randomUUID().toString(), "assistant",
-                    planSummary, Instant.now().toString());
-            conv.getMessages().add(planMsg);
-            conv.setUpdatedAt(planMsg.getCreatedAt());
-            // 任务清单消息追加后立即落盘
-            conversationService.persist();
-        } catch (Exception e) {
-            log.error("Failed to serialize pipeline plan: {}", e.getMessage());
-        }
-
-        Flux<String> planEvent = Flux.just(
-                sseEvent("meta", Map.of("conversation_id", convId), assistantMsgId, null),
-                sseEvent("planning", planningData, assistantMsgId, null),
-                sseEvent("text_delta", Map.of("content", planText), assistantMsgId, null),
-                sseEvent("text_done", Map.of("content", planText), assistantMsgId, null)
-        );
-
-        return planEvent.concatWith(executePipeline(plan, 0, convId, userId, conv));
-    }
-
-    /**
-     * 恢复多意图管道（从 pendingPipeline 中继续）
-     */
-    private Flux<String> handleMultiResume(String convId, String userId, Conversation conv, String userMessage) {
-        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
-
-        // 先完成当前暂停的任务
-        String pendingSkill = ctx.pendingSkillName;
-        Map<String, Object> pendingParams = new LinkedHashMap<>(ctx.pendingSkillParams);
-        pendingParams.put("_user_input", userMessage);
-
-        Map<String, Object> currentDecision = new LinkedHashMap<>();
-        currentDecision.put("action", "skill");
-        currentDecision.put("skill", pendingSkill);
-        currentDecision.put("params", pendingParams);
-        currentDecision.put("reason", "恢复管道当前任务: " + pendingSkill);
-        contextMemoryService.clearPendingSkill(convId);
-
-        // 恢复计划清单：优先用暂停时保存的完整快照（含已完成任务、label），
-        // 其次从对话历史中最近一条规划消息恢复完整 plan（后端重启等内存快照丢失场景），
-        // 最后兑底从 pendingPipeline 重建（只含剩余任务，此时前端 task_start 会以
-        // 已有清单兑底，避免"第 1/1 项「第 1 项任务」"标签错乱与总数缩水）
-        List<Map<String, Object>> planSnapshot = ctx.pipelinePlan;
-        if (planSnapshot == null || planSnapshot.isEmpty()) {
-            planSnapshot = findPipelinePlanFromHistory(conv);
-        }
-        if (planSnapshot == null || planSnapshot.isEmpty()) {
-            planSnapshot = new ArrayList<>();
-            for (Map<String, Object> task : ctx.pendingPipeline) {
-                Map<String, Object> item = new LinkedHashMap<>();
-                item.put("skill", task.get("skill"));
-                item.put("label", skillRegistry.getSkillLabel((String) task.get("skill")));
-                item.put("order", task.getOrDefault("order", 0));
-                planSnapshot.add(item);
+            Map<String, Object> event = mapper.readValue(eventJson.trim(), new TypeReference<Map<String, Object>>() {});
+            String type = (String) event.get("type");
+            if (type == null) return;
+            switch (type) {
+                case "plan_status" -> upsertPlanStatusMessage(conv, event);
+                case "plan_step_confirm", "resume_confirm", "plan_progress", "plan_preview", "plan_summary" ->
+                        appendPlanCardMessage(conv, event, type);
+                // 追问建议气泡（穿插意图的结果追问）：不持久化则切换会话后追问卡消失，
+                // 与 plan_* 卡片一样写入消息流，切换后按穿插边界原位置恢复
+                case "follow_up_suggestion" -> appendFollowUpSuggestion(conv, event);
+                // 穿插恢复时重发的报告生成步骤卡片（模板选择/已选模板跳转/进度卡）：
+                // 不持久化则切换会话后恢复重发的模板记录消失
+                case "report_generate_result" -> persistReportGenerateResult(conv, event);
+                default -> { /* 其他事件已有各自的持久化/恢复机制 */ }
             }
+        } catch (Exception e) {
+            log.warn("Failed to persist plan card event: {}", e.getMessage());
         }
+    }
 
-        // 本次恢复执行的是 pendingSkill（暂停的任务）：其序号需从完整计划快照中按 skill 反查，
-        // 而不是取 pendingPipeline 首项（那是剩余任务，序号靠后），否则前端会把尚未完成的
-        // 暂停任务错标为已完成、任务进度卡提前跳到后续任务
-        int currentIndex = 0;
-        int currentOrder = currentIndex + 1;
-        for (int i = 0; i < planSnapshot.size(); i++) {
-            if (pendingSkill.equals(planSnapshot.get(i).get("skill"))) {
-                currentIndex = i;
-                currentOrder = (int) planSnapshot.get(i).getOrDefault("order", i + 1);
+    /** plan_status 快照按 planId 固定 id 原地 upsert 面板消息（steps 为空 → 移除面板） */
+    private void upsertPlanStatusMessage(Conversation conv, Map<String, Object> event) {
+        List<?> steps = event.get("steps") instanceof List<?> s ? s : List.of();
+        boolean hasSteps = !steps.isEmpty();
+        String planId = event.get("planId") == null ? "" : String.valueOf(event.get("planId"));
+        if (planId.isBlank()) return; // 无 planId 的空快照（防御性事件），无需持久化
+        String panelId = "plan-status-" + planId;
+        // 快照字段拍平在事件顶层，extra 结构对齐前端 useChat.ts 的 {action:'plan_status', ...planData}
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("action", "plan_status");
+        for (String key : List.of("active", "steps", "index", "confirming", "suspended", "planId", "summary")) {
+            if (event.containsKey(key)) extra.put(key, event.get(key));
+        }
+        List<Message> messages = conv.getMessages();
+        int existingIdx = -1;
+        for (int i = 0; i < messages.size(); i++) {
+            if (panelId.equals(messages.get(i).getId())) {
+                existingIdx = i;
                 break;
             }
         }
-
-        String planText = buildPlanTextFromSnapshot(planSnapshot);
-        Map<String, Object> planningData = new LinkedHashMap<>();
-        planningData.put("plan", planSnapshot);
-        planningData.put("text", planText);
-        // 恢复路径：前端应更新已有任务清单卡片（而非新建），故标记 resume=true
-        planningData.put("resume", true);
-
-        Map<String, Object> taskStartData = new LinkedHashMap<>();
-        taskStartData.put("index", currentOrder);
-        taskStartData.put("total", planSnapshot.size());
-        taskStartData.put("skill", pendingSkill);
-        taskStartData.put("label", skillRegistry.getSkillLabel(pendingSkill));
-        taskStartData.put("order", currentOrder);
-
-        Flux<String> resumeEvents = Flux.just(
-                sseEvent("planning", planningData, null, convId),
-                sseEvent("task_start", taskStartData, null, convId)
-        );
-
-        Flux<String> currentTask = handleSkill(currentDecision, convId, userId, conv, currentIndex);
-
-        // 完成后检查并执行剩余任务
-        return resumeEvents.concatWith(currentTask).concatWith(Flux.defer(() -> {
-            ContextMemoryService.ConversationContext ctx2 = contextMemoryService.get(convId);
-            // 恢复的任务再次返回信息缺失（如用户只选择了企业但尚未上传附件）：
-            // 必须停止续跑、保留剩余任务队列（pendingPipeline 不清空），发送暂停事件等待
-            // 用户补齐信息后下一条消息再次 resume。若先执行剩余任务，pendingSkill 会被
-            // 后续任务覆盖，导致"请上传营业执照"等补充机会被跳过、直接跳到下一个任务
-            if (ctx2.hasPendingSkill() || ctx2.isWaitingReport()) {
-                Map<String, Object> pausedData = new LinkedHashMap<>();
-                pausedData.put("hint", ctx2.pendingInputHint);
-                return Flux.just(sseEvent("pipeline_paused", pausedData, null, convId));
+        if (existingIdx >= 0) {
+            if (!hasSteps) {
+                // 面板已存在且快照无步骤（规划收尾清除/被丢弃）→ 移除面板
+                messages.remove(existingIdx);
+            } else {
+                Message panel = messages.get(existingIdx);
+                panel.setExtra(extra);
+                panel.setContent("");
             }
-            if (ctx2.hasPendingPipeline()) {
-                List<Map<String, Object>> remaining = new ArrayList<>(ctx2.pendingPipeline);
-                ctx2.pendingPipeline.clear();
-                List<TaskPlanner.PlanTask> remainingPlan = new ArrayList<>();
-                for (Map<String, Object> task : remaining) {
-                    remainingPlan.add(new TaskPlanner.PlanTask(
-                            (String) task.get("skill"),
-                            task.get("params") instanceof Map ? (Map<String, Object>) task.get("params") : new LinkedHashMap<>(),
-                            (int) task.getOrDefault("order", 0),
-                            null, List.of()));
-                }
-                return executePipeline(remainingPlan, 0, convId, userId, conv);
-            }
-            return Flux.empty();
-        }));
+        } else if (hasSteps) {
+            // 面板不存在且有步骤 → 按穿插边界规则插入（穿插中新建规划的面板保持在恢复确认卡上方，
+            // 与前端 plan_status 占位消费后的 insertBeforeBoundaryCard 一致）
+            Message panel = new Message(panelId, "assistant", "", Instant.now().toString());
+            panel.setExtra(extra);
+            insertBeforeBoundaryCard(messages, panel);
+        }
+        conv.setUpdatedAt(Instant.now().toString());
+    }
+
+    /** 确认卡/进度气泡事件追加为独立消息（extra 对齐前端 useChat.ts 生成结构） */
+    private void appendPlanCardMessage(Conversation conv, Map<String, Object> event, String type) {
+        String content = event.get("content") == null ? "" : String.valueOf(event.get("content"));
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("action", type);
+        extra.put("text", content);
+        if ("plan_step_confirm".equals(type)) {
+            if (event.containsKey("current_step")) extra.put("current_step", event.get("current_step"));
+            if (event.containsKey("total_steps")) extra.put("total_steps", event.get("total_steps"));
+            if (event.containsKey("next_step")) extra.put("next_step", event.get("next_step"));
+        } else if ("resume_confirm".equals(type)) {
+            if (event.containsKey("step_index")) extra.put("step_index", event.get("step_index"));
+            if (event.containsKey("total_steps")) extra.put("total_steps", event.get("total_steps"));
+            if (event.containsKey("step_desc")) extra.put("step_desc", event.get("step_desc"));
+        }
+        Message card = new Message(UUID.randomUUID().toString(), "assistant", "", Instant.now().toString());
+        card.setExtra(extra);
+        if ("resume_confirm".equals(type)) {
+            // 恢复确认卡始终保持在对话最底部：新卡到达时移除旧未消费卡（连续穿插每张新卡替换旧卡），
+            // 与前端 resume_confirm 插入逻辑一致，避免嵌套穿插时旧恢复卡残留导致位置错乱
+            int oldIdx = lastUnconsumedCardIndex(conv.getMessages(), "resume_confirm");
+            if (oldIdx >= 0) conv.getMessages().remove(oldIdx);
+            conv.getMessages().add(card);
+        } else {
+            // 确认卡/进度气泡：插入到穿插边界之前（未消费恢复卡/确认卡之前），保持确认卡为步骤分界点，
+            // 与前端 insertBeforeBoundaryCard 一致——否则切换会话后穿插对话会落在确认卡之后位置错乱
+            insertBeforeBoundaryCard(conv.getMessages(), card);
+        }
+        conv.setUpdatedAt(card.getCreatedAt());
+    }
+
+    /** 追问建议气泡（follow_up 卡）：extra 对齐前端 useChat.ts 的 {action:'follow_up', text}，
+     *  按穿插边界规则插入——穿插中保持在恢复确认卡上方，切换会话后追问气泡不消失 */
+    private void appendFollowUpSuggestion(Conversation conv, Map<String, Object> event) {
+        String content = event.get("content") == null ? "" : String.valueOf(event.get("content"));
+        if (content.isBlank()) return;
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("action", "follow_up");
+        extra.put("text", content);
+        Message card = new Message(UUID.randomUUID().toString(), "assistant", "", Instant.now().toString());
+        card.setExtra(extra);
+        insertBeforeBoundaryCard(conv.getMessages(), card);
+        conv.setUpdatedAt(card.getCreatedAt());
     }
 
     /**
-     * 顺序执行管道中的任务
+     * 报告生成步骤卡片持久化（type=report_generate_result，穿插恢复时由 IntentPlannerService
+     * 重发模板选择/跳转/进度卡）：不持久化则穿插恢复重发的模板记录在切换会话后消失。按 stage 分发：
+     * - templates → 模板选择卡（extra 对齐前端 ReportGenerateCard 渲染结构）；
+     * - redirect → 已选模板跳转卡（结构同前端本地生成后经 /api/chat/card 持久化的卡片）；
+     * - progress → 固定 id（report-progress-${reportId}）upsert，与前端 injectProgressMessage 的
+     *   进度卡 id 一致，切换会话后 injectConversationReports 幂等替换不重复。
      */
-    private Flux<String> executePipeline(List<TaskPlanner.PlanTask> plan, int startIndex,
-                                         String convId, String userId, Conversation conv) {
-        if (startIndex >= plan.size()) {
-            // 管道全部任务执行完毕，清理计划快照（任务暂停时会先返回 Flux.empty()，不会走到这里）
-            ContextMemoryService.ConversationContext ctxDone = contextMemoryService.get(convId);
-            // 先取出完整计划快照用于持久化完成卡，再清理内存快照
-            List<Map<String, Object>> fullPlan = null;
-            if (ctxDone.pipelinePlan != null && !ctxDone.pipelinePlan.isEmpty()) {
-                fullPlan = new ArrayList<>(ctxDone.pipelinePlan);
+    private void persistReportGenerateResult(Conversation conv, Map<String, Object> event) {
+        String stage = event.get("stage") == null ? "" : String.valueOf(event.get("stage"));
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("action", "result");
+        extra.put("_skill_name", "generate_report");
+        extra.put("stage", stage);
+        if ("progress".equals(stage)) {
+            String reportId = event.get("report_id") == null ? "" : String.valueOf(event.get("report_id"));
+            if (reportId.isEmpty()) return;
+            extra.put("report_id", reportId);
+            String cardId = "report-progress-" + reportId;
+            // 固定 id 幂等：已存在（前端切换会话时注入或本流程已持久化）则不重复插入
+            for (Message m : conv.getMessages()) {
+                if (cardId.equals(m.getId())) return;
             }
-            if (!ctxDone.hasPendingSkill()) {
-                ctxDone.pipelinePlan.clear();
-            }
-            if (fullPlan == null || fullPlan.isEmpty()) {
-                fullPlan = findPipelinePlanFromHistory(conv);
-            }
-            // 全部完成：持久化最终完成卡（kind=complete），使"N 项任务已完成"闭环
-            // 在切换会话/刷新后仍保留在对话流中（与前端 done 事件新建完成卡一致）
-            if (fullPlan != null && !fullPlan.isEmpty()) {
-                Map<String, Object> completeCard = new LinkedHashMap<>();
-                completeCard.put("action", "pipeline");
-                completeCard.put("kind", "complete");
-                completeCard.put("plan", fullPlan);
-                completeCard.put("total", fullPlan.size());
-                completeCard.put("currentOrder", fullPlan.size());
-                completeCard.put("paused", false);
-                completeCard.put("completed", true);
-                persistPipelineCard(conv, completeCard);
-                // 全部完成：将历史中所有 plan/switch 卡标记为完成态，避免切换会话/
-                // 刷新后这些卡片仍按 currentOrder 显示"进行中"（与末尾完成卡矛盾）
-                markPipelineCardsCompleted(conv);
-            }
-            return Flux.empty();
+            Message card = new Message(cardId, "assistant", "", Instant.now().toString());
+            card.setExtra(extra);
+            insertBeforeBoundaryCard(conv.getMessages(), card);
+            conv.setUpdatedAt(card.getCreatedAt());
+            return;
         }
-
-        TaskPlanner.PlanTask task = plan.get(startIndex);
-        Map<String, Object> decision = new LinkedHashMap<>();
-        decision.put("action", "skill");
-        decision.put("skill", task.skill());
-        decision.put("params", new LinkedHashMap<>(task.params()));
-        decision.put("reason", "管道任务 " + task.order());
-
-        // 任务开始事件：前端据此更新"当前任务 x/y"进度指示。
-        // total 必须是完整计划的任务总数（而非传入 plan 的大小）：暂停恢复时
-        // handleMultiResume 传入的 remainingPlan 只含剩余任务，若按 plan.size()
-        // 计算会让 task_start.total 缩水（如 2 → 1），前端任务切换卡/完成卡会按
-        // 错误总数渲染（正在执行的任务被隐藏、"N 项任务已完成"数量错误）。
-        // plan 中任务的 order 是完整计划的全局连续编号（从 1 起），剩余计划必含
-        // 原计划尾部任务，order 最大值即总任务数，不依赖可能丢失/缩水的内存
-        // 快照 pipelinePlan（后端重启或快照被清理后无法还原完整计划）
-        int totalTasks = plan.size();
-        for (TaskPlanner.PlanTask t : plan) {
-            totalTasks = Math.max(totalTasks, t.order());
+        // templates / redirect：透传模板相关字段（模板列表/机构/说明/已选模板信息）
+        for (String key : List.of("templates", "organization", "message",
+                "template_id", "template_name", "template_icon")) {
+            if (event.containsKey(key)) extra.put(key, event.get(key));
         }
-        ContextMemoryService.ConversationContext ctxTotal = contextMemoryService.get(convId);
-        if (ctxTotal.pipelinePlan != null && ctxTotal.pipelinePlan.size() > totalTasks) {
-            totalTasks = ctxTotal.pipelinePlan.size();
+        Message card = new Message(UUID.randomUUID().toString(), "assistant", "", Instant.now().toString());
+        card.setExtra(extra);
+        insertBeforeBoundaryCard(conv.getMessages(), card);
+        conv.setUpdatedAt(card.getCreatedAt());
+    }
+
+    // ---------- 规划卡片消息插入规则（与前端 useChat.ts 实时插入语义对齐） ----------
+
+    /**
+     * 判断是否为确认卡片按钮动作（plan_continue/plan_stop/plan_resume_yes/no JSON），
+     * 与前端 useChat.ts isConfirmAction 同源（确认动作属于确认卡片本身，追加在卡片之后消费该卡片）。
+     */
+    private boolean isConfirmAction(String content) {
+        String t = content == null ? "" : content.trim();
+        if (!t.startsWith("{") || !t.endsWith("}")) return false;
+        try {
+            Map<String, Object> obj = mapper.readValue(t, new TypeReference<Map<String, Object>>() {});
+            Object action = obj.get("action");
+            return "plan_continue".equals(action) || "plan_stop".equals(action)
+                    || "plan_resume_yes".equals(action) || "plan_resume_no".equals(action);
+        } catch (Exception e) {
+            return false;
         }
-        Map<String, Object> taskStartData = new LinkedHashMap<>();
-        taskStartData.put("index", task.order());
-        taskStartData.put("total", totalTasks);
-        taskStartData.put("skill", task.skill());
-        taskStartData.put("label", skillRegistry.getSkillLabel(task.skill()));
-        taskStartData.put("order", task.order());
-        Flux<String> taskStartEvent = Flux.just(sseEvent("task_start", taskStartData, null, convId));
+    }
 
-        // 管道进度持久化：更新初始执行计划卡（首卡）的 currentOrder，使切换会话/刷新后
-        // 首卡仍反映最新执行进度；进入新任务（order>1）时追加任务切换卡，使其保留在对话流中
-        updatePipelinePlanCardOrder(conv, task.order());
-        List<Map<String, Object>> planSnapshot = snapshotPlan(convId, conv);
-        if (task.order() > 1 && planSnapshot != null && !planSnapshot.isEmpty()) {
-            Map<String, Object> switchCard = new LinkedHashMap<>();
-            switchCard.put("action", "pipeline");
-            switchCard.put("kind", "switch");
-            switchCard.put("plan", planSnapshot);
-            switchCard.put("total", totalTasks);
-            switchCard.put("currentOrder", task.order());
-            switchCard.put("paused", false);
-            persistPipelineCard(conv, switchCard);
+    /**
+     * 判断是否为对穿插恢复确认卡片（resume_confirm）的文本回复
+     * （与前端 useChat.ts isResumeReplyText 关键词判定同源）。
+     */
+    private boolean isResumeReplyText(String content) {
+        String t = content == null ? "" : content.trim();
+        if (t.startsWith("{") && t.endsWith("}")) return false;
+        return t.contains("不用") || t.contains("不需要") || t.contains("算了")
+                || t.contains("不了") || t.contains("不必") || t.contains("不要")
+                || t.contains("回到") || t.contains("回去") || t.contains("恢复")
+                || t.contains("继续之前的") || t.contains("接着之前")
+                || t.equals("要") || t.equals("是");
+    }
+
+    /**
+     * 判断确认/恢复卡片是否已被用户消费：其后存在确认动作（plan_continue/plan_stop/
+     * plan_resume_yes/no）或穿插恢复文本回复 → 卡片仅是历史记录（用户已回应），不再是
+     * 穿插/暂停边界；未消费的卡片才是边界（新步骤的卡片应显示在它之前）。
+     */
+    private boolean isCardConsumed(List<Message> messages, int idx) {
+        for (int i = idx + 1; i < messages.size(); i++) {
+            Message m = messages.get(i);
+            if (!"user".equals(m.getRole())) continue;
+            String t = m.getContent() == null ? "" : m.getContent().trim();
+            if (isConfirmAction(t) || isResumeReplyText(t)) return true;
         }
+        return false;
+    }
 
-        // multiIndex 必须是任务在完整计划中的 0-based 下标（全局 order - 1）：
-        // handleSkill 依据它生成 task_done 事件的 order（multiIndex + 1）与结果卡
-        // _multi_index；若传 remainingPlan 的局部下标（暂停恢复后从 0 起），
-        // risk 等后续任务会被错标为第 1 个任务，前端进度卡无法正确推进
-        Flux<String> taskFlux = taskStartEvent.concatWith(handleSkill(decision, convId, userId, conv, task.order() - 1));
+    /** 查找最后一张未消费的确认/恢复卡片索引（extra.action 匹配且未被用户回应），无则 -1 */
+    private int lastUnconsumedCardIndex(List<Message> messages, String action) {
+        for (int i = messages.size() - 1; i >= 0; i--) {
+            Message m = messages.get(i);
+            Map<String, Object> extra = m.getExtra();
+            if (extra != null && action.equals(extra.get("action")) && !isCardConsumed(messages, i)) return i;
+        }
+        return -1;
+    }
 
-        // 检查是否暂停（pendingSkill 被设置），如果暂停则记录剩余管道
-        return taskFlux.concatWith(Flux.defer(() -> {
-            ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
-            if (ctx.hasPendingSkill() || ctx.isWaitingReport()) {
-                // 记录剩余任务到 pendingPipeline
-                List<Map<String, Object>> remaining = new ArrayList<>();
-                for (int i = startIndex + 1; i < plan.size(); i++) {
-                    Map<String, Object> t = new LinkedHashMap<>();
-                    t.put("skill", plan.get(i).skill());
-                    t.put("params", plan.get(i).params());
-                    t.put("order", plan.get(i).order());
-                    t.put("_index", i);
-                    remaining.add(t);
-                }
-                ctx.pendingPipeline.addAll(remaining);
-                log.info("Pipeline paused at task {}, remaining {} tasks saved to pendingPipeline",
-                        startIndex, remaining.size());
-                // 暂停事件：仅标记前端卡片暂停状态（hint 保留供未来扩展），
-                // 具体补充提示（如"请上传该企业的营业执照图片"）由 handleSkill 的
-                // text_delta/text_done 以文本气泡返回，提示只出现在对话流一处
-                Map<String, Object> pausedData = new LinkedHashMap<>();
-                pausedData.put("hint", ctx.pendingInputHint);
-                return Flux.just(sseEvent("pipeline_paused", pausedData, null, convId));
-            }
-            // 继续下一个任务
-            return executePipeline(plan, startIndex + 1, convId, userId, conv);
-        }));
+    /**
+     * 插入到穿插边界之前（与前端 insertBeforeBoundaryCard 一致）：
+     * 存在未消费 resume_confirm → 插到它之前（穿插区域对话保持在卡片上方）；
+     * 否则未消费 plan_step_confirm → 插到它之前（确认卡为步骤分界点）；都无 → 追加末尾。
+     */
+    private void insertBeforeBoundaryCard(List<Message> messages, Message msg) {
+        int resumeIdx = lastUnconsumedCardIndex(messages, "resume_confirm");
+        if (resumeIdx >= 0) {
+            messages.add(resumeIdx, msg);
+            return;
+        }
+        int confirmIdx = lastUnconsumedCardIndex(messages, "plan_step_confirm");
+        if (confirmIdx >= 0) {
+            messages.add(confirmIdx, msg);
+            return;
+        }
+        messages.add(msg);
+    }
+
+    /**
+     * 用户/占位消息插入策略（与前端 insertInterleavingAware 一致）：
+     * 穿插进行中（未消费 resume_confirm）→ 插到恢复卡之前（穿插对话保持在卡片上方）；
+     * 否则移除失效的未消费"下一步"确认卡后追加末尾（穿插挂起时旧确认卡实时流中会被移除）。
+     */
+    private void insertInterleavingAware(List<Message> messages, Message msg) {
+        int resumeIdx = lastUnconsumedCardIndex(messages, "resume_confirm");
+        if (resumeIdx >= 0) {
+            messages.add(resumeIdx, msg);
+            return;
+        }
+        int confirmIdx = lastUnconsumedCardIndex(messages, "plan_step_confirm");
+        if (confirmIdx >= 0) {
+            messages.remove(confirmIdx);
+        }
+        messages.add(msg);
     }
 
     // ---------- SSE 辅助方法 ----------

@@ -43,16 +43,10 @@
     .score-info { flex: 1; min-width: 0; }
     .score-info .company-name { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
     .score-info .credit-code { font-size: 11px; color: var(--gray-500); font-family: 'SF Mono', 'Menlo', monospace; word-break: break-all; margin-bottom: 8px; }
-    .score-info .badge-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .level-badge { display: inline-flex; align-items: center; gap: 4px; padding: 4px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; }
-    .level-badge.high { background: var(--risk-high-bg); color: var(--risk-high); border: 1px solid var(--risk-high-border); }
-    .level-badge.medium { background: var(--risk-medium-bg); color: var(--risk-medium); border: 1px solid var(--risk-medium-border); }
-    .level-badge.low { background: var(--risk-low-bg); color: var(--risk-low); border: 1px solid var(--risk-low-border); }
 
     /* ====== Summary Card ====== */
     .card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; margin-bottom: 14px; }
     .card-body { padding: 16px 18px; }
-    .card-body .conclusion { font-size: 13px; line-height: 1.7; color: var(--gray-700); padding: 12px 14px; background: #f7f9fc; border-radius: 10px; border-left: 3px solid var(--blue); }
 
     /* ====== Score Bars ====== */
     .score-bars { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 14px; }
@@ -150,7 +144,6 @@
       });
 
     // -------- helpers --------
-    const LEVEL_MAP = { high: '高风险', medium: '中等风险', low: '低风险' };
     const SCORE_MAP = { high: 78, medium: 45, low: 12 };
     const LEVEL_COLORS = { high: { stroke: '#cf1322', bg: '#fff1f0', bar: 'danger' },
                            medium: { stroke: '#d48806', bg: '#fffbe6', bar: 'warning' },
@@ -161,12 +154,10 @@
       return '<span class="item-icon safe">✅</span>';
     }
 
+    // 右侧风险状态只分“命中/未命中”：存在风险（has_risk=true）→ 命中，不存在风险 → 未命中
     function statusBadge(result, hasRisk) {
-      if (hasRisk) return '<span class="status-tag risk">' + result + '</span>';
-      var r = result;
-      if (r === '关注' || r === '异常' || r === '疑似异常' || r === '有记录' || r === '不稳定')
-        return '<span class="status-tag warn">' + r + '</span>';
-      return '<span class="status-tag safe">' + r + '</span>';
+      if (hasRisk) return '<span class="status-tag risk">命中</span>';
+      return '<span class="status-tag safe">未命中</span>';
     }
 
     function renderScoreCircle(score, color) {
@@ -222,9 +213,7 @@
         + (data.certificate_type || data.certificate_number
             ? '<div class="credit-code" style="margin-top:2px;">证件类型：' + (data.certificate_type || '—') + '　|　证件号码：' + (data.certificate_number || '—') + '</div>'
             : '')
-        + '<div class="badge-row">'
-        + '<span class="level-badge ' + level + '">' + (LEVEL_MAP[level] || level) + '</span>'
-        + '</div></div></div>'
+        + '</div></div>'
 
         /* ====== Score Bars ====== */
         + '<div class="score-bars">'
@@ -235,9 +224,6 @@
             + '<div class="bar-track"><div class="bar-fill ' + barClass + '" style="width:' + pct + '%"></div></div>'
             + '<div class="bar-val" style="color:' + lc.stroke + '">' + s.riskCount + '/' + s.total + '</div></div>';
         }).join('') + '</div>'
-
-        /* ====== Risk Conclusion ====== */
-        + '<div class="conclusion" style="margin-top:14px;">💡 <strong>风险结论：</strong>' + (data.risk_summary || '暂未发现风险点') + '</div>'
         + '</div></div>';
 
       /* ====== Modules ====== */

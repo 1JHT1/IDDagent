@@ -6,6 +6,8 @@ import type { RiskAmbiguousOption } from '../types'
 // ============================================================
 interface CompanyQueryCardProps {
   data: Record<string, unknown>
+  /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
+  disabled?: boolean
   onSendMessage?: (content: string) => void
 }
 
@@ -56,7 +58,7 @@ const ChipList: React.FC<{ label: string; values: unknown[] }> = ({ label, value
 // ============================================================
 // 主组件
 // ============================================================
-const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage }) => {
+const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage, disabled }) => {
   const action = data.action as string | undefined
   const queryLabel = (data.query_label as string) || '企业信息'
   const queryType = (data.query_type as string) || ''
@@ -88,9 +90,11 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
             <button
               key={opt.credit_code}
               onClick={() => onSendMessage?.(`帮我查一下${opt.company_name}${queryLabel}`)}
+              disabled={disabled}
               className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white
                          hover:bg-amber-50 hover:border-amber-300 transition-all
-                         flex items-center justify-between group cursor-pointer"
+                         flex items-center justify-between group cursor-pointer
+                         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-amber-200"
             >
               <div>
                 <div className="text-sm font-medium text-gray-800 group-hover:text-amber-700">
@@ -103,6 +107,16 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
               </svg>
             </button>
           ))}
+          {/* 模糊匹配兜底：候选均不是目标企业时点击，后端引导用户提供准确名称/信用代码 */}
+          <button
+            onClick={() => onSendMessage?.('以上选项均不是')}
+            disabled={disabled}
+            className="w-full text-center px-4 py-2.5 rounded-lg border border-dashed border-gray-300 bg-gray-50
+                       hover:bg-gray-100 text-sm text-gray-500 transition-all
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            以上选项均不是
+          </button>
         </div>
       </div>
     )

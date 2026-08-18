@@ -31,7 +31,6 @@ public class JwtAuthFilter implements WebFilter {
             Pattern.compile("^/h5/.*"),
             Pattern.compile("^/api/h5/markdown.*"),  // 通用 Markdown 渲染 H5 API
             Pattern.compile("^/api/generate-report(/.*)?"),  // 报告生成（含状态轮询和内容获取）
-            Pattern.compile("^/h5/.*"),//应该不公开
             Pattern.compile("^/docs.*"),
             Pattern.compile("^/openapi.*"),
             Pattern.compile("^/swagger.*"),

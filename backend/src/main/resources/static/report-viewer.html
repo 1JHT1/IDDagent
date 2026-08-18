@@ -292,8 +292,12 @@
   const templateName = params.get('templateName');
   const mode = params.get('mode');
   const browseOrg = params.get('organization');
-  // 将对话 ID 存入 sessionStorage，跳转回聊天页时携带
-  const conversationId = params.get('conversationId');
+  // 将对话 ID 存入 sessionStorage，跳转回聊天页时携带；优先取 URL 参数，
+  // 无参数时兜底 sessionStorage（H5 页内跳转）与 localStorage（同源部署时由聊天页写入）
+  let conversationId = params.get('conversationId') || sessionStorage.getItem('currentConversationId');
+  try {
+    if (!conversationId) conversationId = localStorage.getItem('currentConversationId');
+  } catch { /* 跨源环境读取 localStorage 可能抛异常，忽略 */ }
   if (conversationId) {
     sessionStorage.setItem('currentConversationId', conversationId);
   }

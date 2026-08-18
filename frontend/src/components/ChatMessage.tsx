@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { ChatMessage, ChatAttachment } from '../types';
+import type { ChatMessage, ChatAttachment, PlanStatusData } from '../types';
 import { isStreamingMessage } from '../types';
 import RiskCheckCard from './RiskCheckCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
@@ -9,12 +9,20 @@ import InformationCheckCard from './InformationCheckCard';
 import ReportGenerateCard from './ReportGenerateCard';
 import CompanyQueryCard from './CompanyQueryCard';
 import CompanyNameSelector from './CompanyNameSelector';
+import ClarificationCard from './ClarificationCard';
+import PlanStatusCard from './PlanStatusCard';
+import PlanConfirmCard from './PlanConfirmCard';
+import ResumeConfirmCard from './ResumeConfirmCard';
 import FollowUpChip from './FollowUpChip';
 
 interface ChatMessageProps {
   message: ChatMessage;
   /** 发送消息回调（用于卡片交互） */
   onSendMessage?: (content: string) => void;
+  /** 本地生成卡片消息回调（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
+  onAddMessage?: (msg: ChatMessage) => void;
+  /** 穿插区域已结束时禁用功能卡片（穿插确认卡片之后的穿插对话区卡片不可再点击） */
+  interleaveDisabled?: boolean;
 }
 
 /** 格式化文件大小 */
@@ -139,7 +147,7 @@ const AttachmentList: React.FC<{ attachments: ChatAttachment[] }> = ({ attachmen
   </div>
 );
 
-const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessage }) => {
+const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessage, onAddMessage, interleaveDisabled }) => {
   const isUser = message.role === 'user';
   const streaming = isStreamingMessage(message);
 
@@ -158,7 +166,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         const text = message.extra.text as string;
         return (
           <div className="max-w-[85%]">
-            <FollowUpChip text={text} onSendMessage={onSendMessage} />
+            <FollowUpChip text={text} onSendMessage={onSendMessage} disabled={interleaveDisabled} />
           </div>
         );
       }
@@ -169,23 +177,23 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
 
         // 根据技能名称精确路由
         if (skillName === 'check_company_risk') {
-          return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
+          return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} disabled={interleaveDisabled} />;
         }
         if (skillName === 'query_due_diligence_reports') {
-          return <HistoricalDDQueryCard data={message.extra} onSendMessage={onSendMessage} />;
+          return <HistoricalDDQueryCard data={message.extra} onSendMessage={onSendMessage} disabled={interleaveDisabled} />;
         }
         if (skillName === 'verify_business_license') {
-          return <InformationCheckCard data={message.extra} onSendMessage={onSendMessage} />;
+          return <InformationCheckCard data={message.extra} onSendMessage={onSendMessage} disabled={interleaveDisabled} />;
         }
         if (skillName === 'generate_report') {
-          return <ReportGenerateCard data={message.extra} onSendMessage={onSendMessage} />;
+          return <ReportGenerateCard data={message.extra} onSendMessage={onSendMessage} onAddMessage={onAddMessage} disabled={interleaveDisabled} />;
         }
         if (skillName && skillName.startsWith('query_')) {
-          return <CompanyQueryCard data={message.extra} onSendMessage={onSendMessage} />;
+          return <CompanyQueryCard data={message.extra} onSendMessage={onSendMessage} disabled={interleaveDisabled} />;
         }
 
         // 兜底：按字段特征匹配（兼容旧数据）
-        return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} />;
+        return <RiskCheckCard data={message.extra} onSendMessage={onSendMessage} disabled={interleaveDisabled} />;
       }
 
       // 候选企业选择器（企业名匹配到多条结果时让用户选择）
@@ -204,10 +212,80 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
                 options={options}
                 keyword={message.extra.keyword as string}
                 onSendMessage={onSendMessage}
+                disabled={interleaveDisabled}
               />
             </>
           );
         }
+      }
+
+      // 意图澄清卡片（同技能多主体冲突时让用户确认执行对象）
+      if (extraAction === 'clarification') {
+        const question = message.extra.question as string;
+        const options = message.extra.options as { label: string; value: string }[] | undefined;
+        if (options && options.length > 0) {
+          return (
+            <ClarificationCard
+              question={question || ''}
+              options={options}
+              onSendMessage={onSendMessage}
+              disabled={interleaveDisabled}
+            />
+          );
+        }
+      }
+
+      // 步骤间确认卡片（规划步骤真正结束后暂停，询问是否继续下一步）
+      if (extraAction === 'plan_step_confirm') {
+        const text = (message.extra.text as string) || '';
+        return (
+          <PlanConfirmCard
+            text={text}
+            currentStep={message.extra.current_step as number | string | undefined}
+            totalSteps={message.extra.total_steps as number | string | undefined}
+            nextStep={message.extra.next_step as string | undefined}
+            onSendMessage={onSendMessage}
+            disabled={interleaveDisabled}
+          />
+        );
+      }
+
+      // 穿插恢复确认卡片（穿插的新意图完成后，询问是否回到穿插前那一步继续旧规划）
+      if (extraAction === 'resume_confirm') {
+        const text = (message.extra.text as string) || '';
+        return (
+          <ResumeConfirmCard
+            text={text}
+            stepIndex={message.extra.step_index as number | string | undefined}
+            totalSteps={message.extra.total_steps as number | string | undefined}
+            stepDesc={message.extra.step_desc as string | undefined}
+            onSendMessage={onSendMessage}
+            disabled={interleaveDisabled}
+          />
+        );
+      }
+
+      // 任务规划状态面板（plan_status 事件：步骤状态快照，同步每一步执行进度）
+      // 全部步骤 DONE 时展示"全部任务已完成"终态——普通技能与报告生成收尾渲染同一张卡片，
+      // 视觉保持一致（report-complete finished 注入的终态快照与 SSE 收尾快照走同一分支）
+      if (extraAction === 'plan_status') {
+        const data = message.extra as unknown as PlanStatusData;
+        // 快照无步骤（规划已收尾清除/被丢弃）→ 面板已从消息流移除，此处防御不渲染
+        if (!data.steps || data.steps.length === 0) return null;
+        return <PlanStatusCard data={data} />;
+      }
+
+      // 任务规划提示（进度/预览/汇总）：普通文本气泡渲染（复用 info_needed 同款样式）
+      if (extraAction === 'plan_progress' || extraAction === 'plan_preview' || extraAction === 'plan_summary') {
+        const text = (message.extra.text as string) || '';
+        if (!text) return null;
+        return (
+          <div className="max-w-[75%] bg-white text-gray-800 rounded-2xl rounded-bl-md px-4 py-3 shadow-sm border border-gray-100">
+            <div className="markdown-content text-sm">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+            </div>
+          </div>
+        );
       }
 
       // 文本提示类消息（info_needed 缺企业标识 / need_date_range 需输入时间区间）：以普通文本气泡渲染

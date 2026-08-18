@@ -219,6 +219,54 @@ export interface CompanyNameCandidatesData {
 }
 
 // ============================================================
+// 意图澄清（Phase 4）与任务规划进度数据类型
+// ============================================================
+
+/** 澄清选项 */
+export interface ClarificationOption {
+  label: string;
+  value: string;
+}
+
+/** 意图澄清事件数据（同技能多主体冲突时让用户确认执行对象） */
+export interface ClarificationData {
+  action: 'clarification';
+  question: string;
+  options: ClarificationOption[];
+  context?: {
+    skill: string;
+    params: Record<string, unknown>;
+  };
+}
+
+// ============================================================
+// 任务规划状态类型（plan_status 事件 / GET /api/plan/{id}/status）
+// ============================================================
+
+/** 规划步骤状态（与后端 ContextMemoryService.PlanStatus 一致） */
+export type PlanStepStatus = 'PENDING' | 'WAITING_INPUT' | 'RUNNING' | 'DONE' | 'FAILED' | 'WAITING_EXTERNAL';
+
+/** 规划步骤快照 */
+export interface PlanStatusStep {
+  skill: string;
+  summary?: string;
+  status: PlanStepStatus;
+  needsInput?: boolean;
+}
+
+/** 规划状态数据（plan_status 事件 data / GET /api/plan/{id}/status 返回的 plan 字段） */
+export interface PlanStatusData {
+  active: boolean;
+  steps: PlanStatusStep[];
+  index: number;
+  confirming: boolean;
+  suspended: boolean;
+  planId?: string;
+  /** 收尾汇总文本（全部完成/提前结束的总结文案，面板终态展示） */
+  summary?: string;
+}
+
+// ============================================================
 // SSE 事件类型定义
 // ============================================================
 
@@ -237,6 +285,13 @@ export type SSEEventType =
   | 'follow_up_suggestion'
   | 'company_name_candidates'
   | 'need_date_range'
+  | 'clarification'
+  | 'plan_progress'
+  | 'plan_preview'
+  | 'plan_summary'
+  | 'plan_step_confirm'
+  | 'plan_status'
+  | 'resume_confirm'
   | 'done'
   | 'error';
 
@@ -246,7 +301,7 @@ export interface SSEEvent {
   content?: string;
   message_id?: string;
   conversation_id?: string;
-  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData;
+  data?: PotentialCustomerSummary | PotentialCustomerDetail | RiskCheckResult | ReportGenerateResult | InformationCheckResult | HistoricalDDQueryResult | CompanyNameCandidatesData | ClarificationData | PlanStatusData;
 }
 
 // ============================================================

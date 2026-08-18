@@ -1,8 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import type { ReportTemplate, ChatMessage } from '../types';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import type { ReportTemplate, ChatMessage, PlanStatusData } from '../types';
+import { persistCardMessage } from '../api/agent';
 
 interface ReportGenerateCardProps {
   data: Record<string, unknown>;
+  /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
+  disabled?: boolean;
   onSendMessage?: (content: string) => void;
   onAddMessage?: (msg: ChatMessage) => void;
 }
@@ -27,9 +30,13 @@ const TemplateGrid: React.FC<{
   templates: ReportTemplate[];
   organization?: string;
   onSelect: (t: ReportTemplate) => void;
-}> = ({ templates, onSelect, organization }) => {
+  disabled?: boolean;
+}> = ({ templates, onSelect, organization, disabled }) => {
   const baseUrl = getBaseH5Url();
-  const libUrl = `${baseUrl}?mode=browse${organization ? '&organization=' + encodeURIComponent(organization) : ''}`;
+  // 携带当前对话 ID 到 H5：模板库入口（浏览模式）生成报告时也能关联回当前会话，
+  // 否则 H5 生成任务 conversationId 为空，穿插挂起恢复时无法按会话兜底解析 report_id
+  const convId = typeof window !== 'undefined' ? localStorage.getItem('currentConversationId') || '' : '';
+  const libUrl = `${baseUrl}?mode=browse${convId ? '&conversationId=' + encodeURIComponent(convId) : ''}${organization ? '&organization=' + encodeURIComponent(organization) : ''}`;
   return (
   <div className="bg-white rounded-xl border border-blue-100 shadow-sm overflow-hidden">
     <div className="px-5 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
@@ -47,8 +54,10 @@ const TemplateGrid: React.FC<{
         <button
           key={t.id}
           onClick={() => onSelect(t)}
+          disabled={disabled}
           className="w-full flex items-center gap-3 px-5 py-3.5 text-left
-                     hover:bg-blue-50 transition-colors duration-150 group"
+                     hover:bg-blue-50 transition-colors duration-150 group
+                     disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
         >
           <span className="w-2 h-2 rounded-full bg-blue-400 group-hover:bg-blue-600 transition-colors flex-shrink-0" />
           <span className="text-sm font-medium text-gray-700 group-hover:text-blue-700 transition-colors">
@@ -66,8 +75,10 @@ const TemplateGrid: React.FC<{
       href={libUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-sm text-blue-600 font-medium
-                 border-t border-gray-100 hover:bg-blue-50 transition-colors"
+      className={`flex items-center justify-center gap-2 px-4 py-3 bg-gray-50 text-sm text-blue-600 font-medium
+                 border-t border-gray-100 hover:bg-blue-50 transition-colors ${
+                   disabled ? 'pointer-events-none opacity-50' : ''
+                 }`}
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -87,7 +98,8 @@ const RedirectCard: React.FC<{
   templateName: string;
   templateIcon: string;
   message?: string;
-}> = ({ templateId, templateName, templateIcon, message }) => {
+  disabled?: boolean;
+}> = ({ templateId, templateName, templateIcon, message, disabled }) => {
   // 从 localStorage 读取当前对话 ID，携带到 H5 以便跳转回来时定位对话
   const convId = typeof window !== 'undefined' ? localStorage.getItem('currentConversationId') || '' : '';
   const baseUrl = getBaseH5Url();
@@ -122,8 +134,10 @@ const RedirectCard: React.FC<{
         </div>
         <button
           onClick={() => window.open(h5Url, '_blank')}
+          disabled={disabled}
           className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white text-sm font-medium
-                     rounded-lg hover:bg-blue-700 transition-colors w-full cursor-pointer"
+                     rounded-lg hover:bg-blue-700 transition-colors w-full cursor-pointer
+                     disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -174,8 +188,116 @@ function getStageText(status: ReportStatus | null): string {
   return stage ? stage.label + '中...' : '正在生成报告...';
 }
 
-const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
+const ProgressCard: React.FC<{
+  reportId: string;
+  disabled?: boolean;
+  /** 本地插入消息（addMessage → 穿插边界之前），用于轮询到报告完成后通知规划收尾 */
+  onAddMessage?: (msg: ChatMessage) => void;
+}> = ({ reportId, disabled, onAddMessage }) => {
   const [status, setStatus] = useState<ReportStatus | null>(null);
+  // 防重复通知：轮询到 completed/failed 后只向后端报告一次规划收尾
+  const notifiedRef = useRef(false);
+  // 挂载时捕获所属会话 id：notifyReportComplete 是轮询异步回调，可能晚于会话切换返回，
+  // 此时实时读 localStorage 已变为新会话——用错误会话调后端会推进其他会话的规划、
+  // 并把本会话收尾卡片注入当前消息流，因此收尾必须绑定挂载时的会话并加卸载守卫
+  const convIdRef = useRef('');
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    // StrictMode（开发模式）会 double-invoke effect（setup → cleanup → setup），
+    // useRef 不随重挂载重新初始化：cleanup 置 false 后若不在此重置，mountedRef
+    // 将永远为 false，notifyReportComplete 被守卫永久拦截（进度卡显示完成但规划永不收尾）
+    mountedRef.current = true;
+    convIdRef.current = typeof window !== 'undefined'
+      ? (localStorage.getItem('currentConversationId') || '') : '';
+    return () => { mountedRef.current = false; };
+  }, []);
+
+  /**
+   * 报告生成完成/失败 → 通知后端标记规划步骤结束（仅一次）：
+   * - 后端返回 next（还有下一步）→ 本地插入步骤确认卡片（复用 plan_step_confirm 渲染），
+   *   用户点击"继续"后走 chatStream 的 planConfirming 分支推进下一步；
+   * - 后端返回 finished（最后一步）→ 本地插入"全部任务已完成"汇总气泡（plan_progress 渲染）。
+   * 非规划模式/重复通知后端幂等返回 ignored，无需处理。
+   */
+  const notifyReportComplete = useCallback(async (reportStatus: string) => {
+    if (notifiedRef.current) return;
+    // 组件已卸载（轮询期间用户已切换/新建会话）→ 丢弃本次收尾：不调后端（避免用错误会话推进规划）、
+    // 不注入本地（避免收尾卡片串入其他会话消息流）；用户切回原会话后进度卡重新挂载轮询会再次收尾。
+    // 守卫失败不置位 notifiedRef（如 StrictMode 双挂载瞬态/会话未捕获），后续轮询可重试，避免永久静默
+    if (!mountedRef.current) return;
+    const convId = convIdRef.current;
+    if (!convId) return;
+    // 发起前实时校验：轮询间隔内用户可能已新建/切换会话，但组件因消息流复用尚未卸载
+    // （mountedRef 仍为 true），若不拦截会把旧会话收尾请求发出，其响应后校验虽能兜底，
+    // 但旧构建/异常时序下仍存在注入窗口——发起即弃，避免任何跨会话副作用
+    if (typeof window !== 'undefined'
+        && (localStorage.getItem('currentConversationId') || '') !== convId) return;
+    try {
+      // 收尾始终绑定挂载时所属会话，而非实时读取 localStorage（切换会话后已变为新会话）
+      const token = typeof window !== 'undefined'
+        ? (localStorage.getItem('auth_token') || '') : '';
+      const res = await fetch('/api/plan/report-complete', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ conversationId: convId, reportId, status: reportStatus }),
+      });
+      if (!res.ok) return;
+      const resp = await res.json();
+      // 响应晚到时再次校验：当前显示的会话仍是收尾归属会话才注入，否则丢弃（双保险）
+      if (typeof window !== 'undefined'
+          && (localStorage.getItem('currentConversationId') || '') !== convId) return;
+      // 收尾真正落地（注入本地面板）才标记已通知：发起前/响应后校验被拦截或请求失败时不置位，
+      // 避免"已尝试但未注入"被永久记录——用户切回原会话后进度卡重新挂载仍可再次收尾，不会静默悬挂
+      notifiedRef.current = true;
+      // 规划状态快照（report-complete 响应携带）：注入/更新规划面板消息
+      // （固定 id = plan-status-{planId}，与 SSE plan_status 事件同一 id，重复通知自动覆盖不重复插入）
+      if (resp?.plan && resp.plan.active && resp.plan.steps?.length && onAddMessage) {
+        onAddMessage({
+          id: `plan-status-${(resp.plan as PlanStatusData).planId || reportId}`,
+          role: 'assistant',
+          content: '',
+          extra: {
+            action: 'plan_status',
+            ...resp.plan,
+            // finished 分支的收尾汇总文案在后端 text 字段，注入面板 summary 展示终态
+            ...(resp.status === 'finished' && resp.text ? { summary: resp.text } : {}),
+          } as unknown as Record<string, unknown>,
+          created_at: new Date().toISOString(),
+        });
+      }
+      if (resp?.status === 'next' && onAddMessage) {
+        onAddMessage({
+          id: `plan-confirm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          role: 'assistant',
+          content: '',
+          extra: {
+            action: 'plan_step_confirm',
+            text: resp.text,
+            current_step: resp.current_step,
+            total_steps: resp.total_steps,
+            next_step: resp.next_step,
+          },
+          created_at: new Date().toISOString(),
+        });
+      } else if (resp?.status === 'finished' && onAddMessage) {
+        onAddMessage({
+          id: `plan-summary-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          role: 'assistant',
+          content: '',
+          extra: {
+            action: 'plan_progress',
+            text: resp.text,
+          },
+          created_at: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // 通知失败不影响进度卡自身展示，用户仍可查看/重试报告
+    }
+  }, [reportId, onAddMessage]);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -183,11 +305,13 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
       if (!res.ok) return false;
       const data: ReportStatus = await res.json();
       setStatus(data);
-      return data.status === 'completed' || data.status === 'failed';
+      const done = data.status === 'completed' || data.status === 'failed';
+      if (done) notifyReportComplete(data.status);
+      return done;
     } catch {
       return false;
     }
-  }, [reportId]);
+  }, [reportId, notifyReportComplete]);
 
   useEffect(() => {
     let stopped = false;
@@ -332,8 +456,10 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
           <div className="mt-3 flex gap-2">
             <button
               onClick={handleViewReport}
+              disabled={disabled}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600
-                         text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+                         text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-blue-600"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -345,8 +471,10 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
             </button>
             <button
               onClick={handlePrint}
+              disabled={disabled}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600
-                         text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors"
+                         text-white text-sm font-medium rounded-lg hover:bg-emerald-700 transition-colors
+                         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -373,7 +501,7 @@ const ProgressCard: React.FC<{ reportId: string }> = ({ reportId }) => {
 // ============================================================
 // 主组件
 // ============================================================
-const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMessage, onAddMessage }) => {
+const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMessage, onAddMessage, disabled }) => {
   const stage = data.stage as string;
 
   // stage=templates → 展示模板列表
@@ -390,24 +518,33 @@ const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMes
       <TemplateGrid
         templates={templates}
         organization={data.organization as string || getStoredOrganization()}
+        disabled={disabled}
         onSelect={(t) => {
           // 直接在前端生成跳转卡片，不走后端协调器（避免LLM提取template_id失败）
+          const cardId = `redirect-${Date.now()}`;
+          const extra = {
+            action: 'result',
+            _skill_name: 'generate_report',
+            stage: 'redirect',
+            template_id: t.id,
+            template_name: t.name,
+            template_icon: t.icon || '📄',
+            message: '请在报告编辑页面中上传附件并生成报告',
+          };
           if (onAddMessage) {
             onAddMessage({
-              id: `redirect-${Date.now()}`,
+              id: cardId,
               role: 'assistant',
               content: '',
-              extra: {
-                action: 'result',
-                _skill_name: 'generate_report',
-                stage: 'redirect',
-                template_id: t.id,
-                template_name: t.name,
-                template_icon: t.icon || '📄',
-                message: '请在报告编辑页面中上传附件并生成报告',
-              },
+              extra,
               created_at: new Date().toISOString(),
             });
+            // 同步持久化"已选择模板"记录：该卡由前端本地生成、不经后端协调器，
+            // 若不持久化则穿插恢复后切换对话框"原来提供的模板记录"会丢失
+            const convId = typeof window !== 'undefined' ? localStorage.getItem('currentConversationId') || '' : '';
+            if (convId) {
+              persistCardMessage(convId, { id: cardId, extra }).catch(() => {});
+            }
           } else {
             // fallback：如果没有onAddMessage，走原来的文本消息路由
             onSendMessage?.(`使用"${t.name}"模板(ID:${t.id})生成尽调报告`);
@@ -429,6 +566,7 @@ const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMes
         templateName={tname}
         templateIcon={ticon}
         message={msg}
+        disabled={disabled}
       />
     );
   }
@@ -437,7 +575,7 @@ const ReportGenerateCard: React.FC<ReportGenerateCardProps> = ({ data, onSendMes
   if (stage === 'progress') {
     const rid = (data.report_id as string) || '';
     if (!rid) return <div className="text-sm text-gray-500 p-3">报告 ID 缺失</div>;
-    return <ProgressCard reportId={rid} />;
+    return <ProgressCard reportId={rid} disabled={disabled} onAddMessage={onAddMessage} />;
   }
 
   return null;

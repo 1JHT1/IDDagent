@@ -18,6 +18,8 @@ public class Message {
     private String content;
     private String createdAt;
     private List<Map<String, Object>> attachments;
+    /** 结构化额外数据（任务规划面板/确认卡/进度气泡等前端本地渲染的卡片消息） */
+    private Map<String, Object> extra;
 
     public Message(String id, String role, String content, String createdAt) {
         this.id = id;

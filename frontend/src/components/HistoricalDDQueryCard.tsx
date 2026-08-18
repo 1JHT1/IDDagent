@@ -3,10 +3,12 @@ import type { HistoricalDDReport } from '../types'
 
 interface HistoricalDDQueryCardProps {
   data: Record<string, unknown>
+  /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
+  disabled?: boolean
   onSendMessage?: (content: string) => void
 }
 
-const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data }) => {
+const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data, disabled }) => {
   const action = data.action as string | undefined
   const companyName = (data.company_name as string) || ''
   const creditCode = (data.credit_code as string) || ''
@@ -69,11 +71,13 @@ const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data }) =
                       label="查看"
                       title="查看报告"
                       href={`${BACKEND_URL}/h5/dd-viewer.html?report_id=${report.report_id}`}
+                      disabled={disabled}
                     />
                     <ActionButton
                       label="下载"
                       title="下载 PDF"
                       href={`${BACKEND_URL}/h5/dd-viewer.html?report_id=${report.report_id}&download_pdf=1`}
+                      disabled={disabled}
                     />
                     <ActionButton
                       label="附件"
@@ -81,6 +85,7 @@ const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data }) =
                       href={report.attachments && report.attachments.length > 0
                         ? `${BACKEND_URL}/api/dd-reports/${report.report_id}/attachments/${report.attachments[0].file_id}/download`
                         : undefined}
+                      disabled={disabled}
                     />
                   </div>
                 </td>

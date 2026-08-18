@@ -250,3 +250,31 @@ export async function stopChatStream(conversationId: string): Promise<void> {
   }
 }
 
+/**
+ * 持久化一条前端本地生成的卡片消息（如模板选择后的"已选择模板"跳转卡）：
+ * 该卡由 ReportGenerateCard 点击模板时直接生成、不经后端协调器，若不持久化则
+ * 穿插恢复后切换对话框"原来提供的模板记录"会丢失。后端按穿插边界规则插入消息流。
+ */
+export async function persistCardMessage(
+  conversationId: string,
+  message: { id: string; content?: string; extra?: Record<string, unknown> }
+): Promise<void> {
+  try {
+    await fetch(`${API_BASE}/chat/card`, {
+      method: 'POST',
+      headers: authHeaders(),
+      body: JSON.stringify({
+        conversationId,
+        message: {
+          id: message.id,
+          content: message.content || '',
+          extra: message.extra || {},
+        },
+      }),
+    });
+  } catch (err) {
+    // 持久化失败不影响本地即时展示（当前会话内仍可见），仅记录告警
+    console.warn('持久化卡片消息失败（不影响本地展示）：', err);
+  }
+}
+

@@ -183,14 +183,6 @@ const RiskCheckCard: React.FC<RiskCheckCardProps> = ({ data, onSendMessage, disa
           <div className="text-xs text-gray-400 font-mono">信用代码：{creditCode}</div>
         </div>
 
-        {/* 风险等级 */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">风险等级：</span>
-          <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-bold ${config.text} bg-white/70`}>
-            {config.icon} {config.label}
-          </span>
-        </div>
-
         {/* 风险结论 */}
         <div className="bg-white/70 rounded-lg p-3 border-l-2 border-blue-400">
           <p className="text-sm text-gray-700 leading-relaxed">

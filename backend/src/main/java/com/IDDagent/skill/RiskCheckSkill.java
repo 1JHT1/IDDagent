@@ -1,10 +1,17 @@
 package com.IDDagent.skill;
 
+import com.IDDagent.config.AppConfig;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.*;
 
 @Component
@@ -28,10 +35,16 @@ public class RiskCheckSkill {
     private static final java.util.regex.Pattern QUESTION_PATTERN = java.util.regex.Pattern.compile(
             "什么|哪些|哪个|怎么|如何|为什么|为啥|多少|有没有|是否|是不是|嘛|呢|吗|啥|干嘛|干什么|做什么|介绍|定义|含义|意思|包含|包括");
 
-    private final SkillRegistry registry;
+    private static final ObjectMapper mapper = new ObjectMapper();
 
-    public RiskCheckSkill(SkillRegistry registry) {
+    private final SkillRegistry registry;
+    private final WebClient webClient;
+    private final AppConfig config;
+
+    public RiskCheckSkill(SkillRegistry registry, WebClient webClient, AppConfig config) {
         this.registry = registry;
+        this.webClient = webClient;
+        this.config = config;
     }
 
     @PostConstruct
@@ -226,16 +239,122 @@ public class RiskCheckSkill {
         result.put("company_name", companyName);
         result.put("has_risk", hasRisk);
         result.put("risk_level", riskLevel);
-        result.put("risk_summary", data.get("risk_summary"));
+        // 风险摘要由大模型根据报告 details 内容摘要生成，替代模板固定文案（调用失败时回退模板原文）
+        result.put("risk_summary", summarizeRiskSummary(data));
         result.put("h5_url", baseUrl + "/h5/risk-report.html?code=" + code);
         return result;
     }
 
     /**
+     * 利用大模型对风险报告 details 内容进行摘要总结，生成风险预查结论文案。
+     * - 输入：各维度（工商信息/反洗钱/融安E信）的结构化核查项
+     * - 输出：2-3 句客观精炼的风险摘要
+     * - 失败回退：未配置 API Key 或调用/解析异常时回退模板原始 risk_summary，保证卡片始终有内容
+     */
+    private String summarizeRiskSummary(Map<String, Object> data) {
+        String apiKey = config.getDeepseek().getApiKey();
+        if (apiKey == null || apiKey.isEmpty()) {
+            log.warn("DEEPSEEK_API_KEY not set, risk summary falls back to raw text");
+            return (String) data.getOrDefault("risk_summary", "暂未发现风险点");
+        }
+        try {
+            Map<String, Object> requestBody = new LinkedHashMap<>();
+            requestBody.put("model", config.getModel().getName());
+            requestBody.put("messages", List.of(
+                    Map.of("role", "system", "content",
+                            "你是一位银行风控合规专家。根据客户风险核查的结构化结果，客观、精炼地总结该客户的风险状况：" +
+                            "说明整体风险等级、主要风险点（命中项）及其严重程度。直接输出 2-3 句总结文本，" +
+                            "不要输出 JSON、标题或任何多余格式。"),
+                    Map.of("role", "user", "content", buildSummaryPrompt(data))
+            ));
+            requestBody.put("temperature", 0.3);
+            requestBody.put("max_tokens", 500);
+            requestBody.put("thinking", Map.of("type", "disabled"));
+
+            String response = webClient.post()
+                    .uri(config.getDeepseek().getBaseUrl() + "/chat/completions")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, resp ->
+                            resp.bodyToMono(String.class).flatMap(body -> {
+                                log.error("风险摘要 LLM 调用失败: status={}, body={}", resp.statusCode(), body);
+                                return Mono.error(new RuntimeException("LLM API error: " + resp.statusCode()));
+                            }))
+                    .bodyToMono(String.class)
+                    .block(Duration.ofSeconds(30));
+
+            String summary = parseSummaryResponse(response);
+            if (summary != null && !summary.isBlank()) {
+                log.info("风险摘要生成成功: {}", summary);
+                return summary;
+            }
+        } catch (Exception e) {
+            log.error("风险摘要生成失败，回退模板原文: {}", e.getMessage());
+        }
+        return (String) data.getOrDefault("risk_summary", "暂未发现风险点");
+    }
+
+    /**
+     * 将报告 details 各维度核查项结构化为供 LLM 摘要的文本输入。
+     */
+    @SuppressWarnings("unchecked")
+    private String buildSummaryPrompt(Map<String, Object> data) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("企业名称：").append(data.getOrDefault("company_name", data.get("enterprise_name"))).append("\n");
+        sb.append("统一信用代码：").append(data.getOrDefault("credit_code", "")).append("\n");
+        sb.append("以下为该客户各维度风险核查结果：\n");
+        Object detailsObj = data.get("details");
+        if (detailsObj instanceof Map) {
+            Map<String, Object> details = (Map<String, Object>) detailsObj;
+            for (var entry : details.entrySet()) {
+                if (!(entry.getValue() instanceof Map)) continue;
+                Map<String, Object> module = (Map<String, Object>) entry.getValue();
+                sb.append("\n【").append(module.getOrDefault("name", entry.getKey())).append("】\n");
+                Object itemsObj = module.get("items");
+                if (!(itemsObj instanceof List)) continue;
+                for (Object itemObj : (List<?>) itemsObj) {
+                    if (!(itemObj instanceof Map)) continue;
+                    Map<String, Object> item = (Map<String, Object>) itemObj;
+                    Object result = item.getOrDefault("result", item.getOrDefault("riskLevel", "—"));
+                    sb.append("- ").append(item.getOrDefault("name", "")).append("：").append(result);
+                    Object detail = item.get("detail");
+                    if (detail != null && !detail.toString().isBlank()) {
+                        sb.append("（").append(detail).append("）");
+                    }
+                    sb.append("\n");
+                }
+            }
+        }
+        return sb.toString();
+    }
+
+    /**
+     * 解析 LLM 摘要响应，提取 choices[0].message.content 纯文本。
+     */
+    @SuppressWarnings("unchecked")
+    private String parseSummaryResponse(String response) {
+        if (response == null || response.isBlank()) return "";
+        try {
+            Map<String, Object> respMap = mapper.readValue(response, new TypeReference<>() {});
+            List<Map<String, Object>> choices = (List<Map<String, Object>>) respMap.get("choices");
+            if (choices == null || choices.isEmpty()) return "";
+            Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
+            if (message == null) return "";
+            Object content = message.get("content");
+            return content == null ? "" : content.toString().trim();
+        } catch (Exception e) {
+            log.warn("风险摘要响应解析失败: {}", e.getMessage());
+            return "";
+        }
+    }
+
+    /**
      * 根据 details 中的各项指标计算风险等级。
-     * - aml 中 has_risk=true 且 result 为 "异常"/"命中"/"严重" 计为高风险项
+     * - aml 中 has_risk=true 且 severity="high" 计为高风险项
      * - rongan 中 riskLevel="high" 计为高风险项
-     * - aml 中 has_risk=true 且 result 为 "关注" 计为中风险项
+     * - aml 中 has_risk=true 且 severity="medium" 计为中风险项
      * - rongan 中 riskLevel="medium" 计为中风险项
      * - business_info 中 result="命中" 计为中风险项
      * 高风险项 >=1 → high；中风险项 >=2 → medium；否则 → low
@@ -256,8 +375,8 @@ public class RiskCheckSkill {
                 for (Map<String, Object> item : items) {
                     Boolean hasRisk = (Boolean) item.get("has_risk");
                     if (Boolean.TRUE.equals(hasRisk)) {
-                        String result = (String) item.get("result");
-                        if ("异常".equals(result) || "命中".equals(result) || "严重".equals(result)) {
+                        String severity = (String) item.get("severity");
+                        if ("high".equalsIgnoreCase(severity)) {
                             highCount++;
                         } else {
                             mediumCount++;
@@ -311,11 +430,6 @@ public class RiskCheckSkill {
             "RESOLVED", "已解决",
             "CLEAR", "正常"
     );
-    private static final Map<String, String> RONGAN_LEVEL_MAP = Map.of(
-            "high", "高风险",
-            "medium", "中风险",
-            "low", "低风险"
-    );
 
     /**
      * 将 data-template/risk_check.json 的原始数据标准化为 H5 页面所需格式。
@@ -355,8 +469,9 @@ public class RiskCheckSkill {
                         String rl = (String) ni.getOrDefault("riskLevel", ni.get("risklevel"));
                         String status = (String) ni.get("status");
                         String detectDate = (String) ni.get("detectDate");
-                        ni.put("result", RONGAN_LEVEL_MAP.getOrDefault(rl != null ? rl.toLowerCase() : "", rl != null ? rl : "未知"));
-                        ni.put("has_risk", "high".equalsIgnoreCase(rl) || "medium".equalsIgnoreCase(rl));
+                        boolean hasRisk = "high".equalsIgnoreCase(rl) || "medium".equalsIgnoreCase(rl);
+                        ni.put("result", hasRisk ? "命中" : "未命中");
+                        ni.put("has_risk", hasRisk);
                         StringBuilder detail = new StringBuilder();
                         if (detectDate != null) detail.append("检测日期: ").append(detectDate);
                         if (status != null) {

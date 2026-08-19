@@ -1485,6 +1485,9 @@ public class ChatController {
             insertBeforeBoundaryCard(conv.getMessages(), card);
         }
         conv.setUpdatedAt(card.getCreatedAt());
+        // 确认卡/进度气泡额外落盘：仅写内存的话后端重启后丢失，切换对话框恢复显示时
+        // "继续下一步"确认卡等卡片消失（plan_status 终态面板有独立落盘不受影响）
+        conversationService.persist();
     }
 
     /** 追问建议气泡（follow_up 卡）：extra 对齐前端 useChat.ts 的 {action:'follow_up', text}，
@@ -1499,6 +1502,8 @@ public class ChatController {
         card.setExtra(extra);
         insertBeforeBoundaryCard(conv.getMessages(), card);
         conv.setUpdatedAt(card.getCreatedAt());
+        // 追问气泡额外落盘：与确认卡一致，重启后端后切换会话追问气泡仍可恢复
+        conversationService.persist();
     }
 
     /**
@@ -1528,6 +1533,8 @@ public class ChatController {
             card.setExtra(extra);
             insertBeforeBoundaryCard(conv.getMessages(), card);
             conv.setUpdatedAt(card.getCreatedAt());
+            // 进度卡额外落盘：切换会话/重启后端后进度卡仍可恢复
+            conversationService.persist();
             return;
         }
         // templates / redirect：透传模板相关字段（模板列表/机构/说明/已选模板信息）
@@ -1539,6 +1546,8 @@ public class ChatController {
         card.setExtra(extra);
         insertBeforeBoundaryCard(conv.getMessages(), card);
         conv.setUpdatedAt(card.getCreatedAt());
+        // 模板选择/跳转卡额外落盘：与确认卡一致，重启后端后穿插恢复重发的模板记录仍可恢复
+        conversationService.persist();
     }
 
     // ---------- 规划卡片消息插入规则（与前端 useChat.ts 实时插入语义对齐） ----------

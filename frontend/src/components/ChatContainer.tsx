@@ -159,10 +159,13 @@ export default ChatContainer;
  * 自身是已消费的 resume_confirm 卡片 → 同样禁用（避免恢复后旧卡误操作）。
  * 自身是已消费的 plan_step_confirm 卡片（用户已点继续/结束）→ 禁用，只能点击一次；
  * 切换对话框/刷新后按原消息流恢复显示时同样保持禁用（与 resume_confirm 行为一致）。
+ * 模糊匹配候选选项卡（候选企业选择器/歧义选项/未找到但给出候选/意图澄清选项）：
+ * 点击任意选项（或“以上选项均不是”）后回复消息进入消息流 → 整卡已消费，
+ * 其余选项全部禁用（只能点击一次）；切换/刷新后恢复显示时同样保持禁用。
  * 嵌套多轮穿插-恢复天然支持：每张 resume_confirm 标记一个穿插区域，各自独立判定。
  */
 function computeInterleaveDisabled(msgs: ChatMessage[], index: number): boolean {
-  const selfExtra = msgs[index].extra as { action?: string } | undefined;
+  const selfExtra = msgs[index].extra as { action?: string; options?: unknown } | undefined;
   if (selfExtra?.action === 'resume_confirm') {
     return isResumeConfirmConsumed(msgs, index);
   }
@@ -170,6 +173,17 @@ function computeInterleaveDisabled(msgs: ChatMessage[], index: number): boolean 
   // 实时点击后立即禁用，切换会话恢复显示后也保持禁用（只能点击一次）
   if (selfExtra?.action === 'plan_step_confirm' && isStepConfirmConsumed(msgs, index)) {
     return true;
+  }
+  // 模糊匹配候选选项卡：其后存在任何用户回复即已消费（点击选项/“以上选项均不是”
+  // 都会产生用户消息）→ 整卡选项禁用，防止同一选项卡被反复点击重复触发流程
+  const isCandidateCard = selfExtra?.action === 'company_name_candidates'
+    || selfExtra?.action === 'clarification'
+    || ((selfExtra?.action === 'ambiguous' || selfExtra?.action === 'not_found')
+        && Array.isArray(selfExtra?.options) && (selfExtra.options as unknown[]).length > 0);
+  if (isCandidateCard) {
+    for (let i = index + 1; i < msgs.length; i++) {
+      if (msgs[i].role === 'user') return true;
+    }
   }
   for (let i = index + 1; i < msgs.length; i++) {
     const extra = msgs[i].extra as { action?: string } | undefined;

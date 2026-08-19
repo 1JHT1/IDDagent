@@ -227,13 +227,239 @@
     }
   },
   "499ffe5c-159d-40a4-860f-23b02bc68b3a" : {
-    "388a0ac5-6728-46be-8e3d-79d77ad078eb" : {
-      "id" : "388a0ac5-6728-46be-8e3d-79d77ad078eb",
+    "6e19e3a8-a28c-43e6-a3a7-1b1eb3193e7e" : {
+      "id" : "6e19e3a8-a28c-43e6-a3a7-1b1eb3193e7e",
+      "userId" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
+      "title" : "报告生成和风险识别",
+      "messages" : [ {
+        "id" : "b8f986b1-1c2c-40c8-8f4a-f7292b099f40",
+        "role" : "user",
+        "content" : "报告生成和风险识别",
+        "createdAt" : "2026-08-19T07:11:19.577120600Z"
+      }, {
+        "id" : "d2c3cd1b-c25d-44ef-ba9e-d92766ddaacf",
+        "role" : "assistant",
+        "content" : "{\"action\":\"result\",\"_step_done\":false,\"_skill_name\":\"generate_report\",\"stage\":\"templates\",\"templates\":[{\"id\":\"financial_analysis\",\"name\":\"借款人财务分析报告\",\"organization\":\"湖北分行\",\"description\":\"基于企业财务报表数据，自动生成借款人财务分析报告，涵盖财务审计情况、财务指标分析、还款来源预测等模块\",\"icon\":\"\uD83D\uDCCA\",\"accepted_types\":[\".pdf\",\".docx\",\".xlsx\",\".xls\",\".md\"],\"required_fields\":[\"企业名称\",\"统一信用代码\"],\"output_type\":\"markdown\",\"source_file\":\"财务分析报告模板.md\",\"all_fields\":[\"企业名称\",\"统一信用代码\",\"营业收入2024\",\"营业收入2023\",\"营业收入2022\",\"营业成本2024\",\"营业成本2023\",\"营业成本2022\",\"销售利润2024\",\"销售利润2023\",\"销售利润2022\",\"货币资金202212\",\"货币资金202312\",\"货币资金202412\",\"货币资金202509\",\"应收账款202212\",\"应收账款202312\",\"应收账款202412\",\"应收账款202509\",\"预付账款202212\",\"预付账款202312\",\"预付账款202412\",\"预付账款202509\",\"其他应收款202212\",\"其他应收款202312\",\"其他应收款202412\",\"其他应收款202509\",\"营收来源描述\",\"利润为负原因\",\"是否覆盖本息\",\"固定收入组成\",\"审计机构\",\"主营业务\"]},{\"id\":\"due_diligence_brief\",\"name\":\"尽调简报\",\"organization\":\"湖北分行\",\"description\":\"快速生成企业尽职调查简报，涵盖企业基本信息、财务概览、经营风险提示、关联交易等核心内容\",\"icon\":\"\uD83D\uDCCB\",\"accepted_types\":[\".pdf\",\".docx\",\".xlsx\",\".xls\",\".md\"],\"required_fields\":[\"企业名称\"],\"output_type\":\"markdown\",\"source_file\":\"尽调简报模板.md\",\"all_fields\":[\"企业名称\",\"统一信用代码\",\"主营业务\",\"员工人数\",\"营业收入2024\",\"净利润2024\",\"总资产2024\",\"资产负债率\",\"前五大客户占比\",\"关联交易额\",\"审计机构\"]},{\"id\":\"credit_evaluation\",\"name\":\"授信评估报告\",\"organization\":\"湖北分行\",\"description\":\"综合评估企业信用状况和还款能力，生成授信评估报告，包括财务分析、行业前景、担保评估等\",\"icon\":\"\uD83C\uDFE6\",\"accepted_types\":[\".pdf\",\".docx\",\".xlsx\",\".xls\",\".md\"],\"required_fields\":[\"企业名称\",\"统一信用代码\"],\"output_type\":\"markdown\",\"source_file\":\"授信评估模板.md\",\"all_fields\":[\"企业名称\",\"统一信用代码\",\"营业收入2024\",\"净利润2024\",\"总资产2024\",\"偿债能力评分\",\"盈利能力评分\",\"经营能力评分\",\"发展能力评分\",\"担保能力评分\",\"综合评分\",\"信用等级\",\"建议授信额度\",\"授信期限\",\"担保方式\",\"行业前景\"]}],\"organization\":\"湖北分行\",\"message\":\"请选择需要生成的报告模板\"}",
+        "createdAt" : "2026-08-19T07:11:21.266691800Z"
+      }, {
+        "id" : "6e3c5952-f80e-4f83-b1fb-6e9209ff6b55",
+        "role" : "user",
+        "content" : "查星河风险",
+        "createdAt" : "2026-08-19T07:11:26.400069100Z"
+      }, {
+        "id" : "df44a038-0c6c-4ac6-907c-49c1be4877d0",
+        "role" : "assistant",
+        "content" : "{\"_step_done\":false,\"_skill_name\":\"check_company_risk\",\"options\":[{\"credit_code\":\"91110108MA01B3XK2P\",\"company_name\":\"北京星河科技有限公司\"}],\"action\":\"not_found\",\"keyword\":\"星河\",\"message\":\"未找到与「星河」完全匹配的企业，您是否要查询以下相似企业？\"}",
+        "createdAt" : "2026-08-19T07:11:27.900185600Z"
+      }, {
+        "id" : "620e2a6d-7ccf-4cd7-9d9f-604a22ca3977",
+        "role" : "user",
+        "content" : "以上选项均不是",
+        "createdAt" : "2026-08-19T07:11:29.029368400Z"
+      }, {
+        "id" : "55d6801a-1c34-490c-be28-96ae025ea744",
+        "role" : "assistant",
+        "content" : "以上选项均不是您要查询的企业。请提供准确的企业名称，或直接输入 18 位统一社会信用代码，我将为您重新查询。",
+        "createdAt" : "2026-08-19T07:11:29.030367200Z"
+      }, {
+        "id" : "28403750-2338-4b69-967d-f917c2dcd899",
+        "role" : "assistant",
+        "content" : "",
+        "createdAt" : "2026-08-19T07:11:29.034367100Z",
+        "extra" : {
+          "action" : "resume_confirm",
+          "text" : "已为您完成穿插的任务。是否需要回到穿插进来前的那一步（第 1/2 步：生成尽调报告），继续之前的任务规划？",
+          "step_index" : 1,
+          "total_steps" : 2,
+          "step_desc" : "生成尽调报告"
+        }
+      }, {
+        "id" : "147e86c7-e188-4cce-a934-e1dff6d3b7e8",
+        "role" : "user",
+        "content" : "{\"action\":\"回到之前的任务\"}",
+        "createdAt" : "2026-08-19T07:11:32.018546400Z"
+      }, {
+        "id" : "871c0330-3ff4-4c23-a8c6-f2361703a381",
+        "role" : "assistant",
+        "content" : "",
+        "createdAt" : "2026-08-19T07:11:32.025533500Z",
+        "extra" : {
+          "action" : "plan_progress",
+          "text" : "好的，已回到穿插前的位置。尽调报告仍在生成中，生成完成后可继续下一步"
+        }
+      }, {
+        "id" : "1ed2a68d-1345-46b1-ba8d-666a386a7fef",
+        "role" : "assistant",
+        "content" : "",
+        "createdAt" : "2026-08-19T07:11:32.031603Z",
+        "extra" : {
+          "action" : "result",
+          "_skill_name" : "generate_report",
+          "stage" : "templates",
+          "templates" : [ {
+            "id" : "financial_analysis",
+            "name" : "借款人财务分析报告",
+            "organization" : "湖北分行",
+            "description" : "基于企业财务报表数据，自动生成借款人财务分析报告，涵盖财务审计情况、财务指标分析、还款来源预测等模块",
+            "icon" : "\uD83D\uDCCA",
+            "accepted_types" : [ ".pdf", ".docx", ".xlsx", ".xls", ".md" ],
+            "required_fields" : [ "企业名称", "统一信用代码" ],
+            "output_type" : "markdown",
+            "source_file" : "财务分析报告模板.md",
+            "all_fields" : [ "企业名称", "统一信用代码", "营业收入2024", "营业收入2023", "营业收入2022", "营业成本2024", "营业成本2023", "营业成本2022", "销售利润2024", "销售利润2023", "销售利润2022", "货币资金202212", "货币资金202312", "货币资金202412", "货币资金202509", "应收账款202212", "应收账款202312", "应收账款202412", "应收账款202509", "预付账款202212", "预付账款202312", "预付账款202412", "预付账款202509", "其他应收款202212", "其他应收款202312", "其他应收款202412", "其他应收款202509", "营收来源描述", "利润为负原因", "是否覆盖本息", "固定收入组成", "审计机构", "主营业务" ]
+          }, {
+            "id" : "due_diligence_brief",
+            "name" : "尽调简报",
+            "organization" : "湖北分行",
+            "description" : "快速生成企业尽职调查简报，涵盖企业基本信息、财务概览、经营风险提示、关联交易等核心内容",
+            "icon" : "\uD83D\uDCCB",
+            "accepted_types" : [ ".pdf", ".docx", ".xlsx", ".xls", ".md" ],
+            "required_fields" : [ "企业名称" ],
+            "output_type" : "markdown",
+            "source_file" : "尽调简报模板.md",
+            "all_fields" : [ "企业名称", "统一信用代码", "主营业务", "员工人数", "营业收入2024", "净利润2024", "总资产2024", "资产负债率", "前五大客户占比", "关联交易额", "审计机构" ]
+          }, {
+            "id" : "credit_evaluation",
+            "name" : "授信评估报告",
+            "organization" : "湖北分行",
+            "description" : "综合评估企业信用状况和还款能力，生成授信评估报告，包括财务分析、行业前景、担保评估等",
+            "icon" : "\uD83C\uDFE6",
+            "accepted_types" : [ ".pdf", ".docx", ".xlsx", ".xls", ".md" ],
+            "required_fields" : [ "企业名称", "统一信用代码" ],
+            "output_type" : "markdown",
+            "source_file" : "授信评估模板.md",
+            "all_fields" : [ "企业名称", "统一信用代码", "营业收入2024", "净利润2024", "总资产2024", "偿债能力评分", "盈利能力评分", "经营能力评分", "发展能力评分", "担保能力评分", "综合评分", "信用等级", "建议授信额度", "授信期限", "担保方式", "行业前景" ]
+          } ],
+          "organization" : "湖北分行",
+          "message" : "请选择需要生成的报告模板"
+        }
+      }, {
+        "id" : "redirect-1787123493737",
+        "role" : "assistant",
+        "content" : "",
+        "createdAt" : "2026-08-19T07:11:33.798416300Z",
+        "extra" : {
+          "action" : "result",
+          "_skill_name" : "generate_report",
+          "stage" : "redirect",
+          "template_id" : "financial_analysis",
+          "template_name" : "借款人财务分析报告",
+          "template_icon" : "\uD83D\uDCCA",
+          "message" : "请在报告编辑页面中上传附件并生成报告"
+        }
+      }, {
+        "id" : "plan-confirm-1787123506984-hupr",
+        "role" : "assistant",
+        "content" : "",
+        "createdAt" : "2026-08-19T07:11:46.996508400Z",
+        "extra" : {
+          "action" : "plan_step_confirm",
+          "text" : "第 1/2 步已完成，是否继续执行第 2/2 步（风险预查）？",
+          "current_step" : 1,
+          "total_steps" : 2,
+          "next_step" : "风险预查"
+        }
+      }, {
+        "id" : "c52d7c31-77a7-4d5a-b53a-68fa41251618",
+        "role" : "user",
+        "content" : "{\"action\":\"继续执行下一步\"}",
+        "createdAt" : "2026-08-19T07:11:53.971248400Z"
+      }, {
+        "id" : "5f496647-0752-4339-a533-d2e3dfbf61a8",
+        "role" : "assistant",
+        "content" : "{\"_step_done\":false,\"action\":\"info_needed\",\"message\":\"请提供企业名称或统一信用代码进行查询。\"}",
+        "createdAt" : "2026-08-19T07:11:54.487722200Z"
+      }, {
+        "id" : "75016a6f-8ab1-4be6-8988-9c26327d8627",
+        "role" : "user",
+        "content" : "小米",
+        "createdAt" : "2026-08-19T07:11:57.630836300Z"
+      }, {
+        "id" : "2b70882d-d1e6-4a28-a6f1-2a53aa7b6a93",
+        "role" : "assistant",
+        "content" : "{\"_step_done\":false,\"_skill_name\":\"check_company_risk\",\"options\":[{\"credit_code\":\"91440300MA5DCTJHQA3\",\"company_name\":\"小米食品有限公司\"},{\"credit_code\":\"91440300MA5DCTJHQA1\",\"company_name\":\"小米科技有限公司\"},{\"credit_code\":\"91110108551385082Q\",\"company_name\":\"小米科技有限责任公司\"}],\"action\":\"not_found\",\"keyword\":\"小米\",\"message\":\"未找到与「小米」完全匹配的企业，以下是名称相似的企业：\"}",
+        "createdAt" : "2026-08-19T07:11:58.151620400Z"
+      }, {
+        "id" : "0c648744-7b27-492e-a419-962455959517",
+        "role" : "user",
+        "content" : "以上选项均不是",
+        "createdAt" : "2026-08-19T07:11:59.375529900Z"
+      }, {
+        "id" : "452e731e-f3b0-4084-9216-466ef4748049",
+        "role" : "assistant",
+        "content" : "以上选项均不是您要查询的企业。请提供准确的企业名称，或直接输入 18 位统一社会信用代码，我将为您重新查询。",
+        "createdAt" : "2026-08-19T07:11:59.376526100Z"
+      }, {
+        "id" : "f5187a06-b0a5-424f-bcf8-b73996d9d223",
+        "role" : "assistant",
+        "content" : "",
+        "createdAt" : "2026-08-19T07:11:59.379526400Z",
+        "extra" : {
+          "action" : "plan_progress",
+          "text" : "任务完成：1. 生成尽调报告（完成） 2. 风险预查"
+        }
+      }, {
+        "id" : "plan-status-91b2299a-5c29-4a9d-a727-813b9e7dee99",
+        "role" : "assistant",
+        "content" : "",
+        "createdAt" : "2026-08-19T07:11:59.383532100Z",
+        "extra" : {
+          "action" : "plan_status",
+          "active" : true,
+          "steps" : [ {
+            "skill" : "generate_report",
+            "summary" : "生成尽调报告（完成）",
+            "status" : "DONE",
+            "needsInput" : false
+          }, {
+            "skill" : "check_company_risk",
+            "summary" : "",
+            "status" : "DONE",
+            "needsInput" : true
+          } ],
+          "index" : 1,
+          "confirming" : false,
+          "suspended" : false,
+          "planId" : "91b2299a-5c29-4a9d-a727-813b9e7dee99",
+          "summary" : "任务完成：1. 生成尽调报告（完成） 2. 风险预查"
+        }
+      } ],
+      "createdAt" : "2026-08-19T07:11:19.577120600Z",
+      "updatedAt" : "2026-08-19T07:11:59.383532100Z"
+    },
+    "73a87601-c98b-4c2e-9adb-951d4bc00b6e" : {
+      "id" : "73a87601-c98b-4c2e-9adb-951d4bc00b6e",
       "userId" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
       "title" : "新对话",
       "messages" : [ ],
-      "createdAt" : "2026-08-19T05:50:27.216252300Z",
-      "updatedAt" : "2026-08-19T05:50:27.216252300Z"
+      "createdAt" : "2026-08-19T07:12:11.365771500Z",
+      "updatedAt" : "2026-08-19T07:12:11.365771500Z"
+    },
+    "f33147d2-2e4a-4601-8abc-c76a75c4351e" : {
+      "id" : "f33147d2-2e4a-4601-8abc-c76a75c4351e",
+      "userId" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
+      "title" : "查询信息",
+      "messages" : [ {
+        "id" : "7e01c26e-84d1-4ec1-9244-494419ff1e9f",
+        "role" : "user",
+        "content" : "查询信息",
+        "createdAt" : "2026-08-19T07:13:40.941179Z"
+      }, {
+        "id" : "3f4815d8-0173-47cd-83dd-f65dd78063c5",
+        "role" : "assistant",
+        "content" : "您好！我是您的智能尽调助手，很高兴为您服务。\n\n为了帮您精准定位，请问您提到的“查询信息”具体是指以下哪种情况呢？\n\n1. **核实客户信息**（如：查询企业工商信息、股权结构、经营资质，或核实受益所有人等）；\n2. **查询历史尽调记录**（如：查询该企业在我行过往的尽职调查档案）；\n3. **识别特定风险事项**（如：查询涉诉、行政处罚、负面舆情等信息）。\n\n另外，为了高效查询，请您一并提供需要查询的**企业名称**或**统一社会信用代码**，我来帮您处理。",
+        "createdAt" : "2026-08-19T07:13:49.720762700Z"
+      } ],
+      "createdAt" : "2026-08-19T07:13:40.941179Z",
+      "updatedAt" : "2026-08-19T07:13:49.720762700Z"
+    },
+    "250bcd1d-37d1-483c-afc2-90bba7664d80" : {
+      "id" : "250bcd1d-37d1-483c-afc2-90bba7664d80",
+      "userId" : "499ffe5c-159d-40a4-860f-23b02bc68b3a",
+      "title" : "新对话",
+      "messages" : [ ],
+      "createdAt" : "2026-08-19T07:17:13.581187800Z",
+      "updatedAt" : "2026-08-19T07:17:13.581187800Z"
     }
   },
   "c4857e5f-a552-494d-8086-d123d17d4d3d" : {

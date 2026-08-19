@@ -1,5 +1,6 @@
 import React from 'react'
 import type { RiskAmbiguousOption } from '../types'
+import CompanyCandidatePanel from './CompanyCandidatePanel'
 
 // ============================================================
 // Props
@@ -8,7 +9,8 @@ interface CompanyQueryCardProps {
   data: Record<string, unknown>
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  onSendMessage?: (content: string) => void
+  /** 发送消息回调（支持 silent 静默发送：不插入用户气泡） */
+  onSendMessage?: (content: string, silent?: boolean) => void
 }
 
 // ============================================================
@@ -63,70 +65,7 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
   const queryLabel = (data.query_label as string) || '企业信息'
   const queryType = (data.query_type as string) || ''
 
-  // ========== 未找到 / 名称歧义（候选选择） ==========
-  if (action === 'not_found' || action === 'ambiguous') {
-    const options = data.options as RiskAmbiguousOption[] | undefined
-    const keyword = data.keyword as string || ''
-    const isAmbiguous = action === 'ambiguous'
-    return (
-      <div
-        className={`company-query-card rounded-xl border overflow-hidden bg-gradient-to-br ${
-          isAmbiguous ? 'from-amber-50 to-yellow-50 border-amber-200' : 'from-gray-50 to-slate-50 border-gray-200'
-        }`}
-      >
-        <div className={`px-4 py-3 border-b bg-white/60 ${isAmbiguous ? 'border-amber-100' : 'border-gray-100'}`}>
-          <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-            <span className="text-lg">{isAmbiguous ? '🔍' : 'ℹ️'}</span>
-            {isAmbiguous ? `请确认要查询${queryLabel}的企业` : '未找到匹配企业'}
-          </h3>
-          {keyword && (
-            <p className="text-xs text-gray-500 mt-1">
-              搜索到 {options?.length || 0} 家名称包含"{keyword}"的企业
-            </p>
-          )}
-        </div>
-        <div className="p-3 space-y-2">
-          {options?.map((opt) => (
-            <button
-              key={opt.credit_code}
-              onClick={() => onSendMessage?.(`帮我查一下${opt.company_name}${queryLabel}`)}
-              disabled={disabled}
-              className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white
-                         hover:bg-amber-50 hover:border-amber-300 transition-all
-                         flex items-center justify-between group cursor-pointer
-                         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-amber-200"
-            >
-              <div>
-                <div className="text-sm font-medium text-gray-800 group-hover:text-amber-700">
-                  {opt.company_name}
-                </div>
-                <div className="text-xs text-gray-400 font-mono mt-0.5">{opt.credit_code}</div>
-              </div>
-              <svg className="w-4 h-4 text-amber-400 group-hover:text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ))}
-          {/* 模糊匹配兜底：候选均不是目标企业时点击，后端引导用户提供准确名称/信用代码 */}
-          <button
-            onClick={() => onSendMessage?.('以上选项均不是')}
-            disabled={disabled}
-            className="w-full text-center px-4 py-2.5 rounded-lg border border-dashed border-gray-300 bg-gray-50
-                       hover:bg-gray-100 text-sm text-gray-500 transition-all
-                       disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            以上选项均不是
-          </button>
-        </div>
-      </div>
-    )
-  }
-
-  // ========== 查询结果 ==========
-  const companyName = (data.company_name as string) || ''
-  const creditCode = (data.credit_code as string) || ''
-  const result = data.data as Record<string, unknown> | undefined
-
+  // 查询类型 → 功能名（卡片头部展示）
   const titleMap: Record<string, string> = {
     basic_info: '企业基本信息',
     shareholders: '股东信息',
@@ -139,6 +78,30 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
     pboc_account_control: '人行账户管控信息',
   }
   const title = titleMap[queryType] || queryLabel
+
+  // ========== 未找到 / 名称歧义（合并分支，统一候选面板） ==========
+  if (action === 'not_found' || action === 'ambiguous') {
+    const options = data.options as RiskAmbiguousOption[] | undefined
+    const keyword = data.keyword as string || ''
+    return (
+      <CompanyCandidatePanel
+        title={title}
+        variant={action as 'ambiguous' | 'not_found'}
+        options={options}
+        keyword={keyword}
+        notFoundMessage={data.message as string | undefined}
+        disabled={disabled}
+        // 直接发起对应功能查询（静默发送，企业名/功能词不暴露在对话流 user 部分）
+        onSelect={(opt) => onSendMessage?.(`帮我查一下${opt.company_name}${queryLabel}`, true)}
+        onNoneOfAbove={() => onSendMessage?.('以上都不是', true)}
+      />
+    )
+  }
+
+  // ========== 查询结果 ==========
+  const companyName = (data.company_name as string) || ''
+  const creditCode = (data.credit_code as string) || ''
+  const result = data.data as Record<string, unknown> | undefined
 
   const renderBody = () => {
     if (!result) return <p className="text-sm text-gray-500">暂无数据</p>

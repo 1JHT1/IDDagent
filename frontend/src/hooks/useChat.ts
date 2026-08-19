@@ -10,7 +10,7 @@ import { sendMessageStream, stopChatStream } from '../api/agent';
 interface UseChatReturn {
   messages: ChatMessage[];
   isSending: boolean;
-  sendMessage: (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => Promise<void>;
+  sendMessage: (content: string, overrideConvId?: string, attachments?: ChatAttachment[], silent?: boolean) => Promise<void>;
   stopStreaming: () => void;
   clearMessages: () => void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
@@ -113,6 +113,44 @@ function isResumeReplyText(content: string): boolean {
 }
 
 /**
+ * 卡片点击协议文本识别：模糊匹配候选卡片（CompanyCandidateCard / CompanyNameSelector）
+ * 点击后发送的固定句式，后端依赖其解析企业身份/选项（"公司：xx\n统一信用代码：xx"、
+ * "帮我查一下xx"、"查询统一信用代码为xx的客户的风险"、"帮我核实xx的信息"、
+ * "以上选项均不是"）。这类消息仅作为后端输入协议，不应在用户气泡中展示原文
+ * （企业名称与信用代码不外露）：sendMessage 命中时打 card_click 标记，
+ * ChatMessage 渲染时隐藏，直接呈现后续的结果卡片/下一步。
+ */
+export function isCardClickProtocol(content: string): boolean {
+  const t = content.trim()
+  return (
+    // CompanyNameSelector：按字段发送
+    /^公司：.+\n统一信用代码：\S+$/.test(t) ||
+    // 兜底按钮固定短语（当前文案"以上都不是"，兼容历史"以上选项均不是"）
+    /^以上(?:选项)?(?:均|都)?不是$/.test(t) ||
+    // CompanyQueryCard："帮我查一下{企业}{功能词}"（限定已知功能词结尾，避免误伤自然语言；
+    // 覆盖后端 SKILL_LABEL 全量标签含"海关失信名单信息"，以及 CompanyNameSelector 无
+    // query_label 时按技能名兑底解析的功能名）
+    /^帮我查一下.+?(企业信息|基本信息|股东信息|受益人信息|企业族谱|海关认证信息|海关失信名单信息?|账户冻结标签|授信信息|人行账户管控信息|风险预查|信息核实|历史尽调报告|企业信息查询|企业查询)$/.test(t) ||
+    // RiskCheckCard / InformationCheckCard：候选确认协议已统一为"公司：xx\n统一信用代码：xx"（首条匹配覆盖）
+    /^查询统一信用代码为[0-9A-Z]{18}的客户的风险$/.test(t) ||
+    // InformationCheckCard（历史版本）："帮我核实{企业}的信息"
+    /^帮我核实.+的信息$/.test(t)
+  )
+}
+
+/**
+ * 查找最后一张未确认的 company_name_candidates 卡片索引（候选确认乐观更新用）。
+ * 点击第 1 次候选后立即置 confirmed，无需等后端响应。
+ */
+function lastUnconfirmedCandidatesIndex(msgs: ChatMessage[]): number {
+  for (let i = msgs.length - 1; i >= 0; i--) {
+    const extra = msgs[i].extra as { action?: string; confirmed?: boolean } | undefined
+    if (extra?.action === 'company_name_candidates' && !extra.confirmed) return i
+  }
+  return -1
+}
+
+/**
  * 判断 resume_confirm 卡片是否已被用户消费：其后存在 plan_resume_yes/no 确认动作
  * 或文本回复（isResumeReplyText）即视为已消费。穿插进行中未消费的卡片始终位于
  * 对话最底部，是"穿插区域"与"正常对话"的分界点。
@@ -205,7 +243,7 @@ export function useChat(
   onMessageCompleteRef.current = onMessageComplete;
 
   const sendMessage = useCallback(
-    async (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => {
+    async (content: string, overrideConvId?: string, attachments?: ChatAttachment[], silent?: boolean) => {
       const effectiveConvId = overrideConvId ?? conversationIdRef.current;
       // 本次流所属会话：SSE 事件回调据此校验是否仍属于当前显示会话。
       // 切走会话后旧流在飞事件全部丢弃，避免旧会话的卡片/文本落地新会话消息流；
@@ -224,26 +262,44 @@ export function useChat(
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      // 添加用户消息
-      const userMsg: ChatMessage = {
-        id: `user-${Date.now()}`,
-        role: 'user',
-        content: content.trim(),
-        created_at: new Date().toISOString(),
-        ...(hasAttachments ? { attachments } : {}),
-      };
+      // 添加用户消息（silent 静默发送：卡片点击协议仅作为后端输入协议，不插入用户气泡，
+      // 点击候选后直接进入助手响应——企业名/信用代码等卡片指令不暴露在对话流 user 部分）
+      if (!silent) {
+        const userMsg: ChatMessage = {
+          id: `user-${Date.now()}`,
+          role: 'user',
+          content: content.trim(),
+          created_at: new Date().toISOString(),
+          ...(hasAttachments ? { attachments } : {}),
+          ...(isCardClickProtocol(content) ? { extra: { action: 'card_click' } } : {}),
+        };
 
-      setMessages((prev) => {
-        console.log('📋 添加用户消息, 之前消息数:', prev.length);
-        const t = content.trim();
-        // 确认动作（继续/结束/恢复）追加到确认卡片之后（消费该卡片）；
-        // 穿插进行中对 resume_confirm 的文本回复同样追加末尾（消费该卡片，卡片保持在最底部）；
-        // 其余消息（流程卡片点击、新请求/意图穿插）：穿插中插入到 resume_confirm 之前（穿插对话保持在卡片上方），
-        // 否则移除失效的“下一步”确认卡片再追加
-        if (isConfirmAction(t)) return [...prev, userMsg];
-        if (lastActiveResumeConfirmIndex(prev) >= 0 && isResumeReplyText(t)) return [...prev, userMsg];
-        return insertInterleavingAware(prev, [userMsg]);
-      });
+        setMessages((prev) => {
+          console.log('📋 添加用户消息, 之前消息数:', prev.length);
+          const t = content.trim();
+          // 确认动作（继续/结束/恢复）追加到确认卡片之后（消费该卡片）；
+          // 穿插进行中对 resume_confirm 的文本回复同样追加末尾（消费该卡片，卡片保持在最底部）；
+          // 其余消息（流程卡片点击、新请求/意图穿插）：穿插中插入到 resume_confirm 之前（穿插对话保持在卡片上方），
+          // 否则移除失效的“下一步”确认卡片再追加
+          if (isConfirmAction(t)) return [...prev, userMsg];
+          if (lastActiveResumeConfirmIndex(prev) >= 0 && isResumeReplyText(t)) return [...prev, userMsg];
+          return insertInterleavingAware(prev, [userMsg]);
+        });
+      }
+
+      // 候选确认乐观更新：静默发送"公司：xx\n统一信用代码：xx"确认协议后，将消息列表中
+      // 最后一张未确认的 company_name_candidates 卡片置 confirmed——点击第 1 次立即进入
+      // 已确认态（无需等后端响应）；后端落盘 extra.confirmed 后刷新/切换会话仍保持
+      if (silent && content.includes('公司') && content.includes('统一信用代码')) {
+        setMessages((prev) => {
+          const idx = lastUnconfirmedCandidatesIndex(prev)
+          if (idx < 0) return prev
+          const copy = [...prev]
+          const msg = copy[idx]
+          copy[idx] = { ...msg, extra: { ...(msg.extra || {}), confirmed: true } }
+          return copy
+        })
+      }
 
       // 添加流式助手消息占位
       const assistantMsgId = `assistant-${Date.now()}`;

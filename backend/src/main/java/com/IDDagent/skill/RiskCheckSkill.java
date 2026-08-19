@@ -508,6 +508,7 @@ public class RiskCheckSkill {
         List<Map<String, Object>> matches = fuzzyMatchCompany(query, nameIndex);
 
         if (matches.isEmpty()) {
+            // 零匹配：not_found（无候选）——只有不存在任何模糊匹配才进入
             Map<String, Object> resp = new HashMap<>();
             resp.put("action", "not_found");
             resp.put(Skill.KEY_STEP_DONE, true);
@@ -528,47 +529,32 @@ public class RiskCheckSkill {
         if (matches.size() == 1) {
             int score = ((Number) matches.get(0).get("_score")).intValue();
             if (score >= MIN_AUTO_MATCH_SCORE) {
+                // 唯一匹配且置信度足够：自动确认，直接查询
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("credit_code", matches.get(0).get("credit_code"));
                 return resp;
             }
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("action", "not_found");
-            // 带候选列表：未到达步骤结束点，等待用户点击候选后重跑当前步骤
-            resp.put(Skill.KEY_STEP_DONE, false);
-            resp.put("keyword", query);
-            resp.put("options", options);
-            resp.put("message", "未找到与「" + query + "」完全匹配的企业，您是否要查询以下相似企业？");
-            return resp;
         }
 
         int bestScore = ((Number) matches.get(0).get("_score")).intValue();
         int secondScore = matches.size() > 1 ? ((Number) matches.get(1).get("_score")).intValue() : 0;
 
         if (bestScore >= 95 && secondScore < MIN_AUTO_MATCH_SCORE) {
+            // 最高分远超次高分：自动确认，直接查询
             Map<String, Object> resp = new HashMap<>();
             resp.put("credit_code", matches.get(0).get("credit_code"));
             return resp;
         }
 
-        if (bestScore >= MIN_AUTO_MATCH_SCORE) {
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("action", "ambiguous");
-            // 带候选列表：未到达步骤结束点，等待用户点击候选后重跑当前步骤
-            resp.put(Skill.KEY_STEP_DONE, false);
-            resp.put("keyword", query);
-            resp.put("options", options);
-            resp.put("message", "搜索到 " + matches.size() + " 家与「" + query + "」匹配的企业，请确认要查询哪一家：");
-            return resp;
-        }
-
+        // 存在模糊匹配但置信度不足（唯一低分匹配/多候选竞争/最高分与次高分接近）：
+        // 一律返回 ambiguous 带候选列表，由用户显式确认；not_found 仅表示零匹配
         Map<String, Object> resp = new HashMap<>();
-        resp.put("action", "not_found");
+        resp.put("action", "ambiguous");
         // 带候选列表：未到达步骤结束点，等待用户点击候选后重跑当前步骤
         resp.put(Skill.KEY_STEP_DONE, false);
         resp.put("keyword", query);
         resp.put("options", options);
-        resp.put("message", "未找到与「" + query + "」完全匹配的企业，以下是名称相似的企业：");
+        resp.put("message", "搜索到 " + matches.size() + " 家与「" + query + "」匹配的企业，请确认要查询哪一家：");
         return resp;
     }
 

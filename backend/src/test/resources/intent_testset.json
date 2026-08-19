@@ -1,0 +1,630 @@
+{
+  "metadata": {
+    "name": "意图识别准确率测试集",
+    "version": "1.0",
+    "created": "2026-08-12",
+    "total": 203,
+    "eval_target": "CoordinatorService.routeIntent 决策输出（action + skill），与 expected 一致即命中",
+    "expected_format": "单意图=技能名；chat=chat；clarify=clarify；multi=multi[技能1,技能2,...]（顺序敏感）",
+    "level_spec": "easy=确定性直接命中；medium=口语化/泛化/上下文指代（多依赖 LLM 兜底）；hard=跨组冲突/歧义/对抗缺陷点",
+    "skills_under_test": [
+      "check_company_risk", "query_company_basic_info", "query_shareholder_info",
+      "query_beneficiary_info", "query_company_genealogy", "query_customs_auth",
+      "query_customs_blacklist", "query_account_freeze_tag", "query_credit_granting",
+      "query_pboc_account_control", "verify_business_license", "generate_report",
+      "query_due_diligence_reports"
+    ],
+    "note": "context 类用例需配合指定前置消息执行（见 note 字段）；adversarial 类含系统已知缺陷点，命中失败不一定是回归，需人工复核"
+  },
+  "cases": [
+    {
+      "id": "RISK-001", "input": "帮我做一下小米科技的风险识别", "expected": "check_company_risk", "level": "easy", "category": "risk", "note": "直接命中触发词'风险识别'，唯一候选直接路由"
+    },
+    {
+      "id": "RISK-002", "input": "查询云禾科技的企业风险报告", "expected": "check_company_risk", "level": "easy", "category": "risk", "note": "命中'企业风险'+'风险报告'"
+    },
+    {
+      "id": "RISK-003", "input": "给北京星河科技有限公司做风险预查", "expected": "check_company_risk", "level": "easy", "category": "risk", "note": "命中'风险预查'"
+    },
+    {
+      "id": "RISK-004", "input": "风险筛查一下深圳前海创新金融集团", "expected": "check_company_risk", "level": "easy", "category": "risk", "note": "命中'风险筛查'"
+    },
+    {
+      "id": "RISK-005", "input": "看看杭州云栖大数据有没有风险", "expected": "check_company_risk", "level": "easy", "category": "risk", "note": "命中'风险'，basic 被'风险'排除词否决"
+    },
+    {
+      "id": "RISK-006", "input": "请对武汉光谷生物医药做风险预检", "expected": "check_company_risk", "level": "easy", "category": "risk", "note": "命中'风险预检'，前缀介词'对'被清洗"
+    },
+    {
+      "id": "RISK-007", "input": "91110108551385082Q 的风险情况怎么样", "expected": "check_company_risk", "level": "medium", "category": "risk", "note": "信用代码直接查询，直接参数提取"
+    },
+    {
+      "id": "RISK-008", "input": "这家公司有没有风险，帮我看看", "expected": "check_company_risk", "level": "medium", "category": "risk", "note": "上下文指代+命中'风险'"
+    },
+    {
+      "id": "RISK-009", "input": "帮我查一下成都天府半导体的风险预警信息", "expected": "check_company_risk", "level": "medium", "category": "risk", "note": "'风险预警'含'风险'子串命中；'查一下'触发的 basic 被'风险'排除"
+    },
+    {
+      "id": "RISK-010", "input": "风险识别一下，我需要完整报告", "expected": "check_company_risk", "level": "medium", "category": "risk", "note": "命中'风险识别'，无企业名，参数后补"
+    },
+    {
+      "id": "RISK-011", "input": "小米科技有没有什么风险点", "expected": "check_company_risk", "level": "medium", "category": "risk", "note": "口语化'风险点'命中'风险'"
+    },
+    {
+      "id": "RISK-012", "input": "帮我做个企业风险筛查", "expected": "check_company_risk", "level": "easy", "category": "risk", "note": "无企业名仅关键词，仍应唯一路由 risk（参数后补）"
+    },
+    {
+      "id": "BAS-001", "input": "查询一下小米科技的基本信息", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'查询'，无排除词，query 组兜底"
+    },
+    {
+      "id": "BAS-002", "input": "提供一下北京星河科技有限公司的资料", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'提供'"
+    },
+    {
+      "id": "BAS-003", "input": "获取云禾科技的工商信息", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'获取'"
+    },
+    {
+      "id": "BAS-004", "input": "我想看一下小米科技有限公司的基本情况", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'看一下'"
+    },
+    {
+      "id": "BAS-005", "input": "查一下上海浦江智能装备的注册资本", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'查一下'，'注册资本'不在排除词"
+    },
+    {
+      "id": "BAS-006", "input": "小米科技的工商登记信息帮我查查", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'查查'，确定性路由 basic"
+    },
+    {
+      "id": "BAS-007", "input": "麻烦查一下苏州工业园区芯片设计的注册信息", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'查一下'"
+    },
+    {
+      "id": "BAS-008", "input": "这家公司的基本信息", "expected": "query_company_basic_info", "level": "medium", "category": "basic_info", "note": "无查询行为词，需依赖上下文记忆 + LLM 兜底"
+    },
+    {
+      "id": "BAS-009", "input": "帮我看看叶子科技的情况", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'看看'，确定性路由 basic"
+    },
+    {
+      "id": "BAS-010", "input": "查一下小米至善科技有限公司的信息", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'查一下'，企业名变体"
+    },
+    {
+      "id": "BAS-011", "input": "请提供厦门两岸科技孵化器的基本资料", "expected": "query_company_basic_info", "level": "easy", "category": "basic_info", "note": "命中'提供'"
+    },
+    {
+      "id": "BAS-012", "input": "查询小米科技", "expected": "query_company_basic_info", "level": "medium", "category": "basic_info", "note": "仅'查询'+企业名，query 组兜底，参数由后续交互补齐"
+    },
+    {
+      "id": "SHA-001", "input": "查一下小米科技的股东信息", "expected": "query_shareholder_info", "level": "easy", "category": "shareholder", "note": "命中'股东'；basic 被'股东'排除词否决"
+    },
+    {
+      "id": "SHA-002", "input": "小米科技有哪些股东", "expected": "query_shareholder_info", "level": "easy", "category": "shareholder", "note": "命中'股东'，唯一候选"
+    },
+    {
+      "id": "SHA-003", "input": "查询深圳前海创新金融集团的股权结构", "expected": "query_shareholder_info", "level": "easy", "category": "shareholder", "note": "命中'股权结构'"
+    },
+    {
+      "id": "SHA-004", "input": "这家公司的股东都是谁", "expected": "query_shareholder_info", "level": "medium", "category": "shareholder", "note": "上下文指代+命中'股东'"
+    },
+    {
+      "id": "SHA-005", "input": "看看北京星河科技的股权分布", "expected": "query_shareholder_info", "level": "easy", "category": "shareholder", "note": "命中'股权分布'，同组 query 内 p40 胜出 basic 的 p10"
+    },
+    {
+      "id": "SHA-006", "input": "查一下小米科技的股东和股权结构", "expected": "query_shareholder_info", "level": "easy", "category": "shareholder", "note": "同技能触发词重复，去重后单意图"
+    },
+    {
+      "id": "SHA-007", "input": "杭州云栖大数据的股东名单", "expected": "query_shareholder_info", "level": "medium", "category": "shareholder", "note": "无查询行为词，命中'股东'直接唯一"
+    },
+    {
+      "id": "SHA-008", "input": "帮我查一下南京江宁新能源动力的股东构成", "expected": "query_shareholder_info", "level": "easy", "category": "shareholder", "note": "命中'股东'"
+    },
+    {
+      "id": "SHA-009", "input": "查询小米科技股东持股比例", "expected": "query_shareholder_info", "level": "easy", "category": "shareholder", "note": "命中'股东'"
+    },
+    {
+      "id": "SHA-010", "input": "小米科技的股东有没有变更记录", "expected": "query_shareholder_info", "level": "medium", "category": "shareholder", "note": "命中'股东'，口语化"
+    },
+    {
+      "id": "BEN-001", "input": "查询小米科技的受益人信息", "expected": "query_beneficiary_info", "level": "easy", "category": "beneficiary", "note": "命中'受益人'；basic 被'受益人'排除词否决"
+    },
+    {
+      "id": "BEN-002", "input": "这家公司的实际控制人是谁", "expected": "query_beneficiary_info", "level": "medium", "category": "beneficiary", "note": "上下文指代+命中'实际控制人'"
+    },
+    {
+      "id": "BEN-003", "input": "受益所有人是什么情况", "expected": "query_beneficiary_info", "level": "easy", "category": "beneficiary", "note": "命中'受益所有人'，无企业名参数后补"
+    },
+    {
+      "id": "BEN-004", "input": "查一下北京星河科技的受益所有人", "expected": "query_beneficiary_info", "level": "easy", "category": "beneficiary", "note": "命中'受益所有人'"
+    },
+    {
+      "id": "BEN-005", "input": "小米科技的实际控制人是谁", "expected": "query_beneficiary_info", "level": "easy", "category": "beneficiary", "note": "命中'实际控制人'"
+    },
+    {
+      "id": "BEN-006", "input": "帮我查一下深圳前海创新金融集团的实控人", "expected": "query_beneficiary_info", "level": "medium", "category": "beneficiary", "note": "'实控人'缩写不命中触发词，依赖 LLM 兜底泛化"
+    },
+    {
+      "id": "BEN-007", "input": "这个企业的受益人有哪些", "expected": "query_beneficiary_info", "level": "medium", "category": "beneficiary", "note": "上下文指代+命中'受益人'"
+    },
+    {
+      "id": "BEN-008", "input": "查一下最终受益人", "expected": "query_beneficiary_info", "level": "easy", "category": "beneficiary", "note": "命中'受益人'"
+    },
+    {
+      "id": "BEN-009", "input": "查询小米科技的受益人和股东分别是谁", "expected": "multi[query_beneficiary_info,query_shareholder_info]", "level": "hard", "category": "multi", "note": "query 组平票（同 p40）→ LLM 仲裁输出 multi"
+    },
+    {
+      "id": "BEN-010", "input": "谁是小微企业的实际控制人", "expected": "query_beneficiary_info", "level": "medium", "category": "beneficiary", "note": "命中'实际控制人'，无明确企业名，参数后补"
+    },
+    {
+      "id": "GEN-001", "input": "查询小米科技的企业族谱", "expected": "query_company_genealogy", "level": "easy", "category": "genealogy", "note": "命中'企业族谱'；basic 被'族谱'排除词否决"
+    },
+    {
+      "id": "GEN-002", "input": "看看北京星河科技的家族图谱", "expected": "query_company_genealogy", "level": "easy", "category": "genealogy", "note": "命中'家族图谱'"
+    },
+    {
+      "id": "GEN-003", "input": "查一下小米科技的关联企业图谱", "expected": "query_company_genealogy", "level": "easy", "category": "genealogy", "note": "命中'关联企业图谱'"
+    },
+    {
+      "id": "GEN-004", "input": "这家公司的上下游关联图谱", "expected": "query_company_genealogy", "level": "medium", "category": "genealogy", "note": "'关联图谱'不命中触发词，依赖 LLM 兜底泛化"
+    },
+    {
+      "id": "GEN-005", "input": "小米科技的关联企业有哪些", "expected": "query_company_genealogy", "level": "medium", "category": "genealogy", "note": "'关联企业'是触发词子串但非完整命中，依赖 LLM 兜底"
+    },
+    {
+      "id": "GEN-006", "input": "查询杭州云栖大数据的企业族谱", "expected": "query_company_genealogy", "level": "easy", "category": "genealogy", "note": "命中'企业族谱'"
+    },
+    {
+      "id": "GEN-007", "input": "帮我查一下上海浦江智能装备的家族图谱", "expected": "query_company_genealogy", "level": "easy", "category": "genealogy", "note": "命中'家族图谱'"
+    },
+    {
+      "id": "GEN-008", "input": "企业家族图谱怎么查", "expected": "query_company_genealogy", "level": "easy", "category": "genealogy", "note": "命中'家族图谱'，倒装句式"
+    },
+    {
+      "id": "CUSA-001", "input": "查询小米科技的海关认证信息", "expected": "query_customs_auth", "level": "easy", "category": "customs_auth", "note": "命中'海关认证'；basic 被'海关'排除词否决"
+    },
+    {
+      "id": "CUSA-002", "input": "有没有AEO认证", "expected": "query_customs_auth", "level": "easy", "category": "customs_auth", "note": "命中'AEO认证'"
+    },
+    {
+      "id": "CUSA-003", "input": "海关高级认证情况怎么样", "expected": "query_customs_auth", "level": "easy", "category": "customs_auth", "note": "命中'海关高级认证'"
+    },
+    {
+      "id": "CUSA-004", "input": "查一下北京星河科技的海关认证", "expected": "query_customs_auth", "level": "easy", "category": "customs_auth", "note": "命中'海关认证'"
+    },
+    {
+      "id": "CUSA-005", "input": "小米科技是海关高级认证企业吗", "expected": "query_customs_auth", "level": "easy", "category": "customs_auth", "note": "命中'海关高级认证'"
+    },
+    {
+      "id": "CUSA-006", "input": "这家公司的AEO资质", "expected": "query_customs_auth", "level": "medium", "category": "customs_auth", "note": "'AEO资质'不命中'AEO认证'，依赖 LLM 兜底泛化"
+    },
+    {
+      "id": "CUSA-007", "input": "查询深圳前海创新金融集团的海关认证等级", "expected": "query_customs_auth", "level": "medium", "category": "customs_auth", "note": "命中'海关认证'，附加修饰语"
+    },
+    {
+      "id": "CUSA-008", "input": "帮我查海关认证和失信名单", "expected": "multi[query_customs_auth,query_customs_blacklist]", "level": "hard", "category": "multi", "note": "两技能互为排除词，确定性层双双否决 → LLM 兜底输出 multi"
+    },
+    {
+      "id": "CUSB-001", "input": "查询小米科技的海关失信名单", "expected": "query_customs_blacklist", "level": "easy", "category": "customs_blacklist", "note": "命中'海关失信名单'；auth 被'海关失信'排除"
+    },
+    {
+      "id": "CUSB-002", "input": "小米科技在海关黑名单里吗", "expected": "query_customs_blacklist", "level": "easy", "category": "customs_blacklist", "note": "命中'海关黑名单'"
+    },
+    {
+      "id": "CUSB-003", "input": "查一下海关失信情况", "expected": "query_customs_blacklist", "level": "easy", "category": "customs_blacklist", "note": "命中'海关失信'"
+    },
+    {
+      "id": "CUSB-004", "input": "这家公司是不是海关失信企业", "expected": "query_customs_blacklist", "level": "medium", "category": "customs_blacklist", "note": "上下文指代+命中'海关失信'"
+    },
+    {
+      "id": "CUSB-005", "input": "海关失信名单里有没有北京星河科技", "expected": "query_customs_blacklist", "level": "easy", "category": "customs_blacklist", "note": "命中'海关失信名单'"
+    },
+    {
+      "id": "CUSB-006", "input": "小米科技的海关失信记录", "expected": "query_customs_blacklist", "level": "easy", "category": "customs_blacklist", "note": "命中'海关失信'"
+    },
+    {
+      "id": "CUSB-007", "input": "查一下杭州云栖大数据的海关黑名单记录", "expected": "query_customs_blacklist", "level": "easy", "category": "customs_blacklist", "note": "命中'海关黑名单'"
+    },
+    {
+      "id": "CUSB-008", "input": "企业被列入海关失信名单了吗", "expected": "query_customs_blacklist", "level": "medium", "category": "customs_blacklist", "note": "命中'海关失信名单'，疑问句式"
+    },
+    {
+      "id": "FRE-001", "input": "查询小米科技的账户冻结情况", "expected": "query_account_freeze_tag", "level": "easy", "category": "freeze", "note": "命中'账户冻结'；basic 被'冻结'排除词否决"
+    },
+    {
+      "id": "FRE-002", "input": "这家公司的账户有没有被司法冻结", "expected": "query_account_freeze_tag", "level": "medium", "category": "freeze", "note": "上下文指代+命中'司法冻结'"
+    },
+    {
+      "id": "FRE-003", "input": "查一下账户冻结标签", "expected": "query_account_freeze_tag", "level": "easy", "category": "freeze", "note": "命中'账户冻结'"
+    },
+    {
+      "id": "FRE-004", "input": "小米科技的银行账户是否被冻结", "expected": "query_account_freeze_tag", "level": "easy", "category": "freeze", "note": "命中'冻结'"
+    },
+    {
+      "id": "FRE-005", "input": "帮我查一下北京星河科技的冻结状态", "expected": "query_account_freeze_tag", "level": "easy", "category": "freeze", "note": "命中'冻结'"
+    },
+    {
+      "id": "FRE-006", "input": "该企业账户冻结了吗", "expected": "query_account_freeze_tag", "level": "medium", "category": "freeze", "note": "命中'冻结'，疑问句式"
+    },
+    {
+      "id": "FRE-007", "input": "查询深圳前海创新金融集团的司法冻结信息", "expected": "query_account_freeze_tag", "level": "easy", "category": "freeze", "note": "命中'司法冻结'"
+    },
+    {
+      "id": "FRE-008", "input": "小米科技账户有没有冻结风险", "expected": "query_account_freeze_tag", "level": "hard", "category": "freeze", "note": "'冻结'与'风险'跨组冲突 → LLM 仲裁；语义指向账户冻结"
+    },
+    {
+      "id": "CRE-001", "input": "查询小米科技的授信信息", "expected": "query_credit_granting", "level": "easy", "category": "credit", "note": "命中'授信'；basic 被'授信'排除词否决"
+    },
+    {
+      "id": "CRE-002", "input": "授信额度是多少", "expected": "query_credit_granting", "level": "easy", "category": "credit", "note": "命中'授信额度'"
+    },
+    {
+      "id": "CRE-003", "input": "综合授信情况怎么样", "expected": "query_credit_granting", "level": "easy", "category": "credit", "note": "命中'综合授信'"
+    },
+    {
+      "id": "CRE-004", "input": "查一下小米科技的授信余额", "expected": "query_credit_granting", "level": "easy", "category": "credit", "note": "命中'授信余额'"
+    },
+    {
+      "id": "CRE-005", "input": "这家公司的授信情况", "expected": "query_credit_granting", "level": "medium", "category": "credit", "note": "上下文指代+命中'授信'"
+    },
+    {
+      "id": "CRE-006", "input": "查询北京星河科技的授信额度", "expected": "query_credit_granting", "level": "easy", "category": "credit", "note": "命中'授信额度'"
+    },
+    {
+      "id": "CRE-007", "input": "银行给小米科技批了多少授信", "expected": "query_credit_granting", "level": "medium", "category": "credit", "note": "命中'授信'，口语化"
+    },
+    {
+      "id": "CRE-008", "input": "授信和账户管控一起查一下", "expected": "multi[query_credit_granting,query_pboc_account_control]", "level": "hard", "category": "multi", "note": "跨组候选 → LLM 仲裁输出 multi"
+    },
+    {
+      "id": "PBO-001", "input": "查询小米科技的人行账管信息", "expected": "query_pboc_account_control", "level": "easy", "category": "pboc", "note": "命中'人行账管'；basic 被'账管'排除词否决"
+    },
+    {
+      "id": "PBO-002", "input": "人民银行账户管理情况", "expected": "query_pboc_account_control", "level": "easy", "category": "pboc", "note": "命中'人民银行账户管理'"
+    },
+    {
+      "id": "PBO-003", "input": "查一下账户管控", "expected": "query_pboc_account_control", "level": "easy", "category": "pboc", "note": "命中'账户管控'"
+    },
+    {
+      "id": "PBO-004", "input": "央行账户管理信息", "expected": "query_pboc_account_control", "level": "easy", "category": "pboc", "note": "命中'央行账户管理'"
+    },
+    {
+      "id": "PBO-005", "input": "这家公司的人行账管记录", "expected": "query_pboc_account_control", "level": "medium", "category": "pboc", "note": "上下文指代+命中'人行账管'"
+    },
+    {
+      "id": "PBO-006", "input": "查询北京星河科技的账户管控情况", "expected": "query_pboc_account_control", "level": "easy", "category": "pboc", "note": "命中'账户管控'"
+    },
+    {
+      "id": "PBO-007", "input": "人行账户管控怎么样", "expected": "query_pboc_account_control", "level": "easy", "category": "pboc", "note": "命中'人行账管'"
+    },
+    {
+      "id": "PBO-008", "input": "账户管控和冻结一起查", "expected": "multi[query_pboc_account_control,query_account_freeze_tag]", "level": "hard", "category": "multi", "note": "跨组候选 → LLM 仲裁输出 multi"
+    },
+    {
+      "id": "VER-001", "input": "帮我核实一下小米科技的营业执照", "expected": "verify_business_license", "level": "easy", "category": "verify", "note": "命中'核实'；basic 被'核实'排除词否决"
+    },
+    {
+      "id": "VER-002", "input": "营业执照核验", "expected": "verify_business_license", "level": "easy", "category": "verify", "note": "命中'营业执照核验'"
+    },
+    {
+      "id": "VER-003", "input": "信息核查一下北京星河科技", "expected": "verify_business_license", "level": "easy", "category": "verify", "note": "命中'信息核查'"
+    },
+    {
+      "id": "VER-004", "input": "核实一下", "expected": "verify_business_license", "level": "easy", "category": "verify", "note": "仅关键词，唯一候选直接路由，参数后补 info_needed"
+    },
+    {
+      "id": "VER-005", "input": "上传的附件帮我核实一下", "expected": "verify_business_license", "level": "medium", "category": "verify", "note": "附件+用途关键词'核实'"
+    },
+    {
+      "id": "VER-006", "input": "核实营业执照和公司信息", "expected": "verify_business_license", "level": "easy", "category": "verify", "note": "命中'核实'；'公司信息'不触发 basic（无查询行为词）"
+    },
+    {
+      "id": "VER-007", "input": "帮我核验一下这家公司的执照", "expected": "verify_business_license", "level": "medium", "category": "verify", "note": "命中'核验'，口语化表达"
+    },
+    {
+      "id": "VER-008", "input": "小米科技的营业执照是真实的吗", "expected": "verify_business_license", "level": "hard", "category": "verify", "note": "无核实类关键词，依赖 LLM 兜底语义泛化"
+    },
+    {
+      "id": "VER-009", "input": "信息核实并做风险识别", "expected": "multi[verify_business_license,check_company_risk]", "level": "hard", "category": "multi", "note": "跨组候选 → LLM 仲裁输出 multi"
+    },
+    {
+      "id": "VER-010", "input": "核查一下深圳前海创新金融集团的营业执照", "expected": "verify_business_license", "level": "easy", "category": "verify", "note": "命中'核查'"
+    },
+    {
+      "id": "GENR-001", "input": "帮我生成一份尽调报告", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'生成'+'尽调报告'"
+    },
+    {
+      "id": "GENR-002", "input": "生成小米科技的尽调报告", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'生成'+'尽调报告'；basic 被'报告''尽调'排除词否决"
+    },
+    {
+      "id": "GENR-003", "input": "财务分析报告", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'财务分析报告'"
+    },
+    {
+      "id": "GENR-004", "input": "授信评估", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'授信评估'；同时命中 credit 的'授信' → 跨组仲裁，语义为生成授信评估报告"
+    },
+    {
+      "id": "GENR-005", "input": "报告模板在哪里", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'报告模板'"
+    },
+    {
+      "id": "GENR-006", "input": "上传资料生成报告", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'上传资料生成报告'"
+    },
+    {
+      "id": "GENR-007", "input": "怎么看尽调报告", "expected": "generate_report", "level": "hard", "category": "generate_report", "note": "命中'尽调报告'→ generate_report 唯一；但'怎么看'带历史查询语气，易与 historical 混淆"
+    },
+    {
+      "id": "GENR-008", "input": "帮我生成一份财务分析报告", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'财务分析报告'"
+    },
+    {
+      "id": "GENR-009", "input": "生成报告", "expected": "generate_report", "level": "easy", "category": "generate_report", "note": "命中'生成报告'"
+    },
+    {
+      "id": "GENR-010", "input": "生成小米科技的授信评估报告", "expected": "generate_report", "level": "hard", "category": "generate_report", "note": "命中'授信评估'（报告组）+ credit'授信'（query 组）→ 跨组仲裁，语义为生成报告"
+    },
+    {
+      "id": "HIS-001", "input": "查询历史尽调报告", "expected": "query_due_diligence_reports", "level": "easy", "category": "historical", "note": "命中'历史尽调'+'历史报告'；generate_report 被'历史'排除词否决"
+    },
+    {
+      "id": "HIS-002", "input": "看看之前的历史报告", "expected": "query_due_diligence_reports", "level": "easy", "category": "historical", "note": "命中'历史报告'"
+    },
+    {
+      "id": "HIS-003", "input": "查一下小米科技的历史尽调记录", "expected": "query_due_diligence_reports", "level": "easy", "category": "historical", "note": "命中'历史尽调'"
+    },
+    {
+      "id": "HIS-004", "input": "查询历史", "expected": "query_due_diligence_reports", "level": "medium", "category": "historical", "note": "命中'历史'+'查询历史'；'查询'触发 basic（无'历史'排除词）→ 跨组仲裁，语义为历史查询"
+    },
+    {
+      "id": "HIS-005", "input": "小米科技以前的尽调报告", "expected": "query_due_diligence_reports", "level": "medium", "category": "historical", "note": "'以前的'不命中触发词，依赖 LLM 兜底语义泛化"
+    },
+    {
+      "id": "HIS-006", "input": "历史报告查一下", "expected": "query_due_diligence_reports", "level": "easy", "category": "historical", "note": "命中'历史报告'"
+    },
+    {
+      "id": "HIS-007", "input": "查一下2024年小米科技的尽调报告", "expected": "query_due_diligence_reports", "level": "hard", "category": "historical", "note": "对抗点：无'历史'字眼 → 确定性层命中 generate_report（排除词不触发）；语义为查历史报告，expected 按语义标注"
+    },
+    {
+      "id": "HIS-008", "input": "尽调记录查询", "expected": "query_due_diligence_reports", "level": "easy", "category": "historical", "note": "命中'尽调记录'"
+    },
+    {
+      "id": "CHAT-001", "input": "你好", "expected": "chat", "level": "easy", "category": "chat", "note": "无技能关键词，LLM 兜底应返回 chat"
+    },
+    {
+      "id": "CHAT-002", "input": "谢谢", "expected": "chat", "level": "easy", "category": "chat", "note": "纯礼貌用语"
+    },
+    {
+      "id": "CHAT-003", "input": "再见", "expected": "chat", "level": "easy", "category": "chat", "note": "纯礼貌用语"
+    },
+    {
+      "id": "CHAT-004", "input": "你是谁", "expected": "chat", "level": "easy", "category": "chat", "note": "身份询问"
+    },
+    {
+      "id": "CHAT-005", "input": "今天天气怎么样", "expected": "chat", "level": "easy", "category": "chat", "note": "无关话题"
+    },
+    {
+      "id": "CHAT-006", "input": "帮我写一首诗", "expected": "chat", "level": "easy", "category": "chat", "note": "无关技能请求"
+    },
+    {
+      "id": "CHAT-007", "input": "我不太明白", "expected": "chat", "level": "easy", "category": "chat", "note": "非技能意图"
+    },
+    {
+      "id": "CHAT-008", "input": "在吗", "expected": "chat", "level": "easy", "category": "chat", "note": "寒暄"
+    },
+    {
+      "id": "CHAT-009", "input": "好的", "expected": "chat", "level": "easy", "category": "chat", "note": "确认回复"
+    },
+    {
+      "id": "CHAT-010", "input": "讲个笑话", "expected": "chat", "level": "easy", "category": "chat", "note": "无关请求"
+    },
+    {
+      "id": "CHAT-011", "input": "谢谢你的帮助", "expected": "chat", "level": "easy", "category": "chat", "note": "礼貌用语"
+    },
+    {
+      "id": "CHAT-012", "input": "小米科技", "expected": "chat", "level": "easy", "category": "chat", "note": "仅企业名 → 规则1 应返回 chat"
+    },
+    {
+      "id": "CHAT-013", "input": "北京星河科技怎么样", "expected": "chat", "level": "easy", "category": "chat", "note": "仅企业名+评价词，无技能关键词"
+    },
+    {
+      "id": "CHAT-014", "input": "这个系统是做什么的", "expected": "chat", "level": "easy", "category": "chat", "note": "系统咨询"
+    },
+    {
+      "id": "CHAT-015", "input": "明天会下雨吗", "expected": "chat", "level": "easy", "category": "chat", "note": "无关话题"
+    },
+    {
+      "id": "CHAT-016", "input": "123456", "expected": "chat", "level": "easy", "category": "chat", "note": "无意义输入"
+    },
+    {
+      "id": "CHAT-017", "input": "帮我推荐一家餐厅", "expected": "chat", "level": "easy", "category": "chat", "note": "无关请求"
+    },
+    {
+      "id": "CHAT-018", "input": "嗯嗯", "expected": "chat", "level": "easy", "category": "chat", "note": "语气词"
+    },
+    {
+      "id": "CHAT-019", "input": "[用户上传了附件：小米科技.PNG]", "expected": "chat", "level": "easy", "category": "chat", "note": "附件无用途关键词 → 规则17 应返回 chat"
+    },
+    {
+      "id": "CHAT-020", "input": "你吃饭了吗", "expected": "chat", "level": "easy", "category": "chat", "note": "闲聊"
+    },
+    {
+      "id": "CHAT-021", "input": "没什么事，随便聊聊", "expected": "chat", "level": "easy", "category": "chat", "note": "闲聊"
+    },
+    {
+      "id": "CHAT-022", "input": "你叫什么名字", "expected": "chat", "level": "easy", "category": "chat", "note": "身份询问"
+    },
+    {
+      "id": "CLR-001", "input": "帮我查一下报告", "expected": "clarify", "level": "hard", "category": "clarify", "note": "报告生成 vs 历史查询歧义；'报告'不命中 generate_report 完整触发词 → 期望澄清"
+    },
+    {
+      "id": "CLR-002", "input": "帮我处理一下小米科技", "expected": "clarify", "level": "hard", "category": "clarify", "note": "意图不明（无技能关键词）→ 期望澄清"
+    },
+    {
+      "id": "CLR-003", "input": "小米科技的账户情况", "expected": "clarify", "level": "hard", "category": "clarify", "note": "账户相关技能多个（冻结/授信/账管）且无触发词 → 期望澄清"
+    },
+    {
+      "id": "CLR-004", "input": "尽调", "expected": "clarify", "level": "hard", "category": "clarify", "note": "尽调相关但类型不明（生成报告 vs 历史查询）→ 期望澄清"
+    },
+    {
+      "id": "CLR-005", "input": "关于北京星河科技，帮我做点什么", "expected": "clarify", "level": "hard", "category": "clarify", "note": "意图不明 → 期望澄清"
+    },
+    {
+      "id": "CLR-006", "input": "查一下小米科技的风险还是股东", "expected": "clarify", "level": "hard", "category": "clarify", "note": "'还是'表二选一疑问，跨组候选 → 仲裁应输出 clarify"
+    },
+    {
+      "id": "CLR-007", "input": "小米科技，帮我查查", "expected": "query_company_basic_info", "level": "medium", "category": "clarify", "note": "命中'查查'→basic 唯一候选直接路由；'小米科技'简称歧义由 company_name_candidates 企业名选择澄清"
+    },
+    {
+      "id": "CLR-008", "input": "报告", "expected": "clarify", "level": "hard", "category": "clarify", "note": "单独'报告'：生成 vs 历史查询歧义 → 期望澄清"
+    },
+    {
+      "id": "CLR-009", "input": "你帮我看看小米科技在海关的情况", "expected": "clarify", "level": "hard", "category": "clarify", "note": "海关认证 vs 失信歧义，无完整触发词 → 期望澄清"
+    },
+    {
+      "id": "CLR-010", "input": "我想查一下", "expected": "clarify", "level": "hard", "category": "clarify", "note": "无对象无内容 → 期望澄清或 chat，按澄清标注"
+    },
+    {
+      "id": "CLR-011", "input": "帮我看下这家公司", "expected": "clarify", "level": "hard", "category": "clarify", "note": "上下文指代+无明确操作 → 期望澄清"
+    },
+    {
+      "id": "CLR-012", "input": "帮我评估一下小米科技", "expected": "clarify", "level": "hard", "category": "clarify", "note": "'评估'不命中任何技能 → 期望澄清"
+    },
+    {
+      "id": "MUL-001", "input": "核实小米科技的信息并做风险识别", "expected": "multi[verify_business_license,check_company_risk]", "level": "hard", "category": "multi", "note": "双意图：核实+风险"
+    },
+    {
+      "id": "MUL-002", "input": "查一下小米科技的股东和受益人", "expected": "multi[query_shareholder_info,query_beneficiary_info]", "level": "hard", "category": "multi", "note": "query 组平票 → 仲裁 multi"
+    },
+    {
+      "id": "MUL-003", "input": "查询小米科技的授信和人行账管情况", "expected": "multi[query_credit_granting,query_pboc_account_control]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-004", "input": "帮我看一下小米科技的风险和股东", "expected": "multi[check_company_risk,query_shareholder_info]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-005", "input": "核实营业执照后生成尽调报告", "expected": "multi[verify_business_license,generate_report]", "level": "hard", "category": "multi", "note": "依赖关系：报告排最后"
+    },
+    {
+      "id": "MUL-006", "input": "查询账户冻结和授信情况", "expected": "multi[query_account_freeze_tag,query_credit_granting]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-007", "input": "查询海关认证和失信名单", "expected": "multi[query_customs_auth,query_customs_blacklist]", "level": "hard", "category": "multi", "note": "互为排除词 → 确定性层无候选 → LLM 兜底 multi"
+    },
+    {
+      "id": "MUL-008", "input": "风险预查并生成报告", "expected": "multi[check_company_risk,generate_report]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-009", "input": "查股东、受益人还有企业族谱", "expected": "multi[query_shareholder_info,query_beneficiary_info,query_company_genealogy]", "level": "hard", "category": "multi", "note": "三意图 multi"
+    },
+    {
+      "id": "MUL-010", "input": "信息核实和基本信息查询", "expected": "multi[verify_business_license,query_company_basic_info]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-011", "input": "查一下小米科技的基本信息和风险", "expected": "multi[query_company_basic_info,check_company_risk]", "level": "hard", "category": "multi", "note": "对抗点：basic 被'风险'排除词否决 → 确定性层实际仅剩 risk，expected 按完整语义标注"
+    },
+    {
+      "id": "MUL-012", "input": "帮我核实信息并查一下历史尽调报告", "expected": "multi[verify_business_license,query_due_diligence_reports]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-013", "input": "查授信和海关认证", "expected": "multi[query_credit_granting,query_customs_auth]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-014", "input": "生成报告并做风险预查", "expected": "multi[generate_report,check_company_risk]", "level": "hard", "category": "multi", "note": "跨组 multi"
+    },
+    {
+      "id": "MUL-015", "input": "查询小米科技的受益人和股东情况", "expected": "multi[query_beneficiary_info,query_shareholder_info]", "level": "hard", "category": "multi", "note": "query 组平票 → 仲裁 multi"
+    },
+    {
+      "id": "CTX-001", "input": "这家公司的股东有哪些", "expected": "query_shareholder_info", "level": "medium", "category": "context", "note": "前置：已查询小米科技风险；命中'股东'", "prelude": ["查询小米科技的风险"]
+    },
+    {
+      "id": "CTX-002", "input": "该公司呢", "expected": "check_company_risk", "level": "hard", "category": "context", "note": "前置：刚查询小米科技风险；纯指代 → 依赖上下文记忆延续上轮技能", "prelude": ["查询小米科技的风险"]
+    },
+    {
+      "id": "CTX-003", "input": "再查一下风险", "expected": "check_company_risk", "level": "medium", "category": "context", "note": "前置：已查询小米科技基本信息；命中'风险'", "prelude": ["查询小米科技的基本信息"]
+    },
+    {
+      "id": "CTX-004", "input": "换一家，查云禾科技的风险", "expected": "check_company_risk", "level": "medium", "category": "context", "note": "换企业+命中'风险'", "prelude": ["查询小米科技的风险"]
+    },
+    {
+      "id": "CTX-005", "input": "看下它有没有授信", "expected": "query_credit_granting", "level": "medium", "category": "context", "note": "前置：小米科技；代词'它'+命中'授信'", "prelude": ["查询小米科技的基本信息"]
+    },
+    {
+      "id": "CTX-006", "input": "上次那家公司的受益人", "expected": "query_beneficiary_info", "level": "medium", "category": "context", "note": "前置：小米科技；上下文指代+命中'受益人'", "prelude": ["查询小米科技的基本信息"]
+    },
+    {
+      "id": "CTX-007", "input": "继续", "expected": "check_company_risk", "level": "hard", "category": "context", "note": "前置：风险预查中途暂停；纯'继续' → 恢复上轮技能", "prelude": ["对小米科技做风险预查"]
+    },
+    {
+      "id": "CTX-008", "input": "这家公司呢", "expected": "query_beneficiary_info", "level": "hard", "category": "context", "note": "前置：刚查询小米科技受益人；纯指代", "prelude": ["查询小米科技的受益人"]
+    },
+    {
+      "id": "CTX-009", "input": "再查一下股东", "expected": "query_shareholder_info", "level": "medium", "category": "context", "note": "前置：已查询小米科技风险；命中'股东'", "prelude": ["查询小米科技的风险"]
+    },
+    {
+      "id": "CTX-010", "input": "把刚才那家的账户管控也查一下", "expected": "query_pboc_account_control", "level": "medium", "category": "context", "note": "前置：小米科技；命中'账户管控'", "prelude": ["查询小米科技的基本信息"]
+    },
+    {
+      "id": "ADV-001", "input": "风险打分", "expected": "chat", "level": "hard", "category": "adversarial", "note": "排除词'打分'否决 risk → 确定性层无候选 → LLM 兜底规则2强制 risk（不一致点）；expected 按设计语义=chat（得分模块已移除）"
+    },
+    {
+      "id": "ADV-002", "input": "给小米科技的风险评分", "expected": "chat", "level": "hard", "category": "adversarial", "note": "排除词'评分'否决 risk；同上不一致点"
+    },
+    {
+      "id": "ADV-003", "input": "查一下历史风险", "expected": "clarify", "level": "hard", "category": "adversarial", "note": "risk + historical 跨组冲突；'历史风险'语义歧义 → 期望澄清"
+    },
+    {
+      "id": "ADV-004", "input": "查一下小米科技2024年的尽调报告", "expected": "query_due_diligence_reports", "level": "hard", "category": "adversarial", "note": "对抗点：无'历史'字眼，确定性层命中 generate_report → 语义错误路由；expected 按语义标注"
+    },
+    {
+      "id": "ADV-005", "input": "帮我看看有没有尽调报告", "expected": "query_due_diligence_reports", "level": "hard", "category": "adversarial", "note": "对抗点：'尽调报告'命中 generate_report（'历史'排除词不触发），但'看看有没有'语义为历史查询 → 期望 historical"
+    },
+    {
+      "id": "ADV-006", "input": "小米科技是不是海关失信企业", "expected": "query_customs_blacklist", "level": "easy", "category": "adversarial", "note": "正例：'海关失信'命中"
+    },
+    {
+      "id": "ADV-007", "input": "查一下小米科技有没有被法院冻结账户", "expected": "query_account_freeze_tag", "level": "easy", "category": "adversarial", "note": "正例：'冻结'+'账户'同现"
+    },
+    {
+      "id": "ADV-008", "input": "小米科技的营业执照真实性", "expected": "verify_business_license", "level": "hard", "category": "adversarial", "note": "无核实类关键词，依赖 LLM 语义泛化"
+    },
+    {
+      "id": "ADV-009", "input": "生成小米科技的授信评估", "expected": "generate_report", "level": "medium", "category": "adversarial", "note": "正例：'授信评估'命中 generate_report"
+    },
+    {
+      "id": "ADV-010", "input": "帮我查一下小米科技的注册资本", "expected": "query_company_basic_info", "level": "easy", "category": "adversarial", "note": "正例：'查一下'命中 basic"
+    },
+    {
+      "id": "ADV-011", "input": "你们能查企业风险吗", "expected": "check_company_risk", "level": "easy", "category": "adversarial", "note": "正例：'企业风险'命中"
+    },
+    {
+      "id": "ADV-012", "input": "怎么生成报告", "expected": "generate_report", "level": "easy", "category": "adversarial", "note": "正例：'生成报告'完整命中"
+    },
+    {
+      "id": "ADV-013", "input": "报告下载", "expected": "chat", "level": "medium", "category": "adversarial", "note": "'报告'不命中完整触发词 → 期望 chat（无下载技能）"
+    },
+    {
+      "id": "ADV-014", "input": "帮我看看小米科技的公开信息", "expected": "query_company_basic_info", "level": "easy", "category": "adversarial", "note": "命中'看看'，确定性路由 basic，公开信息兜底"
+    },
+    {
+      "id": "ADV-015", "input": "查一下小米科技的供应链信息", "expected": "query_company_basic_info", "level": "easy", "category": "adversarial", "note": "正例：'查一下'命中，供应链信息兜底到 basic"
+    },
+    {
+      "id": "ADV-016", "input": "冻结", "expected": "query_account_freeze_tag", "level": "medium", "category": "adversarial", "note": "对抗点：仅'冻结'无'账户/账号'，确定性层仍命中 freeze，与 LLM 兜底规则13要求'账户/账号'同现不一致"
+    },
+    {
+      "id": "ADV-017", "input": "查一下小米科技的股东风险", "expected": "clarify", "level": "hard", "category": "adversarial", "note": "shareholder + risk 跨组冲突；'股东风险'语义歧义 → 期望澄清"
+    },
+    {
+      "id": "ADV-018", "input": "授信评估", "expected": "generate_report", "level": "medium", "category": "adversarial", "note": "正例：'授信评估'命中 generate_report；'授信'同触发 credit → 跨组仲裁"
+    },
+    {
+      "id": "ADV-019", "input": "帮我核实一下小米科技的风险", "expected": "check_company_risk", "level": "hard", "category": "adversarial", "note": "verify + risk 跨组冲突；'核实风险'口语语义=查风险 → 期望 risk"
+    },
+    {
+      "id": "ADV-020", "input": "查询小米科技的股东信息吗", "expected": "query_shareholder_info", "level": "easy", "category": "adversarial", "note": "正例：疑问句仍命中'股东'"
+    },
+    {
+      "id": "ADV-021", "input": "历史尽调报告怎么生成", "expected": "query_due_diligence_reports", "level": "medium", "category": "adversarial", "note": "正例：'历史尽调'命中 historical，'生成'触发的 generate_report 被'历史'排除词否决"
+    },
+    {
+      "id": "ADV-022", "input": "小米科技的风险报告和尽调报告都要", "expected": "multi[check_company_risk,generate_report]", "level": "hard", "category": "adversarial", "note": "'风险报告'→risk，'尽调报告'→generate_report（无'历史'）→ 跨组 multi"
+    },
+    {
+      "id": "ADV-023", "input": "你帮我看下小米科技是不是被海关列入了黑名单", "expected": "query_customs_blacklist", "level": "medium", "category": "adversarial", "note": "'海关黑名单'命中（'海关黑名单'是触发词）"
+    },
+    {
+      "id": "ADV-024", "input": "帮我查一下小米科技的受益所有人信息", "expected": "query_beneficiary_info", "level": "easy", "category": "adversarial", "note": "正例：'受益所有人'命中"
+    }
+  ]
+}

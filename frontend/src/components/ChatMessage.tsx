@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage, ChatAttachment, PlanStatusData } from '../types';
 import { isStreamingMessage } from '../types';
+import { isCardClickProtocol } from '../hooks/useChat';
 import RiskCheckCard from './RiskCheckCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
 import InformationCheckCard from './InformationCheckCard';
@@ -17,8 +18,8 @@ import FollowUpChip from './FollowUpChip';
 
 interface ChatMessageProps {
   message: ChatMessage;
-  /** 发送消息回调（用于卡片交互） */
-  onSendMessage?: (content: string) => void;
+  /** 发送消息回调（用于卡片交互；silent=true 静默发送：不插入用户气泡） */
+  onSendMessage?: (content: string, silent?: boolean) => void;
   /** 本地生成卡片消息回调（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
   onAddMessage?: (msg: ChatMessage) => void;
   /** 穿插区域已结束时禁用功能卡片（穿插确认卡片之后的穿插对话区卡片不可再点击） */
@@ -178,6 +179,14 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
   const isUser = message.role === 'user';
   const streaming = isStreamingMessage(message);
 
+  // 卡片点击协议消息（模糊匹配候选/兜底按钮发送的固定句式）：原文仅作为后端输入协议，
+  // 不在用户气泡中展示企业名称与信用代码——整体隐藏，直接呈现后续的结果卡片/下一步。
+  // 标记（实时路径）与 content 特征识别（历史消息重载路径）双保险。
+  const hiddenUserProtocol =
+    isUser &&
+    ((message.extra as { action?: string } | undefined)?.action === 'card_click' ||
+      isCardClickProtocol(message.content || ''));
+
   // 决定复制内容：纯文本直接用 content，卡片消息从 extra 提取
   const copyText = !isUser && message.extra
     ? (getExtraCopyText(message.extra) || message.content || '')
@@ -237,7 +246,12 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
               ) : null}
               <CompanyNameSelector
                 options={options}
+                message={typeof message.extra.message === 'string' ? message.extra.message : undefined}
                 keyword={message.extra.keyword as string}
+                taskLabel={message.extra.task_label as string | undefined}
+                queryLabel={message.extra.query_label as string | undefined}
+                skillName={message.extra._skill_name as string | undefined}
+                confirmed={message.extra.confirmed === true}
                 onSendMessage={onSendMessage}
                 disabled={interleaveDisabled}
               />
@@ -333,6 +347,8 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
     }
 
     if (isUser) {
+      // 卡片点击协议消息：整体隐藏（不渲染气泡与复制按钮）
+      if (hiddenUserProtocol) return null;
       // 协议确认消息（按钮点击生成的 JSON）不展示原始协议文本（避免出现英文 action），
       // 统一渲染为中文确认文案；历史英文协议消息同样命中
       const confirmLabel = getConfirmActionLabel(message.content || '');
@@ -393,8 +409,8 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         )}
       </div>
 
-      {/* 第二行：复制按钮（非流式 + 有内容时显示） */}
-      {copyText && !streaming && (
+      {/* 第二行：复制按钮（非流式 + 有内容 + 非隐藏协议消息时显示） */}
+      {copyText && !streaming && !hiddenUserProtocol && (
         <div className={`mt-1 ${isUser ? 'mr-0' : 'ml-11'}`}>
           <CopyButton
             text={copyText}

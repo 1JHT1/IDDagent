@@ -116,6 +116,8 @@
   .form-group .val-status { float: right; font-size: 10px; font-weight: normal; }
   .form-group label .from-parse { color: #059669; }
   .form-group label .need-input { color: #f59e0b; }
+  /* 附件自动识别填充的只读字段 */
+  .form-group input[readonly] { background:#f3f4f6; color:#6b7280; cursor:not-allowed; }
 </style>
 </head>
 <body>
@@ -186,8 +188,9 @@
       </div>
       <div class="body">
         <div class="form-group">
-          <label>企业名称 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（必填）</span></label>
-          <input type="text" id="uploadCompanyName" placeholder="请输入企业名称" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:100%;outline:none" />
+          <label>企业名称 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（必填）</span>
+            <span id="companyParsedTag" style="display:none;font-size:10px;color:#059669;font-weight:normal">已从附件识别 ✓</span></label>
+          <input type="text" id="uploadCompanyName" readonly placeholder="请先上传附件，系统将从附件自动识别" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:100%;outline:none" />
         </div>
         <div style="display:flex;align-items:center;gap:12px;margin:12px 0">
           <div style="flex:1;border-top:1px solid #e5e7eb"></div>
@@ -195,8 +198,9 @@
           <div style="flex:1;border-top:1px solid #e5e7eb"></div>
         </div>
         <div class="form-group">
-          <label>统一社会信用代码 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（选填）</span></label>
-          <input type="text" id="uploadCreditCode" placeholder="请输入统一信用代码" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:100%;outline:none" />
+          <label>统一社会信用代码 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（选填）</span>
+            <span id="codeParsedTag" style="display:none;font-size:10px;color:#059669;font-weight:normal">已从附件识别 ✓</span></label>
+          <input type="text" id="uploadCreditCode" readonly placeholder="请先上传附件，系统将从附件自动识别" style="padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:13px;width:100%;outline:none" />
         </div>
         <div style="margin-top:16px">
           <label style="font-size:12px;font-weight:500;color:#374151;display:block;margin-bottom:6px">上传资料文件 <span style="font-size:11px;color:#9ca3af;font-weight:normal">（支持 PDF、DOCX、XLSX、MD）</span></label>
@@ -320,6 +324,7 @@
 
   let selectedTemplate = null;
   let uploadedFiles = [];
+  let parsingCompany = false;  // 是否正在从附件解析企业信息（解析期间锁定开始按钮）
   let currentFields = {};
   let currentFieldMeta = [];
   let allTemplates = [];  // 缓存模板列表，供 selectTemplate 查找 sourceFile
@@ -481,6 +486,8 @@
     renderFileList();
     updateStartBtn();
     fileInput.value = '';
+    // 选文件后自动上传并解析企业信息（异步完成后再填充只读字段）
+    uploadAllFiles().then(() => parseCompanyFromFiles());
   });
 
   function renderFileList() {
@@ -509,16 +516,37 @@
     uploadedFiles.splice(idx, 1);
     renderFileList();
     updateStartBtn();
+    // 文件集合变化：仍有文件则重新解析；无文件则清空企业信息并保持只读（等待重新上传）
+    if (uploadedFiles.length === 0) {
+      const ni = document.getElementById('uploadCompanyName');
+      const ci = document.getElementById('uploadCreditCode');
+      ni.value = '';
+      ci.value = '';
+      ni.readOnly = true;
+      ci.readOnly = true;
+      setParsedFlag(false);
+    } else {
+      parseCompanyFromFiles();
+    }
   }
 
   function updateStartBtn() {
-    const hasName = document.getElementById('uploadCompanyName').value.trim().length > 0;
-    const hasCode = document.getElementById('uploadCreditCode').value.trim().length > 0;
+    const nameInput = document.getElementById('uploadCompanyName');
+    const codeInput = document.getElementById('uploadCreditCode');
+    const nameVal = nameInput.value.trim();
+    // 解析中的占位文案不计入企业名称
+    const hasName = !parsingCompany && nameVal.length > 0 && nameVal !== '正在从附件识别企业信息...';
+    const hasCode = !parsingCompany && codeInput.value.trim().length > 0;
     const hasFiles = uploadedFiles.length > 0 && uploadedFiles.some(f => f.fileId || f.file);
     const uploading = uploadedFiles.some(f => f.status === 'uploading');
-    const enabled = (hasName || hasCode) && hasFiles && !uploading;
+    const enabled = (hasName || hasCode) && hasFiles && !uploading && !parsingCompany;
 
-    if (enabled) {
+    if (parsingCompany) {
+      startBtn.disabled = true;
+      startBtn.style.background = '#e5e7eb';
+      startBtn.style.color = '#9ca3af';
+      startBtn.textContent = '正在从附件识别企业信息...';
+    } else if (enabled) {
       startBtn.disabled = false;
       startBtn.style.background = '#1a56db';
       startBtn.style.color = 'white';
@@ -527,7 +555,7 @@
       startBtn.disabled = true;
       startBtn.style.background = '#e5e7eb';
       startBtn.style.color = '#9ca3af';
-      if (!hasName && !hasCode) startBtn.textContent = '请填写企业名称或信用代码';
+      if (!hasName && !hasCode) startBtn.textContent = '请上传附件以自动识别企业信息';
       else if (!hasFiles) startBtn.textContent = '请上传资料文件';
       else startBtn.textContent = '请上传文件并填写企业名称';
     }
@@ -536,20 +564,14 @@
   document.getElementById('uploadCompanyName').addEventListener('input', updateStartBtn);
   document.getElementById('uploadCreditCode').addEventListener('input', updateStartBtn);
 
-  async function handleStartGeneration() {
-    if (startBtn.disabled) return;
-
-    // 上传文件，获取 fileId
-    const fileIds = [];
+  /** 串行上传所有尚未上传的文件（change 后已自动上传，此处供兜底/重试） */
+  async function uploadAllFiles() {
     for (let i = 0; i < uploadedFiles.length; i++) {
       const f = uploadedFiles[i];
-      if (f.fileId) { fileIds.push({ name: f.name, fileId: f.fileId }); continue; }
-      if (!f.file) continue;
-
+      if (f.fileId || !f.file) continue;
       f.status = 'uploading';
       renderFileList();
       updateStartBtn();
-
       try {
         const formData = new FormData();
         formData.append('file', f.file);
@@ -558,7 +580,6 @@
           const data = await res.json();
           f.fileId = data.fileId;
           f.status = 'done';
-          fileIds.push({ name: f.name, fileId: data.fileId });
         } else {
           f.status = 'error';
         }
@@ -568,9 +589,78 @@
       renderFileList();
       updateStartBtn();
     }
+  }
 
-    const succeeded = fileIds.filter(f => f.fileId);
-    if (succeeded.length === 0) return;
+  /** 从已上传附件解析企业名称与统一信用代码，填充只读字段；解析成功锁定，失败才解锁手填（兜底） */
+  async function parseCompanyFromFiles() {
+    const fileIds = uploadedFiles.filter(f => f.fileId).map(f => f.fileId);
+    if (fileIds.length === 0) return;
+    parsingCompany = true;
+    updateStartBtn();
+    const nameInput = document.getElementById('uploadCompanyName');
+    const codeInput = document.getElementById('uploadCreditCode');
+    nameInput.value = '正在从附件识别企业信息...';
+    codeInput.value = '';
+    try {
+      const res = await fetch('/api/generate-report/parse-company', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileIds: fileIds })
+      });
+      let companyName = '';
+      let creditCode = '';
+      if (res.ok) {
+        const data = await res.json();
+        companyName = (data.companyName || '').trim();
+        creditCode = (data.creditCode || '').trim();
+      }
+      if (companyName || creditCode) {
+        nameInput.value = companyName;
+        codeInput.value = creditCode;
+        nameInput.readOnly = true;
+        codeInput.readOnly = true;
+        setParsedFlag(true);
+        showToast('已从附件识别企业信息');
+      } else {
+        nameInput.value = '';
+        codeInput.value = '';
+        nameInput.readOnly = false;
+        codeInput.readOnly = false;
+        setParsedFlag(false);
+        showToast('未能从附件识别企业名称与信用代码，请手动填写或更换附件', true);
+      }
+    } catch (err) {
+      nameInput.value = '';
+      codeInput.value = '';
+      nameInput.readOnly = false;
+      codeInput.readOnly = false;
+      setParsedFlag(false);
+      showToast('解析企业信息失败，请手动填写: ' + err.message, true);
+    } finally {
+      parsingCompany = false;
+      updateStartBtn();
+    }
+  }
+
+  function setParsedFlag(parsed) {
+    document.getElementById('companyParsedTag').style.display = parsed ? 'inline' : 'none';
+    document.getElementById('codeParsedTag').style.display = parsed ? 'inline' : 'none';
+  }
+
+  async function handleStartGeneration() {
+    if (startBtn.disabled) return;
+
+    // 兜底上传（文件已在上传时自动上传，此处仅重试遗漏/失败项）
+    await uploadAllFiles();
+
+    const fileIds = [];
+    uploadedFiles.forEach(f => { if (f.fileId) fileIds.push({ name: f.name, fileId: f.fileId }); });
+    const succeeded = fileIds;
+    if (succeeded.length === 0) {
+      showToast('文件上传失败，请重新上传', true);
+      updateStartBtn();
+      return;
+    }
 
     const companyName = document.getElementById('uploadCompanyName').value.trim();
     const creditCode = document.getElementById('uploadCreditCode').value.trim();

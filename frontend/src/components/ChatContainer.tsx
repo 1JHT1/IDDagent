@@ -1,6 +1,6 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useCallback } from 'react';
 import type { ChatMessage, ChatAttachment } from '../types';
-import { isResumeConfirmConsumed } from '../hooks/useChat';
+import { isResumeConfirmConsumed, isStepConfirmConsumed } from '../hooks/useChat';
 import ChatMessageComponent from './ChatMessage';
 import ChatInput from './ChatInput';
 
@@ -22,11 +22,39 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  // 用户是否位于消息区底部附近（距底部 <100px）：
+  // 位于底部时消息更新（AI 流式回复/卡片注入/轮询进度卡）自动跟随滚动到底部，
+  // 对话时 AI 返回的结果立即可见、无需手动下翻；
+  // 用户手动上滚查看历史后不再强制拉回底部——不打断阅读前面的内容，
+  // 仅当用户重新回到底部附近或主动发送消息时才恢复自动跟随
+  const atBottomRef = useRef(true);
 
-  // 自动滚动到底部
+  // 监听滚动位置：离开底部区域视为用户主动浏览历史，停止自动跟随
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // 自动滚动到底部（仅当用户位于底部附近时跟随；上滚查看历史时不打扰）。
+  // 直接设置 scrollTop 而非 scrollIntoView：后者依赖浏览器对 behavior:'instant' 的支持，
+  // 不受支持时会退化为动画滚动，连续注入（如任务规划完成的多张卡片）时视口停在半路；
+  // scrollTop 赋值无动画直达底部
+  useEffect(() => {
+    if (!atBottomRef.current) return;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  // 用户主动发送消息 → 回到底部跟随（发送后查看自己的消息与回复）
+  const handleSend = useCallback((message: string, attachments?: ChatAttachment[], silent?: boolean) => {
+    atBottomRef.current = true;
+    onSend(message, attachments, silent);
+  }, [onSend]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -67,7 +95,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
                 {QUICK_QUESTIONS.map((q) => (
                   <button
                     key={q}
-                    onClick={() => onSend(q)}
+                    onClick={() => handleSend(q)}
                     disabled={isSending}
                     className="text-left px-4 py-3 rounded-xl border border-gray-200 bg-white
                                text-sm text-gray-600 hover:border-blue-300 hover:text-blue-600
@@ -84,7 +112,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               <ChatMessageComponent
                 key={msg.id}
                 message={msg}
-                onSendMessage={(content, silent) => onSend(content, undefined, silent)}
+                onSendMessage={(content, silent) => handleSend(content, undefined, silent)}
                 onAddMessage={onAddMessage}
                 interleaveDisabled={computeInterleaveDisabled(messages, index)}
               />
@@ -95,7 +123,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
       </div>
 
       {/* 输入区域 */}
-      <ChatInput onSend={onSend} disabled={isSending} onStop={onStop} />
+      <ChatInput onSend={handleSend} disabled={isSending} onStop={onStop} />
     </div>
   );
 };
@@ -113,12 +141,19 @@ export default ChatContainer;
  * （用户点击“回到之前的任务”/“不需要”，穿插区域已结束）→ 穿插区域内的功能卡片
  * （追问 chip、结果操作按钮、歧义选项等）不应再可点击执行，任务规划已结束。
  * 自身是已消费的 resume_confirm 卡片 → 同样禁用（避免恢复后旧卡误操作）。
+ * 自身是已消费的 plan_step_confirm 卡片（用户已点继续/结束）→ 禁用，只能点击一次；
+ * 切换对话框/刷新后按原消息流恢复显示时同样保持禁用（与 resume_confirm 行为一致）。
  * 嵌套多轮穿插-恢复天然支持：每张 resume_confirm 标记一个穿插区域，各自独立判定。
  */
 function computeInterleaveDisabled(msgs: ChatMessage[], index: number): boolean {
   const selfExtra = msgs[index].extra as { action?: string } | undefined;
   if (selfExtra?.action === 'resume_confirm') {
     return isResumeConfirmConsumed(msgs, index);
+  }
+  // 步骤间确认卡：其后存在确认动作/恢复文本回复即已消费，卡片仅保留为历史记录，
+  // 实时点击后立即禁用，切换会话恢复显示后也保持禁用（只能点击一次）
+  if (selfExtra?.action === 'plan_step_confirm' && isStepConfirmConsumed(msgs, index)) {
+    return true;
   }
   for (let i = index + 1; i < msgs.length; i++) {
     const extra = msgs[i].extra as { action?: string } | undefined;

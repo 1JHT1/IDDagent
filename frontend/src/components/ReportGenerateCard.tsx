@@ -246,9 +246,13 @@ const ProgressCard: React.FC<{
       });
       if (!res.ok) return;
       const resp = await res.json();
-      // 响应晚到时再次校验：当前显示的会话仍是收尾归属会话才注入，否则丢弃（双保险）
-      if (typeof window !== 'undefined'
-          && (localStorage.getItem('currentConversationId') || '') !== convId) return;
+      // 响应晚到时再次校验：组件已卸载（切换/新建会话后消息流清空）或当前显示的会话
+      // 已不是收尾归属会话 → 丢弃（双保险）。mountedRef 复查是关键：新建对话时
+      // createConversation 的 RTT 窗口内 localStorage 仍是旧会话值，仅凭 localStorage
+      // 校验会放行，把本会话的规划面板/确认卡注入新会话消息流（跨会话残留任务规划卡）
+      if (!mountedRef.current
+          || (typeof window !== 'undefined'
+              && (localStorage.getItem('currentConversationId') || '') !== convId)) return;
       // 收尾真正落地（注入本地面板）才标记已通知：发起前/响应后校验被拦截或请求失败时不置位，
       // 避免"已尝试但未注入"被永久记录——用户切回原会话后进度卡重新挂载仍可再次收尾，不会静默悬挂
       notifiedRef.current = true;
@@ -269,7 +273,7 @@ const ProgressCard: React.FC<{
         });
       }
       if (resp?.status === 'next' && onAddMessage) {
-        onAddMessage({
+        const confirmMsg: ChatMessage = {
           id: `plan-confirm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           role: 'assistant',
           content: '',
@@ -281,9 +285,14 @@ const ProgressCard: React.FC<{
             next_step: resp.next_step,
           },
           created_at: new Date().toISOString(),
-        });
+        };
+        onAddMessage(confirmMsg);
+        // 同步持久化"继续下一步"确认卡：该卡由 report-complete 响应在前端本地生成、不经
+        // SSE 事件流（persistPlanCardEvent 拦截不到）；不持久化则切换对话框后确认卡消失，
+        // 无法继续下一步。后端按穿插边界规则插入，切换后按原位置恢复（与模板跳转卡同机制）
+        persistCardMessage(convId, { id: confirmMsg.id, extra: confirmMsg.extra }).catch(() => {});
       } else if (resp?.status === 'finished' && onAddMessage) {
-        onAddMessage({
+        const summaryMsg: ChatMessage = {
           id: `plan-summary-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           role: 'assistant',
           content: '',
@@ -292,7 +301,10 @@ const ProgressCard: React.FC<{
             text: resp.text,
           },
           created_at: new Date().toISOString(),
-        });
+        };
+        onAddMessage(summaryMsg);
+        // 同步持久化收尾汇总气泡（同上：本地生成不经 SSE，不持久化则切换会话后消失）
+        persistCardMessage(convId, { id: summaryMsg.id, extra: summaryMsg.extra }).catch(() => {});
       }
     } catch {
       // 通知失败不影响进度卡自身展示，用户仍可查看/重试报告

@@ -24,8 +24,9 @@ interface UseChatReturn {
  * 或 resume 文本回复（isResumeReplyText）即视为已消费——卡片不再是待确认状态。
  * 已消费的确认卡仅是历史记录（用户已回应），新步骤的卡片应显示在它之后（当前步骤区域）；
  * 未消费的确认卡（穿插挂起时等待确认）才是穿插/暂停边界。
+ * 同时用于卡片禁用判定：已消费的确认卡切换会话/刷新后恢复显示时保持禁用，只能点击一次。
  */
-function isStepConfirmConsumed(msgs: ChatMessage[], idx: number): boolean {
+export function isStepConfirmConsumed(msgs: ChatMessage[], idx: number): boolean {
   for (let i = idx + 1; i < msgs.length; i++) {
     const m = msgs[i];
     if (m.role !== 'user') continue;
@@ -354,6 +355,11 @@ export function useChat(
         content.trim(),
         effectiveConvId,
         (event: SSEEvent) => {
+          // 本流已被主动终止（点击停止/切换会话）：缓冲事件一律丢弃。
+          // 会话校验依赖 conversationIdRef，而它要等 React re-render 才更新——
+          // abort 后的竞态窗口内旧流事件会误判为仍属当前会话而注入消息流，
+          // 故在 meta/会话校验之前先以 abort 状态硬拦截
+          if (controller.signal.aborted) return;
           // meta 事件（后端确认/分配会话 id）先于会话校验处理：流归属与当前显示会话一致时
           // 同步流会话（首次发消息后端下发新 id 的场景）并更新组件会话 id；
           // 不一致（用户已切走会话，旧流 meta 晚到）→ 整段丢弃，不得把会话改回旧会话
@@ -781,8 +787,10 @@ export function useChat(
     setMessages([]);
   }, []);
 
-  /** 本地生成卡片消息（不走后端）：插入到穿插边界之前（穿插确认卡片/步骤确认卡片之前），保持“确认卡片为当前步骤分界点” */
+  /** 本地生成卡片消息（不走后端）：插入到穿插边界之前（穿插确认卡片/步骤确认卡片之前），保持"确认卡片为当前步骤分界点" */
   const addMessage = useCallback((msg: ChatMessage) => {
+    // 诊断日志（临时）：追踪跨会话卡片注入来源
+    console.log('🎯 [addMessage] 注入:', msg.id, msg.extra?.action, '| 当前会话:', conversationIdRef.current, '|', new Error().stack?.split('\n').slice(1, 4).join(' <- '));
     setMessages((prev) => insertBeforeBoundaryCard(prev, [msg]));
   }, [setMessages]);
 

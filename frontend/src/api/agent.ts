@@ -171,6 +171,11 @@ export async function sendMessageStream(
       buffer = lines.pop() || '';
 
       for (const line of lines) {
+        // 已主动终止（停止生成/切换会话）：立即丢弃缓冲事件，不再分发。
+        // abort 后 fetch 本身会抛错走 catch，但已 resolve 的 chunk 内的事件若继续
+        // 处理，可能在会话切换的 re-render 窗口内把旧会话的任务规划卡/进度卡
+        // 注入新会话消息流（表现为"每个对话都有任务卡，刷新才消失"）
+        if (signal?.aborted) return;
         // 兼容 "data:" 和 "data: " 两种前缀
         let jsonStr = '';
         if (line.startsWith('data: ')) {

@@ -105,6 +105,74 @@ public class LLMFieldExtractor {
         }
     }
 
+    /**
+     * 从附件原始文本中提取企业名称与统一社会信用代码（供 H5 上传页自动填充只读字段）。
+     * 与 extractFields 的模板财务字段提取不同，此方法只提取企业主体信息。
+     *
+     * @param rawText 上传文件的原始文本内容
+     * @return 包含 companyName / creditCode 的键值对（识别不到时为空字符串）
+     */
+    public Map<String, String> extractCompanyInfo(String rawText) {
+        if (rawText == null || rawText.isBlank()) {
+            return Map.of();
+        }
+        if (rawText.length() > MAX_RAW_TEXT_LENGTH) {
+            log.warn("提取企业信息原始文本过长 ({} 字符)，截断至 {} 字符", rawText.length(), MAX_RAW_TEXT_LENGTH);
+            rawText = rawText.substring(0, MAX_RAW_TEXT_LENGTH);
+        }
+        String systemPrompt = "你是一个企业信息识别助手。你的任务是从企业资料文本中识别企业的正式全称和统一社会信用代码。"
+                + "请严格按 JSON 格式输出，只输出一个 JSON 对象，不要包含任何其他文字。"
+                + "识别不到的字段输出空字符串 \"\"。";
+        String userPrompt = "===== 文件原始文本 =====\n" + rawText + "\n===== 文本结束 =====\n\n"
+                + "请输出以下 JSON 对象（key 固定，value 为识别结果）：\n"
+                + "{\"companyName\": \"企业正式全称\", \"creditCode\": \"18位统一社会信用代码\"}\n"
+                + "若文本中找不到企业名称或信用代码，对应值输出空字符串 \"\"。";
+        return callLlmJson(systemPrompt, userPrompt, 300);
+    }
+
+    /** 通用 LLM JSON 提取调用（阻塞，供 H5 轻量解析使用），复用 parseLlmResponse 解析 */
+    private Map<String, String> callLlmJson(String systemPrompt, String userPrompt, int maxTokens) {
+        String apiKey = config.getDeepseek().getApiKey();
+        if (apiKey == null || apiKey.isEmpty()) {
+            log.warn("DEEPSEEK_API_KEY not set, LLM extraction skipped");
+            return Map.of();
+        }
+        try {
+            Map<String, Object> requestBody = new LinkedHashMap<>();
+            requestBody.put("model", config.getModel().getName());
+            requestBody.put("messages", List.of(
+                    Map.of("role", "system", "content", systemPrompt),
+                    Map.of("role", "user", "content", userPrompt)
+            ));
+            requestBody.put("temperature", 0.1);
+            requestBody.put("max_tokens", maxTokens);
+            requestBody.put("thinking", Map.of("type", "disabled"));
+
+            String response = webClient.post()
+                    .uri(config.getDeepseek().getBaseUrl() + "/chat/completions")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(requestBody)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, resp ->
+                            resp.bodyToMono(String.class).flatMap(body -> {
+                                log.error("LLM API 返回错误: status={}, body={}", resp.statusCode(), body);
+                                return Mono.error(new RuntimeException("LLM API error: " + resp.statusCode()));
+                            }))
+                    .bodyToMono(String.class)
+                    .block(Duration.ofSeconds(60));
+
+            if (response == null || response.isEmpty()) {
+                log.warn("LLM 返回空响应");
+                return Map.of();
+            }
+            return parseLlmResponse(response);
+        } catch (Exception e) {
+            log.error("LLM 字段提取失败: {}", e.getMessage());
+            return Map.of();
+        }
+    }
+
     /** 构建提示词 */
     private String buildPrompt(String rawText, String templateId,
                                 String companyName, String creditCode) {

@@ -106,8 +106,16 @@ const App: React.FC = () => {
    *   进度卡与报告相关卡保持连续，切换会话后不会按时间漂移到对话最前；
    * - 无匹配结果卡（报告由 H5 直接发起、对话内无对应卡片）→ 追加到对话末尾；
    * - 已存在进度卡且无新时间信息 → 幂等保持，轮询期间不反复重排。
+   * ownerConvId：卡片所属会话——注入前校验当前显示会话仍是该会话才落地。
+   * 该函数是所有进度卡注入的汇聚点，调用方（切换加载/轮询/收尾）的归属校验一旦遗漏
+   * 或校验时点过期（校验通过后用户已切换会话），无兜底则会跨会话注入——此处以实时
+   * conversationIdRef 兜底，从根上杜绝"一个对话的进度卡出现在其他对话"。
    */
-  const injectProgressMessage = useCallback((reportId: string, createdAt?: string, completedAt?: string) => {
+  const injectProgressMessage = useCallback((reportId: string, createdAt?: string, completedAt?: string, ownerConvId?: string) => {
+    // 诊断日志（临时）：追踪进度卡注入
+    console.log('📌 [injectProgressMessage] reportId:', reportId, 'owner:', ownerConvId, '当前会话:', conversationIdRef.current, '→', ownerConvId === conversationIdRef.current ? '注入' : '丢弃');
+    // 归属兜底：无归属信息或归属会话已不是当前显示会话 → 丢弃，绝不注入其他会话消息流
+    if (!ownerConvId || ownerConvId !== conversationIdRef.current) return;
     setMessages((prev) => {
       const cardId = `report-progress-${reportId}`;
       const existingIdx = prev.findIndex((m) => m.id === cardId);
@@ -166,12 +174,16 @@ const App: React.FC = () => {
       if (seq !== undefined && seq !== conversationLoadSeqRef.current) return;
       if (data.reports && data.reports.length > 0) {
         for (const r of data.reports) {
+          // 归属校验（与轮询一致）：后端按会话过滤，但返回数据异常/接口语义变化时
+          // 不能把其他会话的报告注入当前会话；无会话归属（H5 发起）同样丢弃
+          if (!r.conversationId || r.conversationId !== convId) continue;
           // 已完成任务无 completedAt 时以当前时间兜底（完成时刻必晚于穿插消息 → 插到穿插意图之后）
           const done = r.status === 'completed';
           injectProgressMessage(
             r.reportId,
             r.createdAt as string | undefined,
             (r.completedAt as string | undefined) || (done ? new Date().toISOString() : undefined),
+            convId,
           );
         }
       }
@@ -192,9 +204,11 @@ const App: React.FC = () => {
             // 只注入当前显示会话的报告：该接口返回用户所有会话的生成中报告，
             // 若不按会话过滤，新建对话/切换会话后旧会话的进度卡会串入当前消息流。
             // 校验必须用 conversationIdRef 实时值而非闭包 conversationId：旧 effect 的
-            // 在途 fetch 响应晚到（会话已切换/新建）时闭包值仍是旧会话，会放行旧会话报告注入新会话
-            if (r.conversationId && r.conversationId !== conversationIdRef.current) continue;
-            injectProgressMessage(r.reportId, r.createdAt as string | undefined);
+            // 在途 fetch 响应晚到（会话已切换/新建）时闭包值仍是旧会话，会放行旧会话报告注入新会话。
+            // 无会话归属的任务（H5 旧标签页/旧链接发起，conversationId 为空）无法确定归属会话，
+            // 一律不注入——空字符串为 falsy，仅判断非空会绕过校验，导致任务串入当前任意会话
+            if (!r.conversationId || r.conversationId !== conversationIdRef.current) continue;
+            injectProgressMessage(r.reportId, r.createdAt as string | undefined, undefined, conversationIdRef.current ?? undefined);
           }
         }
       } catch { /* ignore */ }
@@ -218,14 +232,16 @@ const App: React.FC = () => {
           for (const r of data.reports) {
             // 防竞态：切会话瞬间旧会话的在飞轮询响应晚到时，其报告不属于当前会话 → 丢弃。
             // 用 conversationIdRef 实时值而非闭包 conversationId（旧 effect 响应到达时
-            // 闭包仍是旧会话 id，校验会放行旧会话的完成卡注入新会话消息流）
-            if (r.conversationId && r.conversationId !== conversationIdRef.current) continue;
+            // 闭包仍是旧会话 id，校验会放行旧会话的完成卡注入新会话消息流）。
+            // 无会话归属的任务（conversationId 为空）同样丢弃，避免串入当前任意会话
+            if (!r.conversationId || r.conversationId !== conversationIdRef.current) continue;
             // 已完成任务无 completedAt 时以当前时间兜底（完成时刻必晚于穿插消息 → 插到穿插意图之后）
             const done = r.status === 'completed';
             injectProgressMessage(
               r.reportId,
               r.createdAt as string | undefined,
               (r.completedAt as string | undefined) || (done ? new Date().toISOString() : undefined),
+              conversationIdRef.current ?? undefined,
             );
           }
         }
@@ -270,6 +286,13 @@ const App: React.FC = () => {
     // 中止在飞 SSE（旧流的卡片事件会注入新会话）并使在飞的会话加载响应失效
     stopStreaming();
     conversationLoadSeqRef.current++;
+    // 切换中置空会话归属（ref + localStorage 同步置空）：createConversation 的 RTT
+    // 窗口内（syncConversationId 更新前）旧会话在途收尾回调（notifyReportComplete
+    // 响应后按 localStorage 校验）与轮询注入（injectProgressMessage 按 conversationIdRef
+    // 校验）仍按旧会话 id 判定归属——不置空会把旧会话的规划卡/进度卡注入新会话消息流，
+    // 表现为"新建对话后仍残留任务规划卡，刷新才消失"
+    syncConversationId(null);
+    setConversationId(null);
     // 先清空消息流再发起创建：报告生成步骤（WAITING_EXTERNAL）时 SSE 已结束
     // （isSending=false，stopStreaming 直接 return），消息流中的报告进度卡轮询仍在运行，
     // 若在 createConversation 的 RTT 窗口内发现报告完成，收尾回调会把规划面板/确认卡
@@ -296,11 +319,17 @@ const App: React.FC = () => {
     const seq = ++conversationLoadSeqRef.current;
     // 中止旧会话在飞的 SSE 流：切走后旧流的卡片/文本事件若继续注入，会落地到新会话消息流
     stopStreaming();
+    // 同步 ref + localStorage：切换瞬间旧会话轮询在途响应/报告完成收尾回调晚到时，
+    // 凭实时 ref 与 localStorage 判定会话已切换而丢弃（须在清空之前执行：stopStreaming
+    // 依赖 ref 通知旧会话停止，ref 更新过早会把停止信号发往新会话）
+    syncConversationId(id);
+    setConversationId(id);
+    // 先清空消息流再加载（与 handleNewConversation 对齐）：getConversation 的 RTT 窗口内
+    // 旧会话内容（任务规划卡/历史消息）会残留在界面上，表现为切换对话框后其他对话框页面
+    // 仍显示上一个会话的任务卡；若加载失败或竞态（seq 不匹配）丢弃响应，旧内容将永久残留，
+    // 只有刷新才消失——提前清空从根上消除该残留窗口
+    clearMessages();
     try {
-      // 同步 ref + localStorage：切换瞬间旧会话轮询在途响应/报告完成收尾回调晚到时，
-      // 凭实时 ref 与 localStorage 判定会话已切换而丢弃
-      syncConversationId(id);
-      setConversationId(id);
       const conv = await getConversation(id);
       // 竞态防护：加载期间用户新建/切换/删除了会话 → 本次旧会话结果已过期，丢弃
       if (seq !== conversationLoadSeqRef.current) return;

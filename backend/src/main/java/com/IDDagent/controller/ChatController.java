@@ -1389,10 +1389,19 @@ public class ChatController {
         }
     }
 
-    /** plan_status 快照按 planId 固定 id 原地 upsert 面板消息（steps 为空 → 移除面板） */
+    /** plan_status 快照按 planId 固定 id 原地 upsert 面板消息（steps 为空或收尾终态 → 移除面板） */
     private void upsertPlanStatusMessage(Conversation conv, Map<String, Object> event) {
         List<?> steps = event.get("steps") instanceof List<?> s ? s : List.of();
         boolean hasSteps = !steps.isEmpty();
+        // 收尾终态快照（全部步骤 DONE，或携带收尾汇总文案如"任务已结束/任务完成"，规划已结束）：
+        // 不持久化面板——实时"任务完成"展示由前端 allDone 分支本地渲染承担，切换/刷新会话后的
+        // 恢复由 plan_progress 气泡（"任务完成：..."）承担；若保留终态快照，切换会话时
+        // getConversation 会加载并渲染规划卡，表现为"每个会话都残留任务规划卡"。
+        // 注意：planStatusEvent(convId, summary) 只在收尾路径调用（stepDoneAndConfirm/
+        // confirmContinue/endPlan/resumePlanIfSuspended 防御收尾），summary 非空即收尾，安全。
+        boolean isClosing = hasSteps && (steps.stream().allMatch(s ->
+                s instanceof Map<?, ?> m && "DONE".equals(String.valueOf(m.get("status"))))
+                || (event.get("summary") != null && !String.valueOf(event.get("summary")).isBlank()));
         String planId = event.get("planId") == null ? "" : String.valueOf(event.get("planId"));
         if (planId.isBlank()) return; // 无 planId 的空快照（防御性事件），无需持久化
         String panelId = "plan-status-" + planId;
@@ -1411,15 +1420,15 @@ public class ChatController {
             }
         }
         if (existingIdx >= 0) {
-            if (!hasSteps) {
-                // 面板已存在且快照无步骤（规划收尾清除/被丢弃）→ 移除面板
+            if (!hasSteps || isClosing) {
+                // 面板已存在且快照无步骤（规划收尾清除/被丢弃）或为收尾终态 → 移除面板
                 messages.remove(existingIdx);
             } else {
                 Message panel = messages.get(existingIdx);
                 panel.setExtra(extra);
                 panel.setContent("");
             }
-        } else if (hasSteps) {
+        } else if (hasSteps && !isClosing) {
             // 面板不存在且有步骤 → 按穿插边界规则插入（穿插中新建规划的面板保持在恢复确认卡上方，
             // 与前端 plan_status 占位消费后的 insertBeforeBoundaryCard 一致）
             Message panel = new Message(panelId, "assistant", "", Instant.now().toString());

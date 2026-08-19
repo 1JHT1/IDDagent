@@ -127,6 +127,53 @@ public class ReportController {
                 });
     }
 
+    /**
+     * 从已上传附件中解析企业名称与统一信用代码（供 H5 上传页自动填充只读字段）。
+     * 与 startGeneration 内的完整财务解析不同，此接口只提取企业主体信息，用于上传阶段即时预览。
+     */
+    @PostMapping(value = "/parse-company", produces = MediaType.APPLICATION_JSON_VALUE)
+    public Mono<ResponseEntity<Map<String, Object>>> parseCompany(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<String> fileIds = (List<String>) body.getOrDefault("fileIds", List.of());
+        if (fileIds == null || fileIds.isEmpty()) {
+            return Mono.just(ResponseEntity.badRequest().body(Map.of("error", "fileIds 不能为空")));
+        }
+        // LLM 阻塞解析放到 boundedElastic 线程，不阻塞 Netty 事件循环
+        return Mono.fromCallable(() -> {
+            StringBuilder allRawText = new StringBuilder();
+            for (String fileId : fileIds) {
+                try {
+                    Path filePath = findUploadedFile(fileId);
+                    if (filePath != null && Files.exists(filePath)) {
+                        String rawText = fileParser.extractText(filePath);
+                        if (rawText != null && !rawText.isEmpty()) {
+                            allRawText.append("=== 文件: ").append(filePath.getFileName()).append(" ===\n");
+                            allRawText.append(rawText).append("\n\n");
+                        }
+                    } else {
+                        log.warn("parse-company 上传文件未找到: fileId={}", fileId);
+                    }
+                } catch (Exception e) {
+                    log.warn("parse-company 提取文件文本失败: fileId={}, error={}", fileId, e.getMessage());
+                }
+            }
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("companyName", "");
+            result.put("creditCode", "");
+            if (allRawText.isEmpty()) {
+                return ResponseEntity.ok(result);
+            }
+            Map<String, String> info = llmFieldExtractor.extractCompanyInfo(allRawText.toString());
+            if (info != null) {
+                result.put("companyName", info.getOrDefault("companyName", ""));
+                result.put("creditCode", info.getOrDefault("creditCode", ""));
+            }
+            log.info("parse-company 完成: fileIds={}, companyName={}, creditCode={}",
+                    fileIds, result.get("companyName"), result.get("creditCode"));
+            return ResponseEntity.ok(result);
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
     /** 启动后台报告生成（在 boundedElastic 线程中同步解析附件后返回） */
     @PostMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     public Mono<ResponseEntity<Map<String, Object>>> startGeneration(@RequestBody Map<String, Object> body) {

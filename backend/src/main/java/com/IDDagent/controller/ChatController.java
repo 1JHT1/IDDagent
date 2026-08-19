@@ -235,13 +235,10 @@ public class ChatController {
             int total = ctx.pendingPlan.size();
             int doneIdx = ctx.planIndex + 1;
             String nextDesc = describePlanStep(next);
-            // 携带规划状态快照（当前步 DONE + confirming=true），供前端直接更新规划面板
-            resp.put("plan", contextMemoryService.getPlanStatusData(conversationId));
-            // 持久化收尾快照：reportComplete 的本地注入不落库，切换会话/刷新后消息流若仍只有
-            // 过时的"执行中"快照，面板会永久停留在执行中态——按 planId 原地 upsert 终态快照，
-            // 恢复渲染时面板与后端状态一致
-            persistPlanCardEvent(userConvs.get(conversationId),
-                    planSnapshotToEventJson((Map<String, Object>) resp.get("plan")));
+            // 不携带中间态（confirming）规划快照：实时面板由 SSE 事件驱动，reportComplete 响应
+            // 注入中间态快照会在切换会话/进度卡重挂载时把"执行完一步待确认"面板带入其他对话
+            // 消息流（前端不落盘、刷新后消失但切换后残留）——中间态面板一律不注入不持久化，
+            // 仅 finished 终态分支携带并持久化快照
             resp.put("ok", true);
             resp.put("status", "next");
             resp.put("text", "第 " + doneIdx + "/" + total + " 步已完成，是否继续执行第 " + (doneIdx + 1)
@@ -285,11 +282,11 @@ public class ChatController {
     }
 
     /**
-     * 生成规划步骤显示名（chat → 对话问答；其余 → 技能名（主体）），与 IntentPlannerService 展示逻辑一致。
+     * 生成规划步骤显示名（chat → 对话问答；其余 → 技能中文名（主体）），与 IntentPlannerService 展示逻辑一致。
      */
     private String describePlanStep(ContextMemoryService.PlanStep step) {
         boolean isChat = "chat".equals(step.skill);
-        String displayName = isChat ? "对话问答" : step.skill;
+        String displayName = SkillRegistry.displayName(step.skill);
         Object company = step.params.get("company_name");
         String companyStr = company == null ? "" : String.valueOf(company);
         if (!isChat && companyStr != null && !companyStr.isBlank()) {
@@ -718,16 +715,16 @@ public class ChatController {
                 log.warn("Plan confirm reply JSON parse failed, treat as text: {}", e.getMessage());
             }
         }
-        // 明确停止：确认卡片"结束任务"按钮（plan_stop）或停止类文本
-        if ("plan_stop".equals(action)
+        // 明确停止：确认卡片"结束任务"按钮（plan_stop/结束任务）或停止类文本
+        if ("plan_stop".equals(action) || "结束任务".equals(action)
                 || trimmed.contains("结束") || trimmed.contains("停止")
                 || trimmed.contains("不用") || trimmed.contains("不需要")
                 || trimmed.contains("算了") || trimmed.contains("跳过")) {
             log.info("User chose to stop the plan");
             return intentPlannerService.confirmStop(convId, planInvoker(convId, userId, conv));
         }
-        // 明确继续：确认卡片"继续执行下一步"按钮（plan_continue）或继续类文本
-        if ("plan_continue".equals(action)
+        // 明确继续：确认卡片"继续执行下一步"按钮（plan_continue/继续执行下一步）或继续类文本
+        if ("plan_continue".equals(action) || "继续执行下一步".equals(action)
                 || trimmed.contains("继续") || trimmed.contains("下一步")
                 || trimmed.contains("接着执行") || trimmed.contains("接着来")) {
             log.info("User confirmed to continue the plan");
@@ -771,16 +768,16 @@ public class ChatController {
                 log.warn("Resume confirm reply JSON parse failed, treat as text: {}", e.getMessage());
             }
         }
-        // 明确不恢复：确认卡片"不需要"按钮（plan_resume_no）或否定类文本
-        if ("plan_resume_no".equals(action)
+        // 明确不恢复：确认卡片"不需要"按钮（plan_resume_no/不需要）或否定类文本
+        if ("plan_resume_no".equals(action) || "不需要".equals(action)
                 || trimmed.contains("不用") || trimmed.contains("不需要")
                 || trimmed.contains("算了") || trimmed.contains("不了")
                 || trimmed.contains("不必") || trimmed.contains("不要")) {
             log.info("User chose not to resume suspended plan");
             return intentPlannerService.rejectResume(convId);
         }
-        // 明确恢复：确认卡片"回到之前的任务"按钮（plan_resume_yes）或肯定类文本
-        if ("plan_resume_yes".equals(action)
+        // 明确恢复：确认卡片"回到之前的任务"按钮（plan_resume_yes/回到之前的任务）或肯定类文本
+        if ("plan_resume_yes".equals(action) || "回到之前的任务".equals(action)
                 || trimmed.contains("回到") || trimmed.contains("回去")
                 || trimmed.contains("恢复") || trimmed.contains("继续之前的")
                 || trimmed.contains("接着之前") || trimmed.equals("要") || trimmed.equals("是")) {
@@ -1389,19 +1386,26 @@ public class ChatController {
         }
     }
 
-    /** plan_status 快照按 planId 固定 id 原地 upsert 面板消息（steps 为空或收尾终态 → 移除面板） */
+    /** plan_status 快照按 planId 固定 id 写入面板消息：仅收尾终态持久化，中间态不写入消息流 */
     private void upsertPlanStatusMessage(Conversation conv, Map<String, Object> event) {
         List<?> steps = event.get("steps") instanceof List<?> s ? s : List.of();
         boolean hasSteps = !steps.isEmpty();
         // 收尾终态快照（全部步骤 DONE，或携带收尾汇总文案如"任务已结束/任务完成"，规划已结束）：
-        // 不持久化面板——实时"任务完成"展示由前端 allDone 分支本地渲染承担，切换/刷新会话后的
-        // 恢复由 plan_progress 气泡（"任务完成：..."）承担；若保留终态快照，切换会话时
-        // getConversation 会加载并渲染规划卡，表现为"每个会话都残留任务规划卡"。
+        // 仅终态快照写入会话消息流——切换会话/刷新后恢复"全部任务已完成"完成卡片。
+        // 执行中/等待确认/挂起等中间态快照不写入：实时进度由 SSE 事件直接驱动前端面板展示，
+        // 不持久化可避免切换其他对话记录时残留中间态任务规划栏。
         // 注意：planStatusEvent(convId, summary) 只在收尾路径调用（stepDoneAndConfirm/
         // confirmContinue/endPlan/resumePlanIfSuspended 防御收尾），summary 非空即收尾，安全。
         boolean isClosing = hasSteps && (steps.stream().allMatch(s ->
                 s instanceof Map<?, ?> m && "DONE".equals(String.valueOf(m.get("status"))))
                 || (event.get("summary") != null && !String.valueOf(event.get("summary")).isBlank()));
+        // 普通技能规划收尾（全部 DONE 且最后一步非报告生成）：与前端 useChat.ts allDone 分支
+        // 一致——移除旧面板后按收尾位置重插（无边界卡时追加末尾），完成卡片显示在步骤结果之后；
+        // 否则原地覆盖会让完成卡片停留在执行中面板的旧位置（步骤结果之前）
+        boolean allDone = hasSteps && steps.stream().allMatch(s ->
+                s instanceof Map<?, ?> m && "DONE".equals(String.valueOf(m.get("status"))));
+        boolean lastStepIsReport = hasSteps && steps.get(steps.size() - 1) instanceof Map<?, ?> m
+                && "generate_report".equals(String.valueOf(m.get("skill")));
         String planId = event.get("planId") == null ? "" : String.valueOf(event.get("planId"));
         if (planId.isBlank()) return; // 无 planId 的空快照（防御性事件），无需持久化
         String panelId = "plan-status-" + planId;
@@ -1419,23 +1423,37 @@ public class ChatController {
                 break;
             }
         }
+        if (!hasSteps) {
+            // 快照无步骤（规划收尾清除/被丢弃）→ 移除可能残留的面板消息
+            if (existingIdx >= 0) messages.remove(existingIdx);
+            return;
+        }
+        // 中间态快照不持久化（实时面板由 SSE 事件驱动，切换对话记录不残留规划栏）
+        if (!isClosing) return;
         if (existingIdx >= 0) {
-            if (!hasSteps || isClosing) {
-                // 面板已存在且快照无步骤（规划收尾清除/被丢弃）或为收尾终态 → 移除面板
+            if (allDone && !lastStepIsReport) {
+                // 普通技能规划收尾：移除旧面板后按收尾位置重插（与前端 allDone 分支一致），
+                // 完成卡片显示在步骤结果之后，而非停留在执行中面板的旧位置
                 messages.remove(existingIdx);
+                Message panel = new Message(panelId, "assistant", "", Instant.now().toString());
+                panel.setExtra(extra);
+                insertBeforeBoundaryCard(messages, panel);
             } else {
+                // 面板已存在 → 覆盖快照（报告收尾终态：与前端行为一致）
                 Message panel = messages.get(existingIdx);
                 panel.setExtra(extra);
                 panel.setContent("");
             }
-        } else if (hasSteps && !isClosing) {
-            // 面板不存在且有步骤 → 按穿插边界规则插入（穿插中新建规划的面板保持在恢复确认卡上方，
+        } else {
+            // 面板不存在 → 按穿插边界规则插入（穿插中新建规划的面板保持在恢复确认卡上方，
             // 与前端 plan_status 占位消费后的 insertBeforeBoundaryCard 一致）
             Message panel = new Message(panelId, "assistant", "", Instant.now().toString());
             panel.setExtra(extra);
             insertBeforeBoundaryCard(messages, panel);
         }
         conv.setUpdatedAt(Instant.now().toString());
+        // 终态快照额外落盘：后端重启后完成卡片仍可恢复
+        conversationService.persist();
     }
 
     /** 确认卡/进度气泡事件追加为独立消息（extra 对齐前端 useChat.ts 生成结构） */

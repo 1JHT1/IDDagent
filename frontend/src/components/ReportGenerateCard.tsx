@@ -258,7 +258,11 @@ const ProgressCard: React.FC<{
       notifiedRef.current = true;
       // 规划状态快照（report-complete 响应携带）：注入/更新规划面板消息
       // （固定 id = plan-status-{planId}，与 SSE plan_status 事件同一 id，重复通知自动覆盖不重复插入）
-      if (resp?.plan && resp.plan.active && resp.plan.steps?.length && onAddMessage) {
+      // 仅终态（finished：全部步骤完成）才注入面板：中间态（执行中/待确认）快照由实时 SSE 事件
+      // 驱动，轮询收尾注入的中间态面板在切换会话/进度卡重挂载后会残留到其他对话消息流
+      // （后端不落盘 → 刷新消失但切换不消失），与"规划栏仅终态持久化、中间态不残留"规则一致
+      if (resp?.plan && resp.plan.active && resp.plan.steps?.length && onAddMessage
+          && resp.status === 'finished') {
         onAddMessage({
           id: `plan-status-${(resp.plan as PlanStatusData).planId || reportId}`,
           role: 'assistant',

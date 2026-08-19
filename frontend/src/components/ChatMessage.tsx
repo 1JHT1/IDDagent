@@ -54,6 +54,33 @@ function getExtraCopyText(extra: Record<string, unknown>): string {
   return parts.join('\n');
 }
 
+/** 协议确认消息（确认卡/穿插恢复卡按钮点击生成的 JSON，中英文 action 均识别）→ 中文展示文案；非协议消息返回 null */
+function getConfirmActionLabel(content: string): string | null {
+  const t = content.trim();
+  if (!t.startsWith('{') || !t.endsWith('}')) return null;
+  try {
+    const obj = JSON.parse(t);
+    switch (obj?.action) {
+      case 'plan_continue':
+      case '继续执行下一步':
+        return '已确认：继续执行下一步';
+      case 'plan_stop':
+      case '结束任务':
+        return '已确认：结束任务';
+      case 'plan_resume_yes':
+      case '回到之前的任务':
+        return '已确认：回到之前的任务';
+      case 'plan_resume_no':
+      case '不需要':
+        return '已确认：不需要';
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
 /** 复制按钮组件 */
 const CopyButton: React.FC<{ text: string; className?: string }> = ({ text, className = '' }) => {
   const [copied, setCopied] = useState(false);
@@ -322,11 +349,15 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
     if (isUser) {
       // 卡片点击协议消息：整体隐藏（不渲染气泡与复制按钮）
       if (hiddenUserProtocol) return null;
+      // 协议确认消息（按钮点击生成的 JSON）不展示原始协议文本（避免出现英文 action），
+      // 统一渲染为中文确认文案；历史英文协议消息同样命中
+      const confirmLabel = getConfirmActionLabel(message.content || '');
+      const display = confirmLabel ?? message.content;
       return (
         <>
-          {message.content && (
+          {display && (
             <p className="text-sm leading-relaxed whitespace-pre-wrap">
-              {message.content}
+              {display}
             </p>
           )}
           {message.attachments && message.attachments.length > 0 && (

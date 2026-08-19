@@ -15,6 +15,32 @@ public class SkillRegistry {
     /** 技能名 → 关键词别名表（模糊意图识别兜底用） */
     private final Map<String, List<String>> keywordAliases = new ConcurrentHashMap<>();
 
+    /** 技能名 → 用户可见中文展示名（任务规划面板/步骤文案/确认卡片统一映射，未知技能原样返回） */
+    private static final Map<String, String> SKILL_DISPLAY_NAMES = new LinkedHashMap<>();
+
+    static {
+        SKILL_DISPLAY_NAMES.put("chat", "对话问答");
+        SKILL_DISPLAY_NAMES.put("check_company_risk", "风险预查");
+        SKILL_DISPLAY_NAMES.put("generate_report", "生成尽调报告");
+        SKILL_DISPLAY_NAMES.put("query_due_diligence_reports", "历史尽调报告查询");
+        SKILL_DISPLAY_NAMES.put("verify_business_license", "执照信息核实");
+        SKILL_DISPLAY_NAMES.put("query_company_basic_info", "基本信息");
+        SKILL_DISPLAY_NAMES.put("query_shareholder_info", "股东信息");
+        SKILL_DISPLAY_NAMES.put("query_beneficiary_info", "受益人信息");
+        SKILL_DISPLAY_NAMES.put("query_company_genealogy", "企业族谱");
+        SKILL_DISPLAY_NAMES.put("query_customs_auth", "海关认证信息");
+        SKILL_DISPLAY_NAMES.put("query_customs_blacklist", "海关失信名单信息");
+        SKILL_DISPLAY_NAMES.put("query_account_freeze_tag", "账户冻结标签");
+        SKILL_DISPLAY_NAMES.put("query_credit_granting", "授信信息");
+        SKILL_DISPLAY_NAMES.put("query_pboc_account_control", "人行账户管控信息");
+    }
+
+    /** 技能名 → 中文展示名（规划面板/步骤文案/确认卡片统一使用，未知技能名原样返回避免空白） */
+    public static String displayName(String skillName) {
+        if (skillName == null) return "";
+        return SKILL_DISPLAY_NAMES.getOrDefault(skillName, skillName);
+    }
+
     public void register(Skill skill) {
         register(skill, Collections.emptyList());
     }

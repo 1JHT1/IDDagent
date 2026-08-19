@@ -17,8 +17,9 @@ interface ResumeConfirmCardProps {
 /**
  * 穿插恢复确认卡片（ResumeConfirm）：穿插的新意图执行完成后，询问用户
  * 是否需要回到穿插进来前的那一步继续之前的任务规划。
- * 点击"回到之前的任务"发送 {"action":"plan_resume_yes"}，点击"不需要"
- * 发送 {"action":"plan_resume_no"}，后端据此恢复挂起规划或将其丢弃。
+ * 点击"回到之前的任务"发送 {"action":"回到之前的任务"}，点击"不需要"
+ * 发送 {"action":"不需要"}，后端据此恢复挂起规划或将其丢弃
+ * （后端兼容英文旧协议 plan_resume_yes/plan_resume_no，历史消息不影响）。
  */
 const ResumeConfirmCard: React.FC<ResumeConfirmCardProps> = ({
   text,
@@ -52,14 +53,14 @@ const ResumeConfirmCard: React.FC<ResumeConfirmCardProps> = ({
       )}
       <div className="px-4 pb-3 flex gap-2">
         <button
-          onClick={() => onSendMessage?.(JSON.stringify({ action: 'plan_resume_yes' }))}
+          onClick={() => onSendMessage?.(JSON.stringify({ action: '回到之前的任务' }))}
           disabled={disabled}
           className="flex-1 text-center px-4 py-2.5 rounded-lg border border-amber-400 bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-amber-500"
         >
           回到之前的任务
         </button>
         <button
-          onClick={() => onSendMessage?.(JSON.stringify({ action: 'plan_resume_no' }))}
+          onClick={() => onSendMessage?.(JSON.stringify({ action: '不需要' }))}
           disabled={disabled}
           className="flex-1 text-center px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 font-medium text-sm hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
         >

@@ -479,7 +479,7 @@ public class IntentPlannerService {
         int total = ctx.pendingPlan.size();
         int idx = ctx.planIndex + 1;
         boolean isChat = "chat".equals(step.skill);
-        String stepName = isChat ? "对话问答" : step.skill;
+        String stepName = SkillRegistry.displayName(step.skill);
         String planText = "第 " + idx + "/" + total + " 步：" + stepName;
 
         // 执行前主体兜底继承（Phase 6）：当前步骤缺主体、或主体仅来自 buildPlan 静态继承占位
@@ -657,7 +657,7 @@ public class IntentPlannerService {
         int i = 1;
         for (ContextMemoryService.PlanStep step : ctx.pendingPlan) {
             String label = step.summary == null || step.summary.isBlank()
-                    ? ("chat".equals(step.skill) ? "对话问答" : step.skill)
+                    ? SkillRegistry.displayName(step.skill)
                     : step.summary;
             if (step.status == ContextMemoryService.PlanStatus.FAILED) {
                 failed.add(i + ". " + label);
@@ -1067,7 +1067,7 @@ public class IntentPlannerService {
             int stepIdx = wasConfirming ? Math.min(ctx.suspendedIndex + 1, total - 1) : ctx.suspendedIndex;
             ContextMemoryService.PlanStep step = ctx.suspendedPlan.get(stepIdx);
             boolean isChat = "chat".equals(step.skill);
-            String displayName = isChat ? "对话问答" : step.skill;
+            String displayName = SkillRegistry.displayName(step.skill);
             Object company = step.params.get("company_name");
             String companyStr = company == null ? "" : String.valueOf(company);
             String stepDesc = displayName;

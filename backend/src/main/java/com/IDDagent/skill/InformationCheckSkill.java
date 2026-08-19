@@ -1,6 +1,5 @@
 package com.IDDagent.skill;
 
-import com.IDDagent.service.CompanyNameExtractor;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,9 +14,6 @@ public class InformationCheckSkill {
 
     private static final String INFO_CHECK_FILE = "data-template/information_check.json";
     private static final String NAME_INDEX_FILE = "data-template/company_name_index.json";
-    /** _user_input 清洗用技能动词/查询后缀（供 CompanyNameExtractor 统一清洗链） */
-    private static final String INFO_VERBS = "核实|核验|核查|验证|查询|查一下|查";
-    private static final String INFO_SUFFIXES = "的营业执照|营业执照|的核实|的核查|的资料|的信息|核实|核查|资料|信息";
 
     /**
      * 从用户原始输入中提取"核实行为词 + 企业名"结构的企业名称（如"核实小米" → "小米"、

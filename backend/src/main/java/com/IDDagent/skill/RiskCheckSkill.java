@@ -23,9 +23,6 @@ public class RiskCheckSkill {
     private static final String NAME_INDEX_FILE = "data-template/company_name_index.json";
     private static final int MIN_AUTO_MATCH_SCORE = 80;
     private static final int MAX_SUGGESTIONS = 3;
-    /** _user_input 清洗用技能动词/查询后缀（供 CompanyNameExtractor 统一清洗链） */
-    private static final String RISK_VERBS = "风险预查|风险筛查|风险识别|预查|筛查|查询|查一下|查|看看";
-    private static final String RISK_SUFFIXES = "的风险情况|的风险信息|的风险|风险情况|风险信息|风险|情况|信息";
 
     /**
      * 疑问/问题句式判定：含典型疑问词（什么/怎么/是否/有没有/吗/呢 等）或提问类名词
@@ -184,7 +181,7 @@ public class RiskCheckSkill {
                     return buildResult(result);
                 }
                 // 名称匹配成功但 risk_check.json 中无该企业风险数据（如索引中的混淆/无数据企业）：
-                // 区分"未收录"与"名称有误"，避免把存在企业误报为"未找到"
+                // 返回"未找到"提示，避免返回无 action 的空响应导致前端无反馈
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("action", "not_found");
                 resp.put(Skill.KEY_STEP_DONE, true);
@@ -511,6 +508,7 @@ public class RiskCheckSkill {
         List<Map<String, Object>> matches = fuzzyMatchCompany(query, nameIndex);
 
         if (matches.isEmpty()) {
+            // 零匹配：not_found（无候选）——只有不存在任何模糊匹配才进入
             Map<String, Object> resp = new HashMap<>();
             resp.put("action", "not_found");
             resp.put(Skill.KEY_STEP_DONE, true);
@@ -531,47 +529,32 @@ public class RiskCheckSkill {
         if (matches.size() == 1) {
             int score = ((Number) matches.get(0).get("_score")).intValue();
             if (score >= MIN_AUTO_MATCH_SCORE) {
+                // 唯一匹配且置信度足够：自动确认，直接查询
                 Map<String, Object> resp = new HashMap<>();
                 resp.put("credit_code", matches.get(0).get("credit_code"));
                 return resp;
             }
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("action", "not_found");
-            // 带候选列表：未到达步骤结束点，等待用户点击候选后重跑当前步骤
-            resp.put(Skill.KEY_STEP_DONE, false);
-            resp.put("keyword", query);
-            resp.put("options", options);
-            resp.put("message", "未找到与「" + query + "」完全匹配的企业，您是否要查询以下相似企业？");
-            return resp;
         }
 
         int bestScore = ((Number) matches.get(0).get("_score")).intValue();
         int secondScore = matches.size() > 1 ? ((Number) matches.get(1).get("_score")).intValue() : 0;
 
         if (bestScore >= 95 && secondScore < MIN_AUTO_MATCH_SCORE) {
+            // 最高分远超次高分：自动确认，直接查询
             Map<String, Object> resp = new HashMap<>();
             resp.put("credit_code", matches.get(0).get("credit_code"));
             return resp;
         }
 
-        if (bestScore >= MIN_AUTO_MATCH_SCORE) {
-            Map<String, Object> resp = new HashMap<>();
-            resp.put("action", "ambiguous");
-            // 带候选列表：未到达步骤结束点，等待用户点击候选后重跑当前步骤
-            resp.put(Skill.KEY_STEP_DONE, false);
-            resp.put("keyword", query);
-            resp.put("options", options);
-            resp.put("message", "搜索到 " + matches.size() + " 家与「" + query + "」匹配的企业，请确认要查询哪一家：");
-            return resp;
-        }
-
+        // 存在模糊匹配但置信度不足（唯一低分匹配/多候选竞争/最高分与次高分接近）：
+        // 一律返回 ambiguous 带候选列表，由用户显式确认；not_found 仅表示零匹配
         Map<String, Object> resp = new HashMap<>();
-        resp.put("action", "not_found");
+        resp.put("action", "ambiguous");
         // 带候选列表：未到达步骤结束点，等待用户点击候选后重跑当前步骤
         resp.put(Skill.KEY_STEP_DONE, false);
         resp.put("keyword", query);
         resp.put("options", options);
-        resp.put("message", "未找到与「" + query + "」完全匹配的企业，以下是名称相似的企业：");
+        resp.put("message", "搜索到 " + matches.size() + " 家与「" + query + "」匹配的企业，请确认要查询哪一家：");
         return resp;
     }
 
@@ -626,19 +609,13 @@ public class RiskCheckSkill {
             String name = entry.getKey();
             String cleanName = name.replace("有限公司", "").replace("有限责任", "")
                     .replace("股份", "").replace("集团", "").replace("公司", "");
-            if (cleanQuery.isEmpty() || isSubsequence(cleanQuery, cleanName)) {
-                if (cleanQuery.isEmpty()) continue;
+            if (isSubsequence(cleanQuery, cleanName)) {
                 int score;
                 if (cleanQuery.equals(cleanName)) {
                     score = 95;
                 } else {
                     double density = (double) query.length() / name.length();
                     score = 60 + (int) (density * 30);
-                    // 简称高置信加分：核心名子序列全命中且查询覆盖企业名核心 40% 以上时视为高置信简称
-                    // （如"云栖大数据"→"杭州云栖大数据技术有限公司"，否则密度公式对简称偏低无法自动匹配）
-                    if (cleanQuery.length() >= cleanName.length() * 0.4) {
-                        score = Math.max(score, 85);
-                    }
                 }
                 Map<String, Object> m = new HashMap<>();
                 m.put("credit_code", entry.getValue());
@@ -658,26 +635,6 @@ public class RiskCheckSkill {
                     m.put("_score", 40);
                     results.put(entry.getValue(), m);
                 }
-            }
-        }
-
-        // 5. 宽松窗口兜底：cleanQuery 的连续子串（最长优先）包含匹配，仅作候选不做自动匹配
-        //    （如"云禾科技"误输入为"云禾科支"时，窗口"云禾科"仍可命中候选供用户确认）
-        if (results.isEmpty()) {
-            for (int winLen = cleanQuery.length() - 1; winLen >= 2; winLen--) {
-                for (int i = 0; i + winLen <= cleanQuery.length(); i++) {
-                    String sub = cleanQuery.substring(i, i + winLen);
-                    for (var entry : reverseIndex.entrySet()) {
-                        if (entry.getKey().contains(sub)) {
-                            Map<String, Object> m = new HashMap<>();
-                            m.put("credit_code", entry.getValue());
-                            m.put("company_name", entry.getKey());
-                            m.put("_score", 45);
-                            results.putIfAbsent(entry.getValue(), m);
-                        }
-                    }
-                }
-                if (!results.isEmpty()) break;
             }
         }
 

@@ -216,6 +216,12 @@ export interface CompanyNameCandidatesData {
   keyword: string;
   message: string;
   options: CompanyNameCandidate[];
+  /** 所属任务标识（多意图管道中让用户清楚"是哪个任务在询问"） */
+  task_label?: string;
+  /** 查询功能标签（二次点击协议：帮我查一下{公司名}{query_label}） */
+  query_label?: string;
+  /** 已确认过候选（后端落盘 + 前端乐观更新） */
+  confirmed?: boolean;
 }
 
 // ============================================================
@@ -277,8 +283,6 @@ export type SSEEventType =
   | 'text_start'
   | 'text_delta'
   | 'text_done'
-  | 'planning'
-  | 'task_start'
   | 'risk_check_result'
   | 'report_generate_result'
   | 'information_check_result'
@@ -286,7 +290,6 @@ export type SSEEventType =
   | 'company_query_result'
   | 'follow_up_suggestion'
   | 'company_name_candidates'
-  | 'intent_candidates'
   | 'need_date_range'
   | 'clarification'
   | 'plan_progress'

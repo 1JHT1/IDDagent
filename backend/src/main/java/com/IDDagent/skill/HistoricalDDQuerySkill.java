@@ -1,6 +1,5 @@
 package com.IDDagent.skill;
 
-import com.IDDagent.service.CompanyNameExtractor;
 import com.IDDagent.service.DDReportService;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -462,7 +461,8 @@ public class HistoricalDDQuerySkill {
      * 此时仍应走企业名称模糊匹配出选项卡。
      */
     private static boolean isValidCreditCode(String code) {
-        return CompanyNameExtractor.isValidCreditCode(code);
+        if (code == null || code.isEmpty()) return false;
+        return code.toUpperCase().matches("[0-9A-Z]{18}");
     }
 
     /**

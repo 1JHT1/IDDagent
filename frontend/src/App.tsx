@@ -10,7 +10,6 @@ import {
   getConversation,
   deleteConversation as deleteConversationApi,
   checkHealth,
-  notifyReportCompleted,
 } from './api/agent';
 import type { ConversationListItem, ChatMessage, ChatAttachment, PlanStatusData } from './types';
 
@@ -177,7 +176,7 @@ const App: React.FC = () => {
         }
       }
     } catch { /* ignore */ }
-  }, [injectProgressMessage, advancePipelineAfterReport]);
+  }, [injectProgressMessage]);
 
   // 定时轮询当前用户的活跃报告（捕获 H5 标签页关闭后发起的生成）
   useEffect(() => {
@@ -236,7 +235,7 @@ const App: React.FC = () => {
     checkConversationPending();
     const interval = setInterval(checkConversationPending, 3000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, conversationId, injectProgressMessage, advancePipelineAfterReport]);
+  }, [isAuthenticated, conversationId, injectProgressMessage]);
 
   // 检查后端服务状态
   useEffect(() => {
@@ -334,9 +333,9 @@ const App: React.FC = () => {
             const parsed = JSON.parse(m.content);
             if (parsed && typeof parsed.action === 'string') {
               // 归一化候选选项卡 action：实时 SSE 路径前端设为 company_name_candidates，
-              // 而消息持久化的是技能原始返回值 action=candidates，若不归一化，
+              // 而消息持久化的是技能原始返回值 action=candidates / ambiguous，若不归一化，
               // 切换对话重载后选项卡（CompanyNameSelector）将无法恢复渲染
-              if (parsed.action === 'candidates') {
+              if (parsed.action === 'candidates' || parsed.action === 'ambiguous') {
                 parsed.action = 'company_name_candidates';
               }
               // info_needed（如"请问您要查询哪家企业"）：实时 SSE 路径是 text_delta/text_done
@@ -486,7 +485,7 @@ const App: React.FC = () => {
   }, []);
 
   // 发送消息
-  const handleSend = useCallback(async (content: string, attachments?: ChatAttachment[]) => {
+  const handleSend = useCallback(async (content: string, attachments?: ChatAttachment[], silent?: boolean) => {
     let currentConvId = conversationIdRef.current;
     if (!currentConvId) {
       try {
@@ -503,7 +502,7 @@ const App: React.FC = () => {
       }
     }
     console.log('📤 App 发送消息, conversationId:', currentConvId);
-    sendMessage(content, currentConvId, attachments);
+    sendMessage(content, currentConvId, attachments, silent);
   }, [sendMessage]);
 
   // ---- 未登录：显示登录页 ----

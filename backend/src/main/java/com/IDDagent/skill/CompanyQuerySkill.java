@@ -1,6 +1,5 @@
 package com.IDDagent.skill;
 
-import com.IDDagent.service.CompanyNameExtractor;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,9 +22,6 @@ public class CompanyQuerySkill {
 
     private static final String QUERY_FILE = "data-template/company_query_data.json";
     private static final String NAME_INDEX_FILE = "data-template/company_name_index.json";
-    /** _user_input 清洗用技能动词/查询后缀（供 CompanyNameExtractor 统一清洗链） */
-    private static final String QUERY_VERBS = "查询|查一下|查查|了解一下|查|看看|看一下|提供|获取|核实";
-    private static final String QUERY_SUFFIXES = "的人行账户管控情况|人行账户管控情况|的账户冻结标签|的海关认证信息|的海关失信记录|的受益人信息|海关认证信息|海关失信记录|账户冻结标签|的股东信息|的授信信息|的基本信息|的企业族谱|的授信情况|受益人信息|股东信息|基本信息|授信信息|企业族谱|授信情况|的信息|的资料|的情况|信息|资料|情况";
 
     /**
      * 疑问/问题句式判定（与 RiskCheckSkill 同源）：含典型疑问词（什么/怎么/是否/吗 等）或提问类

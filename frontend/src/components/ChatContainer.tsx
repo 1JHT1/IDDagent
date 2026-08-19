@@ -7,7 +7,7 @@ import ChatInput from './ChatInput';
 interface ChatContainerProps {
   messages: ChatMessage[];
   isSending: boolean;
-  onSend: (message: string, attachments?: ChatAttachment[]) => void;
+  onSend: (message: string, attachments?: ChatAttachment[], silent?: boolean) => void;
   onStop?: () => void;
   /** 本地生成卡片消息（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
   onAddMessage?: (msg: ChatMessage) => void;
@@ -84,7 +84,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               <ChatMessageComponent
                 key={msg.id}
                 message={msg}
-                onSendMessage={onSend}
+                onSendMessage={(content, silent) => onSend(content, undefined, silent)}
                 onAddMessage={onAddMessage}
                 interleaveDisabled={computeInterleaveDisabled(messages, index)}
               />

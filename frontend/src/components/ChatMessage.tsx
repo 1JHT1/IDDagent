@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import type { ChatMessage, ChatAttachment, PlanStatusData } from '../types';
 import { isStreamingMessage } from '../types';
+import { isCardClickProtocol } from '../hooks/useChat';
 import RiskCheckCard from './RiskCheckCard';
 import HistoricalDDQueryCard from './HistoricalDDQueryCard';
 import InformationCheckCard from './InformationCheckCard';
@@ -14,12 +15,11 @@ import PlanStatusCard from './PlanStatusCard';
 import PlanConfirmCard from './PlanConfirmCard';
 import ResumeConfirmCard from './ResumeConfirmCard';
 import FollowUpChip from './FollowUpChip';
-import TaskProgressCard from './TaskProgressCard';
 
 interface ChatMessageProps {
   message: ChatMessage;
-  /** 发送消息回调（用于卡片交互） */
-  onSendMessage?: (content: string) => void;
+  /** 发送消息回调（用于卡片交互；silent=true 静默发送：不插入用户气泡） */
+  onSendMessage?: (content: string, silent?: boolean) => void;
   /** 本地生成卡片消息回调（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
   onAddMessage?: (msg: ChatMessage) => void;
   /** 穿插区域已结束时禁用功能卡片（穿插确认卡片之后的穿插对话区卡片不可再点击） */
@@ -152,6 +152,14 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
   const isUser = message.role === 'user';
   const streaming = isStreamingMessage(message);
 
+  // 卡片点击协议消息（模糊匹配候选/兜底按钮发送的固定句式）：原文仅作为后端输入协议，
+  // 不在用户气泡中展示企业名称与信用代码——整体隐藏，直接呈现后续的结果卡片/下一步。
+  // 标记（实时路径）与 content 特征识别（历史消息重载路径）双保险。
+  const hiddenUserProtocol =
+    isUser &&
+    ((message.extra as { action?: string } | undefined)?.action === 'card_click' ||
+      isCardClickProtocol(message.content || ''));
+
   // 决定复制内容：纯文本直接用 content，卡片消息从 extra 提取
   const copyText = !isUser && message.extra
     ? (getExtraCopyText(message.extra) || message.content || '')
@@ -170,11 +178,6 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
             <FollowUpChip text={text} onSendMessage={onSendMessage} disabled={interleaveDisabled} />
           </div>
         );
-      }
-
-      // 多意图任务清单卡片（对话中可见、随管道进度更新、持久保留）
-      if (extraAction === 'pipeline') {
-        return <TaskProgressCard data={message.extra as unknown as PipelineExtra} />;
       }
 
       // 结构化卡片渲染（优先根据 _skill_name 路由，兜底按字段匹配）
@@ -203,8 +206,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
       }
 
       // 候选企业选择器（企业名匹配到多条结果时让用户选择）
-      // 仅渲染选择卡片：匹配数量说明由卡片头部展示（"搜索到 N 家名称包含「XX」的企业"），
-      // 不再额外输出独立文字气泡，避免重复
+      // 说明文本作为独立回答气泡显示在选项卡之前，不放在卡片底部
       if (extraAction === 'company_name_candidates') {
         const options = message.extra.options as { credit_code: string; company_name: string }[] | undefined;
         if (options && options.length > 0) {
@@ -217,7 +219,12 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
               ) : null}
               <CompanyNameSelector
                 options={options}
+                message={typeof message.extra.message === 'string' ? message.extra.message : undefined}
                 keyword={message.extra.keyword as string}
+                taskLabel={message.extra.task_label as string | undefined}
+                queryLabel={message.extra.query_label as string | undefined}
+                skillName={message.extra._skill_name as string | undefined}
+                confirmed={message.extra.confirmed === true}
                 onSendMessage={onSendMessage}
                 disabled={interleaveDisabled}
               />
@@ -313,6 +320,8 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
     }
 
     if (isUser) {
+      // 卡片点击协议消息：整体隐藏（不渲染气泡与复制按钮）
+      if (hiddenUserProtocol) return null;
       return (
         <>
           {message.content && (
@@ -369,8 +378,8 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
         )}
       </div>
 
-      {/* 第二行：复制按钮（非流式 + 有内容时显示） */}
-      {copyText && !streaming && (
+      {/* 第二行：复制按钮（非流式 + 有内容 + 非隐藏协议消息时显示） */}
+      {copyText && !streaming && !hiddenUserProtocol && (
         <div className={`mt-1 ${isUser ? 'mr-0' : 'ml-11'}`}>
           <CopyButton
             text={copyText}

@@ -24,10 +24,6 @@ public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
     private static final ObjectMapper mapper = new ObjectMapper();
-    private static final String INTENT_SELECT_PREFIX = "【意图选择】";
-    // 模板选择消息协议前缀：前端模板卡片点击后发送「【模板选择】<template_id>」文本消息，
-    // 后端在 generate_report 重入时解析注入 template_id（见 handleSkill）
-    private static final String TEMPLATE_SELECT_PREFIX = "【模板选择】";
 
     /** 模糊匹配候选列表「以上选项均不是」回复的识别模式（各技能候选卡片点击按钮后发送的固定短语） */
     private static final Pattern NONE_OF_ABOVE_PATTERN = Pattern.compile(
@@ -369,9 +365,6 @@ public class ChatController {
             insertInterleavingAware(conv.getMessages(), userMsg);
         }
         conv.setUpdatedAt(now);
-        // 消息追加后立即落盘：对话记录实时写入 data/conversations.json，
-        // 否则消息只存内存、后端重启后全部丢失（persist 原本仅在创建/删除会话时触发）
-        conversationService.persist();
 
         // 首次消息设置标题
         if (conv.getMessages().size() == 1) {
@@ -419,7 +412,7 @@ public class ChatController {
         Flux<String> initEvent = Flux.just(sseEvent("thinking",
                 Map.of("content", thinkingText), null, convId));
 
-        // 主流程：isWaitingReport（报告生成中）→ pendingPipeline → pendingSkill → 前缀 → routeIntent
+        // 主流程
         Flux<String> mainFlow;
         // 6.5 模糊匹配候选「以上选项均不是」统一拦截：所有出候选列表的公司模糊匹配技能
         //     （历史尽调报告 candidates / 企业查询、风险预查、信息核实的 ambiguous/not_found）
@@ -562,6 +555,7 @@ public class ChatController {
             } else {
                 ctx.pendingSkillRetry++;
                 log.info("Pending skill {} retry {}/3: {}", ctx.pendingSkillName, ctx.pendingSkillRetry, finalMessage);
+                // 有待处理技能 → 直接路由，跳过 Coordinator/LLM 意图识别
                 String pendingSkill = ctx.pendingSkillName;
                 Map<String, Object> pendingParams = new LinkedHashMap<>(ctx.pendingSkillParams);
                 pendingParams.put("_user_input", finalMessage);
@@ -931,40 +925,12 @@ public class ChatController {
 
         String assistantMsgId = UUID.randomUUID().toString();
 
-        // "以上都不是"：用户在模糊匹配候选列表中点击"以上都不是"，表明所有候选均非目标企业。
-        // 候选卡片弹出时已设置 pendingSkill，此消息经主流程 pendingSkill 分支 / handleMultiResume
-        // 重入本技能；在技能调用前拦截，返回友好提示并保留 pendingSkill 等待用户重新提供准确企业
-        // 信息——否则 CompanyNameExtractor 会把该文本当企业名再次模糊匹配，重弹候选卡片甚至死循环
-        if (pendingInput != null && pendingInput.contains("以上都不是")) {
-            // 清空可能残留的企业参数，避免下一轮上下文补全复用旧企业名再次触发模糊匹配
-            skillParams.remove("company_name");
-            skillParams.remove("credit_code");
-            String rejectPrompt = "以上候选企业均不是您要找的目标，请提供准确的企业名称或统一信用代码，我将为您重新查询。";
-            contextMemoryService.setPendingInputHint(convId, rejectPrompt);
-            contextMemoryService.setPendingSkill(convId, skillName, skillParams);
-            log.info("User rejected all candidates (以上都不是), pending skill {} kept for re-query", skillName);
-            return Flux.just(
-                    sseEvent("text_delta", Map.of("content", rejectPrompt), assistantMsgId, null),
-                    sseEvent("text_done", Map.of("content", rejectPrompt), assistantMsgId, null)
-            );
-        }
-
         // skillRegistry.invoke 是同步阻塞，隔离到弹性线程池
         return Mono.fromCallable(() -> skillRegistry.invoke(skillName, userId, skillParams))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMapMany(result -> {
                     // 构建事件流
                     Flux<String> eventFlux;
-                    // 模板选择阶段标志：generate_report 展示模板列表（stage=templates）时
-                    // 技能尚未完成任务，不发送 task_done、不清理 pendingSkill、不触发后续
-                    // 建议，而是暂停管道等待用户点击模板后重入（与 candidates/info_needed 一致）
-                    boolean templateStage = "generate_report".equals(skillName)
-                            && "templates".equals(result.get("stage"));
-                    // 跳转阶段（stage=redirect）：generate_report 已返回跳转 H5 编辑页信息，
-                    // 报告由用户在 H5 页面异步生成，本任务尚未真正完成：不发 task_done、
-                    // 挂起管道（waitingReportTask）等待报告完成后由 report-completed 接口推进
-                    boolean redirectStage = "generate_report".equals(skillName)
-                            && "redirect".equals(result.get("stage"));
 
                     if (result.containsKey("error")) {
                         String errorMsg = (String) result.get("error");
@@ -1011,9 +977,7 @@ public class ChatController {
                             eventFlux = Flux.just(sseEvent("potential_customer_summary", result, assistantMsgId, null));
                         } else if ("detail".equals(action)) {
                             eventFlux = Flux.just(sseEvent("potential_customer_detail", result, assistantMsgId, null));
-                        } else if ("candidates".equals(action) || "ambiguous".equals(action)) {
-                            // ambiguous（企业名多候选）与 candidates 同处理：发企业选择卡片 + 保存待处理技能，
-                            // 否则用户点击卡片选项后无 pendingSkill 会重新走 Coordinator 提取 → 再次多候选 → 死循环弹卡片
+                        } else if ("candidates".equals(action)) {
                             result.put("_skill_name", skillName);
                             eventFlux = Flux.just(sseEvent("company_name_candidates", result, assistantMsgId, null));
                             // 将技能解析出的 keyword 合并回 skillParams（让下一轮持有企业名上下文）
@@ -1119,7 +1083,6 @@ public class ChatController {
                             String eventType = switch (skillName) {
                                 case "query_due_diligence_reports" -> "historical_dd_query_result";
                                 case "verify_business_license" -> "information_check_result";
-                                case "generate_report" -> "report_generate_result";
                                 case "query_company_basic_info", "query_shareholder_info", "query_beneficiary_info",
                                      "query_company_genealogy", "query_customs_auth", "query_customs_blacklist",
                                      "query_account_freeze_tag", "query_credit_granting",
@@ -1128,7 +1091,6 @@ public class ChatController {
                             };
                             // 将 skill_name 注入到结果中，方便前端根据技能类型路由卡片
                             result.put("_skill_name", skillName);
-                            if (multiIndex >= 0) result.put("_multi_index", multiIndex);
                             eventFlux = Flux.just(sseEvent(eventType, result, assistantMsgId, null));
                             // 规划模式：ambiguous/not_found 带候选列表 → 本步骤不结束，标记当前步骤等待用户
                             // 显式选择（与 candidates 分支一致）；技能解析出的 keyword 写回步骤 params，作为
@@ -1237,8 +1199,6 @@ public class ChatController {
                             // 避免切换会话后结果卡跑到穿插对话之后位置错乱
                             insertBeforeBoundaryCard(conv.getMessages(), asstMsg);
                             conv.setUpdatedAt(asstMsg.getCreatedAt());
-                            // 消息追加后立即落盘（与用户消息存储处一致）
-                            conversationService.persist();
                         } catch (Exception e) {
                             log.error("Failed to serialize result: {}", e.getMessage());
                         }
@@ -1361,8 +1321,6 @@ public class ChatController {
                         // 避免穿插对话落在恢复确认卡之后位置错乱
                         insertBeforeBoundaryCard(conv.getMessages(), asstMsg);
                         conv.setUpdatedAt(asstMsg.getCreatedAt());
-                        // 流式生成结束/被强制终止时保存已生成内容，随后立即落盘
-                        conversationService.persist();
                     }
                     // 更新标题
                     if ("新对话".equals(conv.getTitle()) && conv.getMessages().size() >= 2) {
@@ -1652,134 +1610,6 @@ public class ChatController {
     }
 
     // ---------- SSE 辅助方法 ----------
-
-    /**
-     * 从对话历史中恢复最近一次完整任务计划快照（含 label/order）。
-     * 多意图管道首次规划时 handleMulti 会把完整 plan 持久化为 assistant 消息
-     * （content 为 {"action":"pipeline","plan":[{skill,label,order},...]}）。
-     * 暂停恢复时若内存快照 pipelinePlan 已丢失（如后端重启），从历史中恢复完整计划，
-     * 避免兑底重建（只含剩余任务、label 缺失）导致前端任务总数缩水、
-     * 任务标签显示"第 X 项任务"占位、已完成任务数错乱。
-     */
-    @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> findPipelinePlanFromHistory(Conversation conv) {
-        List<Message> messages = conv.getMessages();
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message msg = messages.get(i);
-            if (!"assistant".equals(msg.getRole())) continue;
-            try {
-                Map<String, Object> content = mapper.readValue(msg.getContent(),
-                        new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {});
-                if (content != null && "pipeline".equals(content.get("action"))) {
-                    Object planObj = content.get("plan");
-                    if (planObj instanceof List && !((List<?>) planObj).isEmpty()) {
-                        return (List<Map<String, Object>>) planObj;
-                    }
-                }
-            } catch (Exception e) {
-                // 非 JSON 或解析失败的消息（如普通文本回复）直接跳过
-            }
-        }
-        return null;
-    }
-
-    /**
-     * 从计划快照（含 label/order 的 Map 列表）生成规划文本，格式与 TaskPlanner.buildPlanText 一致
-     */
-    private String buildPlanTextFromSnapshot(List<Map<String, Object>> planSnapshot) {
-        if (planSnapshot == null || planSnapshot.isEmpty()) return "";
-        StringBuilder sb = new StringBuilder("我将依次为您执行：");
-        String[] numbers = {"①", "②", "③", "④", "⑤", "⑥", "⑦", "⑧", "⑨", "⑩"};
-        for (int i = 0; i < planSnapshot.size(); i++) {
-            Object label = planSnapshot.get(i).get("label");
-            sb.append(numbers[i < numbers.length ? i : 0]).append(" ").append(label);
-            if (i < planSnapshot.size() - 1) sb.append(" ");
-        }
-        return sb.toString();
-    }
-
-    /**
-     * 获取当前管道的完整任务快照（含 label/order）：优先用内存快照 pipelinePlan，
-     * 丢失时（如后端重启）从会话历史中恢复初始规划卡上的完整计划。
-     */
-    private List<Map<String, Object>> snapshotPlan(String convId, Conversation conv) {
-        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
-        if (ctx.pipelinePlan != null && !ctx.pipelinePlan.isEmpty()) {
-            return new ArrayList<>(ctx.pipelinePlan);
-        }
-        return findPipelinePlanFromHistory(conv);
-    }
-
-    /**
-     * 将管道进度卡片（任务切换卡/完成卡）持久化为 assistant 消息并落盘，
-     * 使这些卡片在切换会话或刷新后仍保留在对话流中。
-     */
-    private void persistPipelineCard(Conversation conv, Map<String, Object> cardData) {
-        try {
-            String json = mapper.writeValueAsString(cardData);
-            Message msg = new Message(UUID.randomUUID().toString(), "assistant", json, Instant.now().toString());
-            conv.getMessages().add(msg);
-            conv.setUpdatedAt(msg.getCreatedAt());
-            conversationService.persist();
-        } catch (Exception e) {
-            log.error("Failed to persist pipeline card: {}", e.getMessage());
-        }
-    }
-
-    /**
-     * 更新已持久化的初始执行计划卡（首卡，kind 非 switch/complete）的 currentOrder，
-     * 使切换会话/刷新后首卡仍反映最新执行进度（与前端 task_start 同步首卡逻辑一致）。
-     */
-    @SuppressWarnings("unchecked")
-    private void updatePipelinePlanCardOrder(Conversation conv, int currentOrder) {
-        List<Message> messages = conv.getMessages();
-        for (int i = messages.size() - 1; i >= 0; i--) {
-            Message msg = messages.get(i);
-            if (!"assistant".equals(msg.getRole())) continue;
-            try {
-                Map<String, Object> content = mapper.readValue(msg.getContent(),
-                        new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {});
-                if (content != null && "pipeline".equals(content.get("action"))
-                        && !"switch".equals(content.get("kind")) && !"complete".equals(content.get("kind"))) {
-                    content.put("currentOrder", currentOrder);
-                    msg.setContent(mapper.writeValueAsString(content));
-                    conversationService.persist();
-                    return;
-                }
-            } catch (Exception e) {
-                // 非 JSON 或解析失败的消息（如普通文本回复）直接跳过
-            }
-        }
-    }
-
-    /**
-     * 管道全部完成后，将历史中所有任务进度卡（plan/switch，即 kind != complete）
-     * 标记为已完成（completed=true），使切换会话/刷新后这些卡片显示"已完成"态，
-     * 而非按 currentOrder 显示"进行中"，与末尾绿色完成卡语义一致。
-     */
-    @SuppressWarnings("unchecked")
-    private void markPipelineCardsCompleted(Conversation conv) {
-        boolean changed = false;
-        for (Message msg : conv.getMessages()) {
-            if (!"assistant".equals(msg.getRole())) continue;
-            try {
-                Map<String, Object> content = mapper.readValue(msg.getContent(),
-                        new com.fasterxml.jackson.core.type.TypeReference<LinkedHashMap<String, Object>>() {});
-                if (content != null && "pipeline".equals(content.get("action"))
-                        && !"complete".equals(content.get("kind"))) {
-                    content.put("completed", true);
-                    msg.setContent(mapper.writeValueAsString(content));
-                    changed = true;
-                }
-            } catch (Exception e) {
-                // 非 JSON 或解析失败的消息（如普通文本回复）直接跳过
-            }
-        }
-        if (changed) {
-            conversationService.persist();
-        }
-    }
-
     private String sseEvent(String type, Map<String, Object> data, String messageId, String conversationId) {
         try {
             Map<String, Object> event = new LinkedHashMap<>();

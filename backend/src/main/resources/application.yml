@@ -26,7 +26,6 @@ app:
     name: ${MODEL_NAME:deepseek-v4-flash}
     coordinator: ${COORDINATOR_MODEL:deepseek-v4-flash}
     follow-up: ${FOLLOW_UP_MODEL:deepseek-v4-flash}
-    light: ${LIGHT_MODEL:deepseek-v4-flash}
   jwt:
     secret: ${JWT_SECRET:}
     expire-hours: 24

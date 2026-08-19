@@ -235,29 +235,6 @@ export async function sendMessageStream(
 }
 
 /**
- * 通知后端报告已生成完成（推进挂起的多意图管道）。
- * 报告任务在 H5 编辑页异步生成，后端无法感知完成时机，由前端在轮询检测到
- * 报告 status === 'completed' 时调用；接口幂等（无挂起任务时返回 skipped）。
- * 注意：该接口不在 JwtAuthFilter 白名单内，必须携带 Authorization 头，
- * 否则返回 401 且管道永远停留在 waitingReportTask 挂起状态。
- */
-export async function notifyReportCompleted(conversationId: string): Promise<{
-  ok: boolean;
-  skipped?: boolean;
-  completed?: boolean;
-  allDone?: boolean;
-  remaining?: number;
-}> {
-  const res = await fetch(`${API_BASE}/chat/report-completed`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ conversationId }),
-  });
-  if (!res.ok) throw new Error(`通知报告完成失败: ${res.status}`);
-  return res.json();
-}
-
-/**
  * 强制终止当前对话的流式生成（通知后端截断事件流）
  * 与前端 AbortController 双保险：前端断开连接 + 后端取消标记
  */

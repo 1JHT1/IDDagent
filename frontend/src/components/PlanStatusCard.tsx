@@ -4,13 +4,22 @@ interface PlanStatusCardProps {
   data: PlanStatusData
 }
 
-/** 技能名 → 面板展示名映射（其余保持原样） */
+/** 技能名 → 面板展示名映射（与后端 SkillRegistry.displayName 保持一致；其余保持原样） */
 const SKILL_LABELS: Record<string, string> = {
   chat: '对话问答',
   generate_report: '生成尽调报告',
   check_company_risk: '风险预查',
   query_due_diligence_reports: '历史尽调报告查询',
   verify_business_license: '执照信息核实',
+  query_company_basic_info: '基本信息',
+  query_shareholder_info: '股东信息',
+  query_beneficiary_info: '受益人信息',
+  query_company_genealogy: '企业族谱',
+  query_customs_auth: '海关认证信息',
+  query_customs_blacklist: '海关失信名单信息',
+  query_account_freeze_tag: '账户冻结标签',
+  query_credit_granting: '授信信息',
+  query_pboc_account_control: '人行账户管控信息',
 }
 
 /** 步骤状态 → 徽章样式与文案映射 */

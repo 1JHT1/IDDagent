@@ -16,8 +16,9 @@ interface PlanConfirmCardProps {
 
 /**
  * 步骤间确认卡片（StepConfirm）：任务规划每步真正结束后暂停，
- * 询问用户是否继续下一步。点击"继续"发送 {"action":"plan_continue"}，
- * 点击"结束"发送 {"action":"plan_stop"}，后端据此推进下一步或收尾。
+ * 询问用户是否继续下一步。点击"继续"发送 {"action":"继续执行下一步"}，
+ * 点击"结束"发送 {"action":"结束任务"}，后端据此推进下一步或收尾
+ * （后端兼容英文旧协议 plan_continue/plan_stop，历史消息不影响）。
  */
 const PlanConfirmCard: React.FC<PlanConfirmCardProps> = ({
   text,
@@ -51,14 +52,14 @@ const PlanConfirmCard: React.FC<PlanConfirmCardProps> = ({
       )}
       <div className="px-4 pb-3 flex gap-2">
         <button
-          onClick={() => onSendMessage?.(JSON.stringify({ action: 'plan_continue' }))}
+          onClick={() => onSendMessage?.(JSON.stringify({ action: '继续执行下一步' }))}
           disabled={disabled}
           className="flex-1 text-center px-4 py-2.5 rounded-lg border border-emerald-400 bg-emerald-600 text-white font-medium text-sm hover:bg-emerald-700 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-emerald-600"
         >
           继续执行下一步
         </button>
         <button
-          onClick={() => onSendMessage?.(JSON.stringify({ action: 'plan_stop' }))}
+          onClick={() => onSendMessage?.(JSON.stringify({ action: '结束任务' }))}
           disabled={disabled}
           className="flex-1 text-center px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-600 font-medium text-sm hover:bg-gray-50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white"
         >

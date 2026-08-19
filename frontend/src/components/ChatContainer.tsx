@@ -22,6 +22,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   // 用户是否位于消息区底部附近（距底部 <100px）：
   // 位于底部时消息更新（AI 流式回复/卡片注入/轮询进度卡）自动跟随滚动到底部，
   // 对话时 AI 返回的结果立即可见、无需手动下翻；
@@ -50,6 +51,21 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
+  // 内容高度变化（如卡片内图片异步加载完成）时跟随滚动：
+  // 仅靠 messages 变化触发滚动，图片加载导致的容器高度增长会把底部新内容挤出视口，
+  // 用户在底部附近时自动补齐滚动；上滚查看历史（atBottom=false）时忽略，不打扰阅读
+  useEffect(() => {
+    const el = scrollRef.current;
+    const content = contentRef.current;
+    if (!el || !content) return;
+    const observer = new ResizeObserver(() => {
+      if (!atBottomRef.current) return;
+      el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
   // 用户主动发送消息 → 回到底部跟随（发送后查看自己的消息与回复）
   const handleSend = useCallback((message: string, attachments?: ChatAttachment[]) => {
     atBottomRef.current = true;
@@ -63,7 +79,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
         ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 py-6"
       >
-        <div className="max-w-3xl mx-auto">
+        <div ref={contentRef} className="max-w-3xl mx-auto">
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center py-20">
               {/* 欢迎图标 */}

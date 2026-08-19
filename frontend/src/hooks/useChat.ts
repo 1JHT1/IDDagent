@@ -81,6 +81,7 @@ function insertBeforeConfirmCard(prev: ChatMessage[], items: ChatMessage[]): Cha
  * 判断消息是否为步骤确认动作（确认卡片的“继续/结束”按钮发送的 JSON）。
  * 确认动作属于确认卡片本身，应追加在确认卡片之后（消费该卡片）；
  * 其余消息（点击流程卡片、新请求等）应插入到确认卡片之前。
+ * 兼容中英文 action 值（新协议中文发送，历史英文消息仍能正确判定消费状态）。
  */
 function isConfirmAction(content: string): boolean {
   const t = content.trim();
@@ -88,7 +89,9 @@ function isConfirmAction(content: string): boolean {
   try {
     const obj = JSON.parse(t);
     return obj?.action === 'plan_continue' || obj?.action === 'plan_stop'
-      || obj?.action === 'plan_resume_yes' || obj?.action === 'plan_resume_no';
+      || obj?.action === 'plan_resume_yes' || obj?.action === 'plan_resume_no'
+      || obj?.action === '继续执行下一步' || obj?.action === '结束任务'
+      || obj?.action === '回到之前的任务' || obj?.action === '不需要';
   } catch {
     return false;
   }
@@ -122,7 +125,8 @@ export function isResumeConfirmConsumed(msgs: ChatMessage[], idx: number): boole
     if (isConfirmAction(t)) {
       try {
         const obj = JSON.parse(t);
-        if (obj?.action === 'plan_resume_yes' || obj?.action === 'plan_resume_no') return true;
+        if (obj?.action === 'plan_resume_yes' || obj?.action === 'plan_resume_no'
+            || obj?.action === '回到之前的任务' || obj?.action === '不需要') return true;
       } catch { /* ignore */ }
     }
     if (isResumeReplyText(t)) return true;
@@ -731,11 +735,20 @@ export function useChat(
     setMessages([]);
   }, []);
 
-  /** 本地生成卡片消息（不走后端）：插入到穿插边界之前（穿插确认卡片/步骤确认卡片之前），保持"确认卡片为当前步骤分界点" */
+  /** 本地生成卡片消息（不走后端）：按固定 id 原地 upsert（如 plan-status-{planId} 面板），
+   * 避免同一面板重复插入（SSE 事件与收尾轮询注入同 id 消息时出现双面板/渲染错位）；
+   * 新 id 消息插入到穿插边界之前（穿插确认卡片/步骤确认卡片之前），保持"确认卡片为当前步骤分界点" */
   const addMessage = useCallback((msg: ChatMessage) => {
     // 诊断日志（临时）：追踪跨会话卡片注入来源
     console.log('🎯 [addMessage] 注入:', msg.id, msg.extra?.action, '| 当前会话:', conversationIdRef.current, '|', new Error().stack?.split('\n').slice(1, 4).join(' <- '));
-    setMessages((prev) => insertBeforeBoundaryCard(prev, [msg]));
+    setMessages((prev) => {
+      const existingIdx = prev.findIndex((m) => m.id === msg.id);
+      if (existingIdx >= 0) {
+        // 已存在同 id 消息 → 原地替换（保留原位置，避免面板漂移/重复）
+        return prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m));
+      }
+      return insertBeforeBoundaryCard(prev, [msg]);
+    });
   }, [setMessages]);
 
   return {

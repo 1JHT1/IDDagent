@@ -385,37 +385,6 @@ const App: React.FC = () => {
       setMessages(msgs);
       // 立即注入该会话的待处理报告进度卡片（切换后无需刷新即可显示，轮询兜底）
       injectConversationReports(id, seq);
-      // 恢复该会话的任务规划面板（后端内存态规划状态，重启后为空则无操作）
-      try {
-        // /api/plan/** 不在 JWT 白名单，必须携带登录 token 才能通过鉴权
-        const token = localStorage.getItem('auth_token') || '';
-        const res = await fetch(`/api/plan/${id}/status`, {
-          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
-        });
-        // 恢复期间用户已切换/新建会话 → 面板数据过期，丢弃
-        if (seq !== conversationLoadSeqRef.current) return;
-        if (res.ok) {
-          const planResp = await res.json();
-          const planData = planResp?.plan as PlanStatusData | undefined;
-          if (planData && planData.active && planData.steps?.length) {
-            const planId = planData.planId || `local-${id}`;
-            const panelId = `plan-status-${planId}`;
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === panelId)) return prev;
-              return [
-                ...prev,
-                {
-                  id: panelId,
-                  role: 'assistant' as const,
-                  content: '',
-                  extra: { action: 'plan_status', ...planData } as unknown as Record<string, unknown>,
-                  created_at: new Date().toISOString(),
-                },
-              ];
-            });
-          }
-        }
-      } catch { /* ignore */ }
     } catch (err) {
       console.error('加载会话失败:', err);
     }

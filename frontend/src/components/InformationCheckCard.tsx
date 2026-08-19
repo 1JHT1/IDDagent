@@ -1,6 +1,5 @@
 import React from 'react'
 import type { RiskAmbiguousOption } from '../types'
-import CompanyCandidatePanel from './CompanyCandidatePanel'
 
 // ============================================================
 // Props
@@ -9,8 +8,7 @@ interface InformationCheckCardProps {
   data: Record<string, unknown>
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  /** 发送消息回调（支持 silent 静默发送：不插入用户气泡） */
-  onSendMessage?: (content: string, silent?: boolean) => void
+  onSendMessage?: (content: string) => void
 }
 
 // ============================================================
@@ -19,24 +17,119 @@ interface InformationCheckCardProps {
 const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSendMessage, disabled }) => {
   const action = data.action as string | undefined
 
-  // ========== 未找到 / 名称歧义（统一候选面板） ==========
-  if (action === 'not_found' || action === 'ambiguous') {
+  // ========== 未找到 ==========
+  if (action === 'not_found') {
+    const options = data.options as RiskAmbiguousOption[] | undefined
+    return (
+      <div className="info-check-card bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border border-gray-200 overflow-hidden">
+        <div className="p-4">
+          <p className="text-gray-500 text-sm text-center">
+            {(data.message as string) || '未找到相关信息核实数据'}
+          </p>
+        </div>
+        {options && options.length > 0 && (
+          <div className="px-3 pb-3 space-y-2">
+            {options.map((opt) => (
+              <button
+                key={opt.credit_code}
+                onClick={() =>
+                  onSendMessage?.(
+                    `帮我核实${opt.company_name}的信息`
+                  )
+                }
+                disabled={disabled}
+                className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white
+                           hover:bg-amber-50 hover:border-amber-300 transition-all
+                           flex items-center justify-between group cursor-pointer
+                           disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-amber-200"
+              >
+                <div>
+                  <div className="text-sm font-medium text-gray-800 group-hover:text-amber-700">
+                    {opt.company_name}
+                  </div>
+                  <div className="text-xs text-gray-400 font-mono mt-0.5">
+                    {opt.credit_code}
+                  </div>
+                </div>
+                <svg className="w-4 h-4 text-amber-400 group-hover:text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            ))}
+            {/* 模糊匹配兜底：候选均不是目标企业时点击，后端引导用户提供准确名称/信用代码 */}
+            <button
+              onClick={() => onSendMessage?.('以上选项均不是')}
+              disabled={disabled}
+              className="w-full text-center px-4 py-2.5 rounded-lg border border-dashed border-gray-300 bg-gray-50
+                         hover:bg-gray-100 text-sm text-gray-500 transition-all
+                         disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              以上选项均不是
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ========== 名称歧义 ==========
+  if (action === 'ambiguous') {
     const options = data.options as RiskAmbiguousOption[] | undefined
     const keyword = data.keyword as string || ''
+
     return (
-      <CompanyCandidatePanel
-        title="信息核实"
-        variant={action as 'ambiguous' | 'not_found'}
-        options={options}
-        keyword={keyword}
-        notFoundMessage={(data.message as string) || '未找到相关信息核实数据'}
-        disabled={disabled}
-        onSelect={(opt) =>
-          // 静默发送候选确认协议（复用"公司名+信用代码"双字段，防止二次歧义选项卡）
-          onSendMessage?.(`公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`, true)
-        }
-        onNoneOfAbove={() => onSendMessage?.('以上都不是', true)}
-      />
+      <div className="info-check-card bg-gradient-to-br from-amber-50 to-yellow-50 rounded-xl border border-amber-200 overflow-hidden">
+        <div className="px-4 py-3 border-b border-amber-100 bg-white/60">
+          <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+            <span className="text-lg">🔍</span>
+            请确认要核实的企业
+          </h3>
+          {keyword && (
+            <p className="text-xs text-gray-500 mt-1">
+              搜索到 {options?.length || 0} 家名称包含"{keyword}"的企业
+            </p>
+          )}
+        </div>
+        <div className="p-3 space-y-2">
+          {options?.map((opt) => (
+            <button
+              key={opt.credit_code}
+              onClick={() =>
+                onSendMessage?.(
+                  `帮我核实${opt.company_name}的信息`
+                )
+              }
+              disabled={disabled}
+              className="w-full text-left px-4 py-3 rounded-lg border border-amber-200 bg-white
+                         hover:bg-amber-50 hover:border-amber-300 transition-all
+                         flex items-center justify-between group cursor-pointer
+                         disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-amber-200"
+            >
+              <div>
+                <div className="text-sm font-medium text-gray-800 group-hover:text-amber-700">
+                  {opt.company_name}
+                </div>
+                <div className="text-xs text-gray-400 font-mono mt-0.5">
+                  {opt.credit_code}
+                </div>
+              </div>
+              <svg className="w-4 h-4 text-amber-400 group-hover:text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ))}
+          {/* 模糊匹配兜底：候选均不是目标企业时点击，后端引导用户提供准确名称/信用代码 */}
+          <button
+            onClick={() => onSendMessage?.('以上选项均不是')}
+            disabled={disabled}
+            className="w-full text-center px-4 py-2.5 rounded-lg border border-dashed border-gray-300 bg-gray-50
+                       hover:bg-gray-100 text-sm text-gray-500 transition-all
+                       disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            以上选项均不是
+          </button>
+        </div>
+      </div>
     )
   }
 

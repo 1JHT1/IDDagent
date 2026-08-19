@@ -1,97 +1,75 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import type { CompanyNameCandidate } from '../types'
-import CompanyCandidatePanel, { resolveFunctionName } from './CompanyCandidatePanel'
-
-// ============================================================
-// 第 2 层：通用选择器 CompanyNameSelector（公司名候选事件专用）
-// 两次点击协议：
-// 1. 首次点击候选：静默发送候选确认格式"公司：{name}\n统一信用代码：{code}"，
-//    后端按字段名解析企业身份跳过二次选项卡直接查询；本地立即置 confirmed 态
-//    （乐观更新，无需等后端响应）。
-// 2. 已确认后再次点击：发送"帮我查一下{公司名}{查询功能标签}"直接发起对应功能
-//    查询（支持手滑选错后纠错，后端按新意图穿插挂起当前管道）。
-// 超时提醒：未确认时 3 分钟未选择，候选区顶部出现琥珀色提示。
-// 空 options：直接渲染 not_found 空态（无"以上都不是"）。
-// ============================================================
 
 interface CompanyNameSelectorProps {
   options: CompanyNameCandidate[]
   message?: string
   keyword?: string
-  /** 所属任务标识（多意图管道中让用户清楚"是哪个任务在询问"），显示在卡片头部 */
-  taskLabel?: string
-  /** 查询功能标签（二次点击发起查询的协议文案：帮我查一下{公司名}{queryLabel}） */
-  queryLabel?: string
-  /** 技能名（标题兜底：无 task_label/query_label 时按技能解析功能名） */
-  skillName?: string
-  /** 已确认过候选（后端落盘 + 前端乐观更新），组件重建（刷新/切换会话）后仍保持 */
-  confirmed?: boolean
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  onSendMessage?: (content: string, silent?: boolean) => void
+  onSendMessage?: (content: string) => void
 }
 
-const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({
-  options,
-  message,
-  keyword,
-  taskLabel,
-  queryLabel,
-  skillName,
-  confirmed,
-  disabled,
-  onSendMessage,
-}) => {
-  // 超时提醒：未确认时 3 分钟未选择，候选区顶部出现琥珀色提示，防止对话"静默挂起"观感
-  const [timedOut, setTimedOut] = useState(false)
-  useEffect(() => {
-    if (confirmed || !options || options.length === 0) return
-    const timer = setTimeout(() => setTimedOut(true), 3 * 60 * 1000)
-    return () => clearTimeout(timer)
-  }, [confirmed, options])
-
-  // 查询功能标签兜底：candidates 事件后端仅注入 _skill_name（无 query_label），
-  // 按技能名解析功能名（历史尽调报告/风险预查等），保证两次点击协议文案完整
-  const effectiveQueryLabel = queryLabel || resolveFunctionName(skillName)
-
-  const title = taskLabel || effectiveQueryLabel
-
-  // 空 options：直接渲染 not_found 空态（无"以上都不是"）
-  if (!options || options.length === 0) {
-    return (
-      <CompanyCandidatePanel
-        title={title}
-        variant="not_found"
-        notFoundMessage={message || '未找到匹配企业'}
-        disabled={disabled}
-      />
-    )
-  }
-
+const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({ options, message, keyword, onSendMessage, disabled }) => {
   return (
-    <CompanyCandidatePanel
-      title={title}
-      variant="ambiguous"
-      options={options}
-      keyword={keyword}
-      confirmed={confirmed}
-      notice={
-        !confirmed && timedOut ? (
-          '原查询仍挂起等待确认，请选择候选企业或点击「以上都不是」重新描述'
-        ) : undefined
-      }
-      disabled={disabled}
-      onSelect={(opt) => {
-        if (confirmed) {
-          // 已确认后再次点击：直接发起对应功能查询（支持手滑选错后纠错）
-          onSendMessage?.(`帮我查一下${opt.company_name}${effectiveQueryLabel}`, true)
-        } else {
-          // 首次点击：静默发送候选确认格式，后端按字段名解析企业身份（跳过二次选项卡）
-          onSendMessage?.(`公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`, true)
-        }
-      }}
-      onNoneOfAbove={() => onSendMessage?.('以上都不是', true)}
-    />
+    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200 overflow-hidden">
+      <div className="px-4 py-3 border-b border-blue-100 bg-white/60">
+        <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <span className="text-lg">🔍</span>
+          请选择要查询的企业
+        </h3>
+        {keyword && (
+          <p className="text-xs text-gray-500 mt-1">
+            搜索到 {options.length} 家名称包含「{keyword}」的企业
+          </p>
+        )}
+      </div>
+      <div className="p-3 space-y-2">
+        {options.map((opt) => (
+          <button
+            key={opt.credit_code}
+            onClick={() =>
+              onSendMessage?.(
+                // 按字段名发送：后端解析"公司：名称\n统一信用代码：代码"识别企业身份（跳过二次选项卡）
+                `公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`
+              )
+            }
+            disabled={disabled}
+            className="w-full text-left px-4 py-3 rounded-lg border border-blue-200 bg-white
+                       hover:bg-blue-50 hover:border-blue-300 transition-all
+                       flex items-center justify-between group cursor-pointer
+                       disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-white disabled:hover:border-blue-200"
+          >
+            <div>
+              <div className="text-sm font-medium text-gray-800 group-hover:text-blue-700">
+                {opt.company_name}
+              </div>
+              <div className="text-xs text-gray-400 font-mono mt-0.5">
+                {opt.credit_code}
+              </div>
+            </div>
+            <svg className="w-4 h-4 text-blue-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        ))}
+        {/* 模糊匹配兜底：候选均不是目标企业时点击，后端引导用户提供准确名称/信用代码 */}
+        <button
+          onClick={() => onSendMessage?.('以上选项均不是')}
+          disabled={disabled}
+          className="w-full text-center px-4 py-2.5 rounded-lg border border-dashed border-gray-300 bg-gray-50
+                     hover:bg-gray-100 text-sm text-gray-500 transition-all
+                     disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          以上选项均不是
+        </button>
+      </div>
+      {message && (
+        <div className="px-4 py-2 bg-blue-50/80 border-t border-blue-100">
+          <p className="text-xs text-gray-500">{message}</p>
+        </div>
+      )}
+    </div>
   )
 }
 

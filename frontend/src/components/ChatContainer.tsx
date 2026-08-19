@@ -7,7 +7,7 @@ import ChatInput from './ChatInput';
 interface ChatContainerProps {
   messages: ChatMessage[];
   isSending: boolean;
-  onSend: (message: string, attachments?: ChatAttachment[], silent?: boolean) => void;
+  onSend: (message: string, attachments?: ChatAttachment[]) => void;
   onStop?: () => void;
   /** 本地生成卡片消息（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
   onAddMessage?: (msg: ChatMessage) => void;
@@ -67,9 +67,9 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
   }, []);
 
   // 用户主动发送消息 → 回到底部跟随（发送后查看自己的消息与回复）
-  const handleSend = useCallback((message: string, attachments?: ChatAttachment[], silent?: boolean) => {
+  const handleSend = useCallback((message: string, attachments?: ChatAttachment[]) => {
     atBottomRef.current = true;
-    onSend(message, attachments, silent);
+    onSend(message, attachments);
   }, [onSend]);
 
   return (
@@ -128,7 +128,7 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
               <ChatMessageComponent
                 key={msg.id}
                 message={msg}
-                onSendMessage={(content, silent) => handleSend(content, undefined, silent)}
+                onSendMessage={handleSend}
                 onAddMessage={onAddMessage}
                 interleaveDisabled={computeInterleaveDisabled(messages, index)}
               />

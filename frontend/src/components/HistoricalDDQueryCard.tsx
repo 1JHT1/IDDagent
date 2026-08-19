@@ -1,13 +1,11 @@
 import React from 'react'
 import type { HistoricalDDReport } from '../types'
-import CompanyCandidatePanel from './CompanyCandidatePanel'
 
 interface HistoricalDDQueryCardProps {
   data: Record<string, unknown>
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  /** 发送消息回调（支持 silent 静默发送：不插入用户气泡） */
-  onSendMessage?: (content: string, silent?: boolean) => void
+  onSendMessage?: (content: string) => void
 }
 
 const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data, disabled }) => {
@@ -19,15 +17,14 @@ const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data, dis
   const message = (data.message as string) || ''
   const BACKEND_URL = 'http://localhost:8000'
 
-  // ========== 未找到（统一候选面板：仅空态，无候选选项） ==========
+  // ========== 未找到 ==========
   if (action === 'not_found') {
     return (
-      <CompanyCandidatePanel
-        title="历史尽调报告"
-        variant="not_found"
-        notFoundMessage={message || '未查询到相关历史尽调报告'}
-        disabled={disabled}
-      />
+      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border border-gray-200 overflow-hidden">
+        <div className="p-4">
+          <p className="text-gray-500 text-sm text-center">{message || '未查询到相关历史尽调报告'}</p>
+        </div>
+      </div>
     )
   }
 

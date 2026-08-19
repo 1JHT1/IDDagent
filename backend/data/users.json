@@ -13,13 +13,6 @@
     "id" : "b061ccdf-c607-43f2-8334-db0344bb92de",
     "username" : "test_dbg_002"
   },
-  "64a9d395-332a-4042-9294-9e5f717726b1" : {
-    "password" : "8733d28d006f1aff9ad22de62b91fcf3$f35f0c6438aa3065be93d3d27289f64ac8c39c4cb0abcfa4966781787d4b3f4f",
-    "bank_institution" : "湖北分行",
-    "created_at" : "2026-08-18T08:49:12.480223100Z",
-    "id" : "64a9d395-332a-4042-9294-9e5f717726b1",
-    "username" : "hengheng"
-  },
   "bfe6768a-8e42-4e25-b6b4-71d133117b07" : {
     "password" : "819de7fe379f9de91dbecf0c5297f19e$dc2fbe3088b6c4235fb604069f89c3b75ad4512a15ae4ddcc150122822499605",
     "bank_institution" : "湖北分行",

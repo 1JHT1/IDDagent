@@ -245,6 +245,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
                 keyword={message.extra.keyword as string}
                 title={title}
                 confirmed={message.extra.confirmed === true}
+                consumed={message.extra.consumed === true}
                 onSendMessage={onSendMessage}
                 disabled={interleaveDisabled}
               />

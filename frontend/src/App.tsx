@@ -388,17 +388,23 @@ const App: React.FC = () => {
         }
         return base;
       });
-      // confirmed 双通道恢复：候选卡之后的用户消息若带 confirmed 标记（候选确认的静默发送
-      // 已由后端随用户消息落盘）→ 候选卡注入 confirmed，刷新/切换会话后组件重建仍能
-      // 显示"已确认过"（蓝色提示 + 候选行"查询"标签），再次点击可直接发起查询
+      // confirmed/consumed 双通道恢复：候选卡之后的用户消息若带 confirmed/consumed 标记
+      // （候选确认/以上都不是的静默发送已由后端随用户消息落盘）→ 候选卡注入对应标记，
+      // 刷新/切换会话后组件重建仍能恢复"已确认过"提示与"只能点击一次"禁用态。
+      // 识别范围：第2层候选选择器（company_name_candidates）与第1层技能卡歧义候选
+      // （ambiguous/not_found 且带 options）均适用
       for (let i = 0; i < normalized.length; i++) {
         const extra = (normalized[i] as { extra?: Record<string, unknown> }).extra;
-        if (extra?.action !== 'company_name_candidates') continue;
+        if (!extra || extra.action !== 'company_name_candidates') {
+          if (!extra || !((extra.action === 'ambiguous' || extra.action === 'not_found')
+              && Array.isArray(extra.options) && (extra.options as unknown[]).length > 0)) continue;
+        }
         for (let j = i + 1; j < normalized.length; j++) {
           const m = normalized[j];
           const mExtra = (m as { extra?: Record<string, unknown> }).extra;
           if (m.role === 'user') {
             if (mExtra?.confirmed === true) extra.confirmed = true;
+            if (mExtra?.consumed === true) extra.consumed = true;
             break;
           }
         }

@@ -729,7 +729,7 @@ public class IntentPlannerService {
                                         ContextMemoryService.PlanStep nextStep, String doneNote) {
         try {
             boolean isChat = "chat".equals(nextStep.skill);
-            String displayName = isChat ? "对话问答" : nextStep.skill;
+            String displayName = SkillRegistry.displayName(nextStep.skill);
             Object company = nextStep.params.get("company_name");
             String companyStr = company == null ? "" : String.valueOf(company);
             String nextDesc = displayName;

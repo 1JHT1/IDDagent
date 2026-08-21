@@ -9,8 +9,8 @@ interface InformationCheckCardProps {
   data: Record<string, unknown>
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  /** 发送回调：silent=true 时不展示用户气泡（候选点击直接进入查询） */
-  onSendMessage?: (content: string, silent?: boolean) => void
+  /** 发送回调：silent=true 时不展示用户气泡（候选点击直接进入查询）；extra 随请求透传（如 consumed 落盘） */
+  onSendMessage?: (content: string, silent?: boolean, extra?: Record<string, unknown>) => void
 }
 
 // ============================================================
@@ -35,15 +35,17 @@ const InformationCheckCard: React.FC<InformationCheckCardProps> = ({ data, onSen
         confirmLabel="请选择要核实的企业"
         message={(data.message as string) || '未找到相关信息核实数据'}
         disabled={disabled}
+        consumed={data.consumed === true}
         // 点击候选：按字段名协议静默发送（后端解析企业身份跳过二次选项卡）
         onSelect={(opt) =>
           onSendMessage?.(
             `公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`,
-            true
+            true,
+            { consumed: true },
           )
         }
         // 候选均不是目标企业：静默发送固定短语，后端引导用户提供准确名称/信用代码
-        onNoneOfAbove={() => onSendMessage?.('以上都不是', true)}
+        onNoneOfAbove={() => onSendMessage?.('以上都不是', true, { consumed: true })}
       />
     )
   }

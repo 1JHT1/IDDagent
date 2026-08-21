@@ -133,7 +133,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
       {/* 底部信息 */}
       <div className="p-3 border-t border-gray-700 text-xs text-gray-500 text-center">
-        基于 AgentScope 2.0 构建
+      
       </div>
     </div>
   );

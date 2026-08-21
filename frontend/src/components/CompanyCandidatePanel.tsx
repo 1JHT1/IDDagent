@@ -24,6 +24,8 @@ interface CompanyCandidatePanelProps {
   confirmLabel?: string
   /** 已确认态：头部蓝色提示 + 候选行"查询"标签；未确认前点击过任一候选后其余候选弱化 */
   confirmed?: boolean
+  /** 已消费态（点击过一次候选/以上都不是）：整卡选项禁用，只能点击一次；由 extra.consumed 持久化恢复 */
+  consumed?: boolean
   /** 穿插区域已结束时禁用，不再可点击执行 */
   disabled?: boolean
   /** 点击候选回调（上层负责按技能格式构造发送内容） */
@@ -40,6 +42,7 @@ const CompanyCandidatePanel: React.FC<CompanyCandidatePanelProps> = ({
   message,
   confirmLabel,
   confirmed = false,
+  consumed = false,
   disabled,
   onSelect,
   onNoneOfAbove,
@@ -48,7 +51,20 @@ const CompanyCandidatePanel: React.FC<CompanyCandidatePanelProps> = ({
   // 本地 clicked 标记：未确认前点击过任一候选后，其余候选弱化（防误点）；
   // 已确认态不弱化（再次点击可直接发起查询/纠错）
   const [clickedCode, setClickedCode] = useState<string | null>(null)
+  // 本地已消费标记：点击任一候选或"以上都不是"后整卡禁用（只能点击一次），
+  // 不等后端响应/落盘回传；刷新/切会话后由 extra.consumed 恢复
+  const [localConsumed, setLocalConsumed] = useState(false)
   const candidates = options ?? []
+  const blocked = disabled || consumed || localConsumed
+  const handleSelect = (opt: CompanyNameCandidate) => {
+    setClickedCode(opt.credit_code)
+    setLocalConsumed(true)
+    onSelect?.(opt)
+  }
+  const handleNoneOfAbove = () => {
+    setLocalConsumed(true)
+    onNoneOfAbove?.()
+  }
 
   return (
     <div
@@ -67,10 +83,12 @@ const CompanyCandidatePanel: React.FC<CompanyCandidatePanelProps> = ({
             搜索到 {candidates.length} 家名称包含「{keyword}」的企业
           </p>
         )}
-        {/* 已确认态提示：再次点击可直接发起查询 */}
-        {confirmed && (
+        {/* 已确认态提示：再次点击可直接发起查询；已消费态提示：正在处理 */}
+        {consumed || localConsumed ? (
+          <p className="text-xs text-blue-600 mt-1">已选择企业，正在处理…</p>
+        ) : confirmed ? (
           <p className="text-xs text-blue-600 mt-1">已确认企业，再次点击可直接发起查询</p>
-        )}
+        ) : null}
       </div>
 
       <div className="p-3 space-y-2">
@@ -82,11 +100,8 @@ const CompanyCandidatePanel: React.FC<CompanyCandidatePanelProps> = ({
               return (
                 <button
                   key={opt.credit_code}
-                  onClick={() => {
-                    setClickedCode(opt.credit_code)
-                    onSelect?.(opt)
-                  }}
-                  disabled={disabled}
+                  onClick={() => handleSelect(opt)}
+                  disabled={blocked}
                   className={`w-full text-left px-4 py-3 rounded-lg border bg-white
                              transition-all flex items-center justify-between group cursor-pointer
                              disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -130,8 +145,8 @@ const CompanyCandidatePanel: React.FC<CompanyCandidatePanelProps> = ({
             {/* 模糊匹配兜底：仅 ambiguous 形态显示；点击后后端引导用户提供准确名称/信用代码 */}
             {isAmbiguous && (
               <button
-                onClick={() => onNoneOfAbove?.()}
-                disabled={disabled}
+                onClick={handleNoneOfAbove}
+                disabled={blocked}
                 className="w-full text-center px-4 py-2.5 rounded-lg border border-dashed border-gray-300 bg-white/60
                            hover:bg-gray-100 text-sm text-gray-500 transition-all
                            disabled:opacity-50 disabled:cursor-not-allowed"

@@ -9,8 +9,8 @@ interface CompanyQueryCardProps {
   data: Record<string, unknown>
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  /** 发送回调：silent=true 时不展示用户气泡（候选点击直接进入查询） */
-  onSendMessage?: (content: string, silent?: boolean) => void
+  /** 发送回调：silent=true 时不展示用户气泡（候选点击直接进入查询）；extra 随请求透传（如 consumed 落盘） */
+  onSendMessage?: (content: string, silent?: boolean, extra?: Record<string, unknown>) => void
 }
 
 // ============================================================
@@ -80,15 +80,17 @@ const CompanyQueryCard: React.FC<CompanyQueryCardProps> = ({ data, onSendMessage
         keyword={keyword}
         message={(data.message as string) || '未找到匹配企业'}
         disabled={disabled}
+        consumed={data.consumed === true}
         // 点击候选：按企业查询协议文本静默发送（功能名来自后端 query_label）
         onSelect={(opt) =>
           onSendMessage?.(
             `帮我查一下${opt.company_name}${queryLabel}`,
-            true
+            true,
+            { consumed: true },
           )
         }
         // 候选均不是目标企业：静默发送固定短语，后端引导用户提供准确名称/信用代码
-        onNoneOfAbove={() => onSendMessage?.('以上都不是', true)}
+        onNoneOfAbove={() => onSendMessage?.('以上都不是', true, { consumed: true })}
       />
     )
   }

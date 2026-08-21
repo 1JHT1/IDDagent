@@ -19,6 +19,8 @@ interface CompanyNameSelectorProps {
   title?: string
   /** 已确认态（由消息 extra.confirmed 恢复，组件重建后仍能显示"已确认过"） */
   confirmed?: boolean
+  /** 已消费态（由消息 extra.consumed 恢复，点击过一次后整卡禁用） */
+  consumed?: boolean
   /** 穿插区域已结束时禁用，不再可点击执行 */
   disabled?: boolean
   /** 发送回调：silent=true 时不展示用户气泡；extra 随请求透传（如 confirmed 落盘） */
@@ -37,6 +39,7 @@ const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({
   keyword,
   title,
   confirmed = false,
+  consumed = false,
   disabled,
   onSendMessage,
 }) => {
@@ -66,14 +69,14 @@ const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({
     onSendMessage?.(
       `公司：${opt.company_name}\n统一信用代码：${opt.credit_code}`,
       true,
-      { confirmed: true },
+      { confirmed: true, consumed: true },
     )
   }
 
   // 点击"以上都不是"：静默发送固定短语，后端引导用户提供准确名称/信用代码
   const handleNoneOfAbove = () => {
     clearTimer()
-    onSendMessage?.('以上都不是', true)
+    onSendMessage?.('以上都不是', true, { consumed: true })
   }
 
   return (
@@ -94,6 +97,7 @@ const CompanyNameSelector: React.FC<CompanyNameSelectorProps> = ({
         options={options}
         keyword={keyword}
         confirmed={localConfirmedRef.current}
+        consumed={consumed}
         disabled={disabled}
         onSelect={handleSelect}
         onNoneOfAbove={handleNoneOfAbove}

@@ -17,8 +17,8 @@ import FollowUpChip from './FollowUpChip';
 
 interface ChatMessageProps {
   message: ChatMessage;
-  /** 发送消息回调（用于卡片交互） */
-  onSendMessage?: (content: string) => void;
+  /** 发送消息回调（用于卡片交互）；silent=true 时不展示用户气泡，直接进入结果 */
+  onSendMessage?: (content: string, silent?: boolean, extra?: Record<string, unknown>) => void;
   /** 本地生成卡片消息回调（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
   onAddMessage?: (msg: ChatMessage) => void;
   /** 穿插区域已结束时禁用功能卡片（穿插确认卡片之后的穿插对话区卡片不可再点击） */
@@ -228,6 +228,11 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
       if (extraAction === 'company_name_candidates') {
         const options = message.extra.options as { credit_code: string; company_name: string }[] | undefined;
         if (options && options.length > 0) {
+          // 功能名标题：优先 task_label（后端可下发），其次按技能映射（历史尽调候选），缺省"企业查询"
+          const skillName = message.extra._skill_name as string | undefined;
+          const title =
+            (message.extra.task_label as string | undefined) ||
+            (skillName === 'query_due_diligence_reports' ? '历史尽调报告' : '企业查询');
           return (
             <>
               {typeof message.extra.message === 'string' && message.extra.message ? (
@@ -238,6 +243,8 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
               <CompanyNameSelector
                 options={options}
                 keyword={message.extra.keyword as string}
+                title={title}
+                confirmed={message.extra.confirmed === true}
                 onSendMessage={onSendMessage}
                 disabled={interleaveDisabled}
               />

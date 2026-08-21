@@ -10,7 +10,7 @@ import { sendMessageStream, stopChatStream } from '../api/agent';
 interface UseChatReturn {
   messages: ChatMessage[];
   isSending: boolean;
-  sendMessage: (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => Promise<void>;
+  sendMessage: (content: string, overrideConvId?: string, attachments?: ChatAttachment[], silent?: boolean, extra?: Record<string, unknown>) => Promise<void>;
   stopStreaming: () => void;
   clearMessages: () => void;
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
@@ -205,7 +205,7 @@ export function useChat(
   onMessageCompleteRef.current = onMessageComplete;
 
   const sendMessage = useCallback(
-    async (content: string, overrideConvId?: string, attachments?: ChatAttachment[]) => {
+    async (content: string, overrideConvId?: string, attachments?: ChatAttachment[], silent?: boolean, extra?: Record<string, unknown>) => {
       const effectiveConvId = overrideConvId ?? conversationIdRef.current;
       // 本次流所属会话：SSE 事件回调据此校验是否仍属于当前显示会话。
       // 切走会话后旧流在飞事件全部丢弃，避免旧会话的卡片/文本落地新会话消息流；
@@ -224,7 +224,7 @@ export function useChat(
       const controller = new AbortController();
       abortControllerRef.current = controller;
 
-      // 添加用户消息
+      // 添加用户消息（静默发送不添加：候选确认等卡片点击直接进入结果，不污染对话流）
       const userMsg: ChatMessage = {
         id: `user-${Date.now()}`,
         role: 'user',
@@ -233,17 +233,19 @@ export function useChat(
         ...(hasAttachments ? { attachments } : {}),
       };
 
-      setMessages((prev) => {
-        console.log('📋 添加用户消息, 之前消息数:', prev.length);
-        const t = content.trim();
-        // 确认动作（继续/结束/恢复）追加到确认卡片之后（消费该卡片）；
-        // 穿插进行中对 resume_confirm 的文本回复同样追加末尾（消费该卡片，卡片保持在最底部）；
-        // 其余消息（流程卡片点击、新请求/意图穿插）：穿插中插入到 resume_confirm 之前（穿插对话保持在卡片上方），
-        // 否则移除失效的“下一步”确认卡片再追加
-        if (isConfirmAction(t)) return [...prev, userMsg];
-        if (lastActiveResumeConfirmIndex(prev) >= 0 && isResumeReplyText(t)) return [...prev, userMsg];
-        return insertInterleavingAware(prev, [userMsg]);
-      });
+      if (!silent) {
+        setMessages((prev) => {
+          console.log('📋 添加用户消息, 之前消息数:', prev.length);
+          const t = content.trim();
+          // 确认动作（继续/结束/恢复）追加到确认卡片之后（消费该卡片）；
+          // 穿插进行中对 resume_confirm 的文本回复同样追加末尾（消费该卡片，卡片保持在最底部）；
+          // 其余消息（流程卡片点击、新请求/意图穿插）：穿插中插入到 resume_confirm 之前（穿插对话保持在卡片上方），
+          // 否则移除失效的“下一步”确认卡片再追加
+          if (isConfirmAction(t)) return [...prev, userMsg];
+          if (lastActiveResumeConfirmIndex(prev) >= 0 && isResumeReplyText(t)) return [...prev, userMsg];
+          return insertInterleavingAware(prev, [userMsg]);
+        });
+      }
 
       // 添加流式助手消息占位
       const assistantMsgId = `assistant-${Date.now()}`;
@@ -687,7 +689,9 @@ export function useChat(
           }
         },
         attachments,
-        controller.signal
+        controller.signal,
+        // 静默发送透传 extra（候选确认的 confirmed 标记等，后端随用户消息落盘）
+        extra
       );
     },
     [onConversationIdChange]

@@ -129,7 +129,8 @@ export async function sendMessageStream(
   onError: (error: Error) => void,
   onDone: () => void,
   attachments?: ChatAttachment[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  extra?: Record<string, unknown>
 ): Promise<void> {
   let doneCalled = false;
   const safeDone = () => { if (!doneCalled) { doneCalled = true; onDone(); } };
@@ -142,6 +143,8 @@ export async function sendMessageStream(
         message,
         conversationId: conversationId,
         attachments: attachments && attachments.length > 0 ? attachments : undefined,
+        // 静默发送透传附加标记（如候选确认的 silent/confirmed），后端随用户消息落盘
+        extra: extra && Object.keys(extra).length > 0 ? extra : undefined,
       }),
       signal,
     });

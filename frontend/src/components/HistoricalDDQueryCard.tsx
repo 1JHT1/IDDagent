@@ -1,11 +1,12 @@
 import React from 'react'
-import type { HistoricalDDReport } from '../types'
+import type { HistoricalDDReport, RiskAmbiguousOption } from '../types'
+import CompanyCandidatePanel from './CompanyCandidatePanel'
 
 interface HistoricalDDQueryCardProps {
   data: Record<string, unknown>
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  onSendMessage?: (content: string) => void
+  onSendMessage?: (content: string, silent?: boolean) => void
 }
 
 const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data, disabled }) => {
@@ -17,14 +18,16 @@ const HistoricalDDQueryCard: React.FC<HistoricalDDQueryCardProps> = ({ data, dis
   const message = (data.message as string) || ''
   const BACKEND_URL = 'http://localhost:8000'
 
-  // ========== 未找到 ==========
+  // ========== 未找到（复用第1层统一面板；历史尽调通常无候选——候选经 candidates 事件发出） ==========
   if (action === 'not_found') {
+    const options = data.options as RiskAmbiguousOption[] | undefined
+    const hasOptions = Array.isArray(options) && options.length > 0
     return (
-      <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl border border-gray-200 overflow-hidden">
-        <div className="p-4">
-          <p className="text-gray-500 text-sm text-center">{message || '未查询到相关历史尽调报告'}</p>
-        </div>
-      </div>
+      <CompanyCandidatePanel
+        title="历史尽调报告"
+        variant={hasOptions ? 'ambiguous' : 'not_found'}
+        message={message || '未查询到相关历史尽调报告'}
+      />
     )
   }
 

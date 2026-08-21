@@ -338,7 +338,8 @@ const App: React.FC = () => {
       // 经下方归一化后与实时路径一致），彻底消除"切换对话框引导提问重复"的存量脏数据
       const seen = new Map<string, typeof conv.messages[number]>();
       for (const m of conv.messages) seen.set(m.id, m);
-      const msgs: ChatMessage[] = Array.from(seen.values()).map((m) => {
+      // 归一化（暂保留 silent 用户消息：confirmed 传播判定需要，稍后统一过滤）
+      const normalized: ChatMessage[] = Array.from(seen.values()).map((m) => {
         const base = {
           id: m.id,
           role: m.role as 'user' | 'assistant',
@@ -362,9 +363,14 @@ const App: React.FC = () => {
             const parsed = JSON.parse(m.content);
             if (parsed && typeof parsed.action === 'string') {
               // 归一化候选选项卡 action：实时 SSE 路径前端设为 company_name_candidates，
-              // 而消息持久化的是技能原始返回值 action=candidates，若不归一化，
-              // 切换对话重载后选项卡（CompanyNameSelector）将无法恢复渲染
-              if (parsed.action === 'candidates') {
+              // 而消息持久化的是技能原始返回值 action=candidates（历史尽调）或带候选列表的
+              // ambiguous/not_found（企业查询/风险预查/信息核实，"未找到完全匹配，是否查询
+              // 相似企业"也带候选），若不归一化，切换对话重载后选项卡片会被误路由成技能结果
+              // 卡片或无法恢复渲染。核心规则：有模糊匹配项（options 非空）即候选确认卡，
+              // 只有 options 为空才是未找到企业空态卡
+              if (parsed.action === 'candidates'
+                  || ((parsed.action === 'ambiguous' || parsed.action === 'not_found')
+                      && Array.isArray(parsed.options) && (parsed.options as unknown[]).length > 0)) {
                 parsed.action = 'company_name_candidates';
               }
               // info_needed（如"请问您要查询哪家企业"）：实时 SSE 路径是 text_delta/text_done
@@ -382,6 +388,25 @@ const App: React.FC = () => {
         }
         return base;
       });
+      // confirmed 双通道恢复：候选卡之后的用户消息若带 confirmed 标记（候选确认的静默发送
+      // 已由后端随用户消息落盘）→ 候选卡注入 confirmed，刷新/切换会话后组件重建仍能
+      // 显示"已确认过"（蓝色提示 + 候选行"查询"标签），再次点击可直接发起查询
+      for (let i = 0; i < normalized.length; i++) {
+        const extra = (normalized[i] as { extra?: Record<string, unknown> }).extra;
+        if (extra?.action !== 'company_name_candidates') continue;
+        for (let j = i + 1; j < normalized.length; j++) {
+          const m = normalized[j];
+          const mExtra = (m as { extra?: Record<string, unknown> }).extra;
+          if (m.role === 'user') {
+            if (mExtra?.confirmed === true) extra.confirmed = true;
+            break;
+          }
+        }
+      }
+      // 过滤静默发送的用户消息（候选确认/以上都不是）：不展示为用户气泡，避免污染对话流
+      const msgs: ChatMessage[] = normalized.filter(
+        (m) => !(m.role === 'user' && (m as { extra?: Record<string, unknown> }).extra?.silent === true)
+      );
       setMessages(msgs);
       // 立即注入该会话的待处理报告进度卡片（切换后无需刷新即可显示，轮询兜底）
       injectConversationReports(id, seq);
@@ -482,8 +507,9 @@ const App: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 发送消息
-  const handleSend = useCallback(async (content: string, attachments?: ChatAttachment[]) => {
+  // 发送消息（silent=true 为卡片静默发送：不展示用户气泡，直接进入结果；
+  // extra 随请求透传，如候选确认的 confirmed 标记由后端随用户消息落盘）
+  const handleSend = useCallback(async (content: string, attachments?: ChatAttachment[], silent?: boolean, extra?: Record<string, unknown>) => {
     let currentConvId = conversationIdRef.current;
     if (!currentConvId) {
       try {
@@ -500,7 +526,7 @@ const App: React.FC = () => {
       }
     }
     console.log('📤 App 发送消息, conversationId:', currentConvId);
-    sendMessage(content, currentConvId, attachments);
+    sendMessage(content, currentConvId, attachments, silent, extra);
   }, [sendMessage]);
 
   // ---- 未登录：显示登录页 ----

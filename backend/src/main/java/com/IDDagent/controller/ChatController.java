@@ -348,6 +348,8 @@ public class ChatController {
 
         Message userMsg = new Message(userMsgId, "user", body.getMessage(), now);
         userMsg.setAttachments(attachments);
+        // 扩展标记（候选确认 confirmed / 静默发送 silent）随用户消息落盘，刷新/切会话后前端据此恢复状态
+        userMsg.setExtra(body.getExtra());
         // 按前端实时插入规则定位（useChat.ts insertInterleavingAware）：确认动作/穿插恢复文本回复
         // 追加在卡片之后（消费该卡片）；穿插中（未消费 resume_confirm）新消息插到恢复卡之前；
         // 其余消息移除失效的未消费"下一步"确认卡后追加（穿插挂起时旧确认卡实时流中会被移除）。

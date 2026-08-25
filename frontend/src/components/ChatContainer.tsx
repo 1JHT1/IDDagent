@@ -7,6 +7,8 @@ import ChatInput from './ChatInput';
 interface ChatContainerProps {
   messages: ChatMessage[];
   isSending: boolean;
+  /** 当前会话 ID：切换会话时重置滚动跟随状态，避免上次上滚残留导致新会话内容不自动滚到底部 */
+  conversationId?: string | null;
   onSend: (message: string, attachments?: ChatAttachment[], silent?: boolean, extra?: Record<string, unknown>) => void;
   onStop?: () => void;
   /** 本地生成卡片消息（如模板选择后的跳转卡），插入到步骤确认卡片之前 */
@@ -16,6 +18,7 @@ interface ChatContainerProps {
 const ChatContainer: React.FC<ChatContainerProps> = ({
   messages,
   isSending,
+  conversationId,
   onSend,
   onStop,
   onAddMessage,
@@ -50,6 +53,28 @@ const ChatContainer: React.FC<ChatContainerProps> = ({
     const el = scrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  // 切换会话时重置滚动跟随：ChatContainer 不随会话切换重挂载，atBottomRef 会跨会话残留，
+  // 若上一次会话曾上滚查看历史，新会话的消息更新将不再自动滚到底部，需要手动下翻
+  useEffect(() => {
+    atBottomRef.current = true;
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [conversationId]);
+
+  // AI 回复完成（isSending true→false）时无条件滚到底部：
+  // 对话结束的最新回答与返回的卡片（模板卡/跳转卡/进度卡等）应完整可见、无需手动下翻；
+  // 回复过程中仍遵循“上滚查看历史不打扰”的跟随策略
+  const prevSendingRef = useRef(isSending);
+  useEffect(() => {
+    const wasSending = prevSendingRef.current;
+    prevSendingRef.current = isSending;
+    if (wasSending && !isSending) {
+      atBottomRef.current = true;
+      const el = scrollRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+    }
+  }, [isSending]);
 
   // 内容高度变化（如卡片内图片异步加载完成）时跟随滚动：
   // 仅靠 messages 变化触发滚动，图片加载导致的容器高度增长会把底部新内容挤出视口，

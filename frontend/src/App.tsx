@@ -592,6 +592,7 @@ const App: React.FC = () => {
         <ChatContainer
           messages={messages}
           isSending={isSending}
+          conversationId={conversationId}
           onSend={handleSend}
           onStop={stopStreaming}
           onAddMessage={addMessage}

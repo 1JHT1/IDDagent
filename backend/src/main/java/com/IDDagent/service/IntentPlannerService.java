@@ -860,16 +860,18 @@ public class IntentPlannerService {
         ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
         if (ctx == null || !contextMemoryService.hasSuspendedPlan(convId)) return Flux.empty();
         contextMemoryService.setResumeConfirming(convId, false);
-        boolean wasConfirming = ctx.suspendedConfirming;
-        int resumeIdx = ctx.suspendedIndex + 1;
-        int total = ctx.suspendedPlan.size();
+        ContextMemoryService.SuspendFrame frame = ctx.suspendStack.peek();
+        if (frame == null) return Flux.empty();
+        boolean wasConfirming = frame.confirming;
+        int resumeIdx = frame.index + 1;
+        int total = frame.steps.size();
         // 穿插期间报告步骤可能已收尾（reportComplete 穿透挂起快照标记 DONE/FAILED）或仍在生成
         // （WAITING_EXTERNAL）：恢复时都不重跑 generate_report（重跑会再次返回模板/编辑页），
         // 按状态分支——DONE 视为确认阶段重发下一步确认卡；WAITING_EXTERNAL 仅恢复面板继续等待
         boolean suspendedDone = false;
         boolean suspendedWaitingExternal = false;
-        if (ctx.suspendedIndex >= 0 && ctx.suspendedIndex < ctx.suspendedPlan.size()) {
-            ContextMemoryService.PlanStep sp = ctx.suspendedPlan.get(ctx.suspendedIndex);
+        if (frame.index >= 0 && frame.index < frame.steps.size()) {
+            ContextMemoryService.PlanStep sp = frame.steps.get(frame.index);
             suspendedDone = sp.status == ContextMemoryService.PlanStatus.DONE;
             suspendedWaitingExternal = sp.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL;
         }
@@ -891,14 +893,19 @@ public class IntentPlannerService {
                             "好的，已回到之前的任务规划，继续执行第 " + resumeIdx + "/" + total + " 步"))
                     .concatWith(runPlan(convId, skillInvoker));
         }
-        // 防御：确认阶段/已收尾但已无下一步（理论不可达，最后一步收尾时会清空规划）
+        // 防御：确认阶段/已收尾但已无下一步（穿插期间报告完成穿透标记 DONE 且报告是最后一步时
+        // 可达——恢复后无需重跑，直接收尾当前穿插规划）
         if (wasConfirming || suspendedDone) {
             log.warn("Confirmed resume but no next step, finishing plan");
             String summaryText = buildPlanSummary(ctx);
             // 最终状态快照（全部步骤 DONE + 汇总文本）必须在 clearPendingPlan 之前发出
             Flux<String> tail = Flux.just(planStatusEvent(convId, summaryText));
             contextMemoryService.clearPendingPlan(convId);
-            return tail;
+            // 嵌套穿插：本规划收尾后若仍有外层挂起（多层嵌套时恢复中间层且该层已收尾），
+            // 立即断点再续询问外层挂起规划（与 stepDoneAndConfirm 收尾逻辑一致，否则
+            // 外层挂起得不到恢复确认卡，要等用户下一条消息才触发）
+            Flux<String> resume = resumePlanIfSuspended(convId, skillInvoker);
+            return tail.concatWith(resume);
         }
         // 报告步骤仍在外部生成中：恢复面板（active=true）与提示，不重跑步骤；
         // 同时重发报告生成进度卡片（report_generate_result → 前端渲染 ProgressCard 自动轮询状态），
@@ -1051,21 +1058,33 @@ public class IntentPlannerService {
         contextMemoryService.setResumeConfirming(convId, false);
         contextMemoryService.discardSuspendedPlan(convId);
         log.info("User chose not to resume suspended plan for conversation {}", convId);
-        // 挂起规划已丢弃：状态快照 steps 为空（active=false）→ 前端据此移除规划面板；
+        // 被丢弃层规划已收尾：状态快照 steps 为空（active=false）→ 前端据此移除规划面板；
         // 结束反馈文案保留为对话式文本（穿插任务的成果已在对话中可见）
-        return Flux.just(planStatusEvent(convId),
+        Flux<String> flow = Flux.just(planStatusEvent(convId),
                 planProgressEvent(convId,
                         "好的，穿插前的任务规划已结束。如需继续其他任务，请直接告诉我。"));
+        // 嵌套穿插：栈中仍有外层挂起 → 继续弹下一层恢复确认卡（逐层回退，由用户逐层主导）
+        ctx = contextMemoryService.get(convId);
+        if (contextMemoryService.hasSuspendedPlan(convId)) {
+            contextMemoryService.setResumeConfirming(convId, true);
+            ctx = contextMemoryService.get(convId);
+            flow = flow.concatWith(Flux.just(resumeConfirmEvent(convId, ctx)));
+        }
+        return flow;
     }
 
     /** 构造 resume_confirm SSE 事件（穿插任务完成后询问是否回到穿插前那一步） */
     private String resumeConfirmEvent(String convId, ContextMemoryService.ConversationContext ctx) {
         try {
-            int total = ctx.suspendedPlan.size();
-            boolean wasConfirming = ctx.suspendedConfirming;
+            ContextMemoryService.SuspendFrame frame = ctx.suspendStack.peek();
+            if (frame == null) {
+                return "{\"type\":\"resume_confirm\",\"content\":\"是否需要回到穿插进来前的那一步？\"}\n\n";
+            }
+            int total = frame.steps.size();
+            boolean wasConfirming = frame.confirming;
             // 展示"回到哪一步"：确认阶段 → 待确认的下一步；执行/等待输入阶段 → 挂起的当前步
-            int stepIdx = wasConfirming ? Math.min(ctx.suspendedIndex + 1, total - 1) : ctx.suspendedIndex;
-            ContextMemoryService.PlanStep step = ctx.suspendedPlan.get(stepIdx);
+            int stepIdx = wasConfirming ? Math.min(frame.index + 1, total - 1) : frame.index;
+            ContextMemoryService.PlanStep step = frame.steps.get(stepIdx);
             boolean isChat = "chat".equals(step.skill);
             String displayName = SkillRegistry.displayName(step.skill);
             Object company = step.params.get("company_name");
@@ -1089,5 +1108,15 @@ public class IntentPlannerService {
         } catch (Exception e) {
             return "{\"type\":\"resume_confirm\",\"content\":\"是否回到穿插进来前的那一步？\"}\n\n";
         }
+    }
+
+    /**
+     * 构造 resume_confirm 事件 JSON（HTTP 收尾路径复用）：穿插的新规划若以报告步骤收尾，
+     * 由 report-complete 响应返回恢复确认卡数据（不经 SSE 流无法即时推送），无挂起规划时返回 null。
+     */
+    public String resumeConfirmEventJson(String convId) {
+        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
+        if (ctx == null || !contextMemoryService.hasSuspendedPlan(convId)) return null;
+        return resumeConfirmEvent(convId, ctx);
     }
 }

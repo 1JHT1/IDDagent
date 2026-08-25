@@ -189,23 +189,27 @@ public class ChatController {
         // getCurrentPlanStep 返回 null——从挂起快照中找报告步骤穿透标记状态；收尾（确认下一步/
         // 关闭规划）留待用户确认恢复挂起规划后进行，避免穿插流程中被确认卡片干扰
         if (cur == null && ctx != null && contextMemoryService.hasSuspendedPlan(conversationId)) {
-            int spIdx = ctx.suspendedIndex;
-            if (spIdx >= 0 && spIdx < ctx.suspendedPlan.size()) {
-                ContextMemoryService.PlanStep sp = ctx.suspendedPlan.get(spIdx);
-                if ("generate_report".equals(sp.skill)
-                        && sp.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
-                    boolean spCompleted = "completed".equalsIgnoreCase(status);
-                    sp.status = spCompleted ? ContextMemoryService.PlanStatus.DONE
-                            : ContextMemoryService.PlanStatus.FAILED;
-                    sp.summary = spCompleted ? "生成尽调报告（完成）" : "生成尽调报告（失败）";
-                    if (reportId != null && !reportId.isEmpty()) {
-                        sp.params.put("report_id", reportId);
+            // 挂起栈栈顶即最近一次穿插的挂起层（嵌套穿插时报告完成穿透最新挂起层）
+            ContextMemoryService.SuspendFrame frame = ctx.suspendStack.peek();
+            if (frame != null) {
+                int spIdx = frame.index;
+                if (spIdx >= 0 && spIdx < frame.steps.size()) {
+                    ContextMemoryService.PlanStep sp = frame.steps.get(spIdx);
+                    if ("generate_report".equals(sp.skill)
+                            && sp.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
+                        boolean spCompleted = "completed".equalsIgnoreCase(status);
+                        sp.status = spCompleted ? ContextMemoryService.PlanStatus.DONE
+                                : ContextMemoryService.PlanStatus.FAILED;
+                        sp.summary = spCompleted ? "生成尽调报告（完成）" : "生成尽调报告（失败）";
+                        if (reportId != null && !reportId.isEmpty()) {
+                            sp.params.put("report_id", reportId);
+                        }
+                        log.info("Report {} for suspended conversation {} {} (marked in suspended snapshot)",
+                                reportId, conversationId, spCompleted ? "completed" : "failed");
+                        resp.put("ok", true);
+                        resp.put("status", "marked");
+                        return Mono.just(resp);
                     }
-                    log.info("Report {} for suspended conversation {} {} (marked in suspended snapshot)",
-                            reportId, conversationId, spCompleted ? "completed" : "failed");
-                    resp.put("ok", true);
-                    resp.put("status", "marked");
-                    return Mono.just(resp);
                 }
             }
         }
@@ -256,6 +260,28 @@ public class ChatController {
         persistPlanCardEvent(userConvs.get(conversationId),
                 planSnapshotToEventJson((Map<String, Object>) resp.get("plan")));
         contextMemoryService.clearPendingPlan(conversationId);
+        // 嵌套穿插收尾：本规划是穿插期间的新规划（挂起栈非空）且已完成 → 立即返回"穿插任务已完成"
+        // 恢复确认卡（report-complete 是 HTTP 响应、不经 SSE 流，无法像技能收尾那样即时推送
+        // resume_confirm；不返回则恢复确认要等用户下一条消息才触发，嵌套规划收尾后卡片缺失）
+        if (contextMemoryService.hasSuspendedPlan(conversationId)) {
+            ContextMemoryService.ConversationContext afterCtx = contextMemoryService.get(conversationId);
+            if (afterCtx != null && !afterCtx.resumeConfirming && !afterCtx.hasPendingSkill()
+                    && (afterCtx.pendingClarification == null || afterCtx.pendingClarification.isEmpty())) {
+                contextMemoryService.setResumeConfirming(conversationId, true);
+                String resumeEvent = intentPlannerService.resumeConfirmEventJson(conversationId);
+                if (resumeEvent != null) {
+                    try {
+                        // 事件数据拆入响应（前端本地渲染卡片），与 SSE resume_confirm 事件同结构
+                        resp.put("resume_confirm", mapper.readValue(
+                                resumeEvent.trim(), new TypeReference<Map<String, Object>>() {}));
+                    } catch (Exception e) {
+                        log.warn("Failed to parse resume_confirm event: {}", e.getMessage());
+                    }
+                    // 与 SSE 路径一致持久化（切换会话后卡片按原位置恢复）
+                    persistPlanCardEvent(userConvs.get(conversationId), resumeEvent);
+                }
+            }
+        }
         resp.put("ok", true);
         resp.put("status", "finished");
         resp.put("text", summaryText);

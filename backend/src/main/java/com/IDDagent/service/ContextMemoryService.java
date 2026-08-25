@@ -4,7 +4,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -162,10 +164,11 @@ public class ContextMemoryService {
             data.put("planId", "");
             return data;
         }
-        boolean suspended = !ctx.planActive && ctx.suspendedPlan != null && !ctx.suspendedPlan.isEmpty();
-        List<PlanStep> steps = ctx.planActive ? ctx.pendingPlan : ctx.suspendedPlan;
-        int index = ctx.planActive ? ctx.planIndex : ctx.suspendedIndex;
-        boolean confirming = ctx.planActive ? ctx.planConfirming : ctx.suspendedConfirming;
+        SuspendFrame topFrame = ctx.suspendStack.peek();
+        boolean suspended = !ctx.planActive && topFrame != null;
+        List<PlanStep> steps = ctx.planActive ? ctx.pendingPlan : (topFrame == null ? null : topFrame.steps);
+        int index = ctx.planActive ? ctx.planIndex : (topFrame == null ? 0 : topFrame.index);
+        boolean confirming = ctx.planActive ? ctx.planConfirming : (topFrame != null && topFrame.confirming);
         List<Map<String, Object>> stepList = new ArrayList<>();
         if (steps != null) {
             for (PlanStep s : steps) {
@@ -191,40 +194,35 @@ public class ContextMemoryService {
     // ============================================================
 
     /**
-     * 挂起当前激活的任务规划（意图穿插时调用）：
-     * 将 pendingPlan 深拷贝到 suspendedPlan 暂存，同时清空激活状态，
-     * 使后续消息按新意图正常路由；新意图处理完成后调用 restoreSuspendedPlan 断点再续。
-     * 注意：已有挂起规划时直接覆盖（暂不支持多层嵌套穿插），仅记录警告日志。
+     * 挂起当前激活的任务规划（意图穿插时调用）：将当前规划整体压入挂起规划栈
+     * （SuspendFrame 深拷贝快照），同时清空激活状态，使后续消息按新意图正常路由；
+     * 新意图处理完成后调用 restoreSuspendedPlan 弹出栈顶断点再续。
+     * 支持多层嵌套穿插：嵌套规划执行中再次穿插时逐层压栈，恢复时按后进先出逐层弹出。
      */
     public void suspendPlan(String conversationId) {
         ConversationContext ctx = store.get(conversationId);
         if (ctx == null || !ctx.planActive || ctx.pendingPlan.isEmpty()) return;
-        if (ctx.suspendedPlan != null && !ctx.suspendedPlan.isEmpty()) {
-            log.warn("Overwriting existing suspended plan while suspending for conversation {}", conversationId);
-        }
-        ctx.suspendedPlan = new ArrayList<>();
+        List<PlanStep> snapshot = new ArrayList<>();
         for (PlanStep s : ctx.pendingPlan) {
-            ctx.suspendedPlan.add(copyStep(s));
+            snapshot.add(copyStep(s));
         }
-        ctx.suspendedIndex = ctx.planIndex;
-        ctx.suspendedConfirming = ctx.planConfirming;
-        ctx.suspendedPlanId = ctx.planId;
+        ctx.suspendStack.push(new SuspendFrame(snapshot, ctx.planIndex, ctx.planConfirming, ctx.planId));
         ctx.pendingPlan.clear();
         ctx.planIndex = 0;
         ctx.planActive = false;
         ctx.planConfirming = false;
-        log.info("Suspended active plan for conversation {} at step {}/{}",
-                conversationId, ctx.suspendedIndex + 1, ctx.suspendedPlan.size());
+        log.info("Suspended active plan for conversation {} at step {}/{} (stack depth {})",
+                conversationId, ctx.suspendStack.peek().index + 1, snapshot.size(), ctx.suspendStack.size());
     }
 
-    /** 是否存在挂起的规划（意图穿插待续） */
+    /** 是否存在挂起的规划（挂起栈非空，意图穿插待续） */
     public boolean hasSuspendedPlan(String conversationId) {
         ConversationContext ctx = store.get(conversationId);
-        return ctx != null && ctx.suspendedPlan != null && !ctx.suspendedPlan.isEmpty();
+        return ctx != null && !ctx.suspendStack.isEmpty();
     }
 
     /**
-     * 恢复挂起的规划：将 suspendedPlan 快照回填 pendingPlan，
+     * 恢复挂起的规划（弹出挂起栈栈顶）：将 SuspendFrame 快照回填 pendingPlan，
      * 恢复 planIndex/planActive/planConfirming 到挂起时状态。
      * 调用方负责后续推进（重跑当前步骤或重发确认卡片）。
      *
@@ -232,45 +230,40 @@ public class ContextMemoryService {
      */
     public PlanStep restoreSuspendedPlan(String conversationId) {
         ConversationContext ctx = store.get(conversationId);
-        if (ctx == null || ctx.suspendedPlan == null || ctx.suspendedPlan.isEmpty()) return null;
+        if (ctx == null || ctx.suspendStack.isEmpty()) return null;
+        SuspendFrame frame = ctx.suspendStack.pop();
         ctx.pendingPlan.clear();
-        ctx.pendingPlan.addAll(ctx.suspendedPlan);
-        ctx.planIndex = ctx.suspendedIndex;
+        ctx.pendingPlan.addAll(frame.steps);
+        ctx.planIndex = frame.index;
         ctx.planActive = true;
-        ctx.planConfirming = ctx.suspendedConfirming;
+        ctx.planConfirming = frame.confirming;
         ctx.resumeConfirming = false;
         // 还原挂起前的 planId：穿插新规划生成的 planId 属于穿插面板，主规划面板按挂起前 id 定位；
         // 不还原则恢复后所有状态快照都发到穿插面板 id，穿插前的旧面板收不到终态而停留"执行中"
-        ctx.planId = ctx.suspendedPlanId;
-        ctx.suspendedPlan = null;
-        ctx.suspendedIndex = 0;
-        ctx.suspendedConfirming = false;
-        ctx.suspendedPlanId = "";
-        log.info("Restored suspended plan for conversation {} at step {}/{}",
-                conversationId, ctx.planIndex + 1, ctx.pendingPlan.size());
+        ctx.planId = frame.planId;
+        log.info("Restored suspended plan for conversation {} at step {}/{} (stack depth {})",
+                conversationId, ctx.planIndex + 1, ctx.pendingPlan.size(), ctx.suspendStack.size());
         return ctx.planIndex >= 0 && ctx.planIndex < ctx.pendingPlan.size()
                 ? ctx.pendingPlan.get(ctx.planIndex) : null;
     }
 
     /**
-     * 丢弃挂起的规划（用户选择不恢复穿插前的任务时调用）：
-     * 清空挂起快照与确认状态，旧规划彻底结束，后续消息按新意图正常路由。
+     * 丢弃挂起规划栈栈顶（用户选择不恢复穿插前的任务时调用）：
+     * 弹出当前层挂起快照并清除确认状态，该层旧规划彻底结束；
+     * 若栈中仍有外层挂起（嵌套穿插），由调用方继续询问是否恢复下一层。
      */
     public void discardSuspendedPlan(String conversationId) {
         ConversationContext ctx = store.get(conversationId);
-        if (ctx != null) {
-            // 挂起规划被丢弃：planId 语义回到挂起前的旧规划 id（穿插新规划的 id 属于穿插面板，
-            // 穿插收尾时已展示完成态；之后发出的空快照按旧 id 定位，清理穿插前残留的挂起面板）
-            if (!ctx.suspendedPlanId.isEmpty()) {
-                ctx.planId = ctx.suspendedPlanId;
-            }
-            ctx.suspendedPlan = null;
-            ctx.suspendedIndex = 0;
-            ctx.suspendedConfirming = false;
-            ctx.suspendedPlanId = "";
-            ctx.resumeConfirming = false;
-            log.info("Discarded suspended plan for conversation {}", conversationId);
+        if (ctx == null || ctx.suspendStack.isEmpty()) return;
+        SuspendFrame frame = ctx.suspendStack.pop();
+        // 被丢弃层规划已收尾（穿插任务的成果已展示）：planId 语义回到被丢弃层 id，
+        // 之后发出的空快照按旧 id 定位，清理当前显示的挂起面板
+        if (!frame.planId.isEmpty()) {
+            ctx.planId = frame.planId;
         }
+        ctx.resumeConfirming = false;
+        log.info("Discarded suspended plan for conversation {} (stack depth {})",
+                conversationId, ctx.suspendStack.size());
     }
 
     /** 深拷贝规划步骤（挂起快照用，避免穿插期间原步骤参数被外部修改污染） */
@@ -279,6 +272,28 @@ public class ContextMemoryService {
         copy.status = s.status;
         copy.summary = s.summary;
         return copy;
+    }
+
+    /**
+     * 挂起规划栈帧：一层穿插挂起的完整快照（步骤深拷贝 + 断点下标 + 确认阶段标记 + 原 planId）。
+     * 栈式结构支持多层嵌套穿插：push 挂起、pop 恢复，恢复/穿透/展示均取栈顶帧。
+     */
+    public static class SuspendFrame {
+        /** 挂起时规划步骤序列（深拷贝，穿插期间外部修改不影响快照） */
+        public final List<PlanStep> steps;
+        /** 挂起时的执行下标（恢复后从此步继续） */
+        public final int index;
+        /** 挂起时是否处于步骤确认阶段（恢复后重新发确认卡片） */
+        public final boolean confirming;
+        /** 挂起前规划的 planId（恢复时必须还原，否则前端旧面板收不到终态快照） */
+        public final String planId;
+
+        public SuspendFrame(List<PlanStep> steps, int index, boolean confirming, String planId) {
+            this.steps = steps;
+            this.index = index;
+            this.confirming = confirming;
+            this.planId = planId == null ? "" : planId;
+        }
     }
 
     // ============================================================
@@ -348,14 +363,8 @@ public class ContextMemoryService {
         public boolean resumeConfirming = false;
         /** 待确认澄清上下文（意图冲突时暂存，等待用户选择） */
         public Map<String, Object> pendingClarification = new LinkedHashMap<>();
-        /** 挂起的任务规划（意图穿插时深拷贝暂存，新意图完成后断点再续）；null 表示无挂起 */
-        public List<PlanStep> suspendedPlan = null;
-        /** 挂起时规划的 planId（穿插新规划会生成新 id，恢复时必须还原，否则前端旧面板收不到终态快照） */
-        public String suspendedPlanId = "";
-        /** 挂起时的规划下标（恢复后从此步继续） */
-        public int suspendedIndex = 0;
-        /** 挂起时是否处于步骤确认阶段（恢复后重新发确认卡片） */
-        public boolean suspendedConfirming = false;
+        /** 挂起规划栈（意图穿插时深拷贝压栈，支持多层嵌套穿插；新意图完成后逐层断点再续） */
+        public Deque<SuspendFrame> suspendStack = new ArrayDeque<>();
 
         public boolean isEmpty() {
             return (companyName == null || companyName.isEmpty())

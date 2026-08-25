@@ -257,13 +257,17 @@ public class ReportController {
             log.info("已关联报告任务 {} 到会话 {} 激活态报告步骤", reportId, conversationId);
         }
         if (contextMemoryService.hasSuspendedPlan(conversationId)) {
-            int idx = ctx.suspendedIndex;
-            if (idx >= 0 && idx < ctx.suspendedPlan.size()) {
-                ContextMemoryService.PlanStep sp = ctx.suspendedPlan.get(idx);
-                if ("generate_report".equals(sp.skill)
-                        && sp.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
-                    sp.params.put("report_id", reportId);
-                    log.info("已关联报告任务 {} 到会话 {} 挂起快照报告步骤", reportId, conversationId);
+            // 挂起栈栈顶即最近一次穿插的挂起层（嵌套穿插时关联最新挂起层的报告步骤）
+            ContextMemoryService.SuspendFrame frame = ctx.suspendStack.peek();
+            if (frame != null) {
+                int idx = frame.index;
+                if (idx >= 0 && idx < frame.steps.size()) {
+                    ContextMemoryService.PlanStep sp = frame.steps.get(idx);
+                    if ("generate_report".equals(sp.skill)
+                            && sp.status == ContextMemoryService.PlanStatus.WAITING_EXTERNAL) {
+                        sp.params.put("report_id", reportId);
+                        log.info("已关联报告任务 {} 到会话 {} 挂起快照报告步骤", reportId, conversationId);
+                    }
                 }
             }
         }

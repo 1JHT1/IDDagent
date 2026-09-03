@@ -335,13 +335,24 @@ public class HistoricalDDQuerySkill {
                         companyName, nameIndex.size());
             }
 
-            if (!matches.isEmpty()) {
+            // 候选点击确认（_candidate_clicked）：用户已从候选选项卡显式选择（协议文本"公司：X"），
+            // 且名称精确命中索引 → 不再弹选项卡直接落到阶段三/四查询——否则无码公司
+            // （credit_code 为空）点击后仍会回到本阶段二次弹卡，形成"点候选→又弹候选"死循环
+            boolean candidateClicked = Boolean.TRUE.equals(params.get("_candidate_clicked"));
+            boolean exactConfirmed = candidateClicked && nameIndex.containsValue(companyName);
+
+            if (!matches.isEmpty() && !exactConfirmed) {
                 // 构造选项（含企业名称 + 统一社会信用代码）
                 List<Map<String, Object>> options = new ArrayList<>();
                 for (Map<String, Object> m : matches) {
                     Map<String, Object> opt = new LinkedHashMap<>();
                     opt.put("company_name", m.get("company_name"));
-                    opt.put("credit_code", m.getOrDefault("credit_code", ""));
+                    // 无码公司（credit_code 为空）的索引 key 是名称自身，不得作为信用代码填入选项
+                    // ——否则点击后协议文本"统一信用代码：北京星河有限公司"非 18 位码，
+                    // 后端校验失败反复询问/二次弹卡。非合法码一律置空，让点击走名称查询
+                    Object rawCc = m.getOrDefault("credit_code", "");
+                    String ccStr = rawCc == null ? "" : String.valueOf(rawCc).trim();
+                    opt.put("credit_code", isValidCreditCode(ccStr) ? ccStr : "");
                     options.add(opt);
                 }
 
@@ -443,7 +454,15 @@ public class HistoricalDDQuerySkill {
             String name = (String) c.get("company_name");
             if (name == null || name.isEmpty()) continue;
             String cc = (String) c.getOrDefault("credit_code", "");
-            index.put(cc.isEmpty() ? name : cc, name);
+            String key = cc.isEmpty() ? name : cc;
+            if (index.containsKey(key)) {
+                // 同一信用代码对应多个公司名（如"星河"与"北京星河科技有限公司"共用
+                // 91110108MA01B3XK2P）：代码无法唯一区分名称，后遍历者改用名称自身作 key，
+                // 保证所有名称都进入索引——否则同码覆盖会随机丢一家，模糊匹配选项不稳定
+                index.put(name, name);
+            } else {
+                index.put(key, name);
+            }
         }
         // 如果 report.json 中无数据，回退到旧文件名索引
         if (index.isEmpty()) {

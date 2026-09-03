@@ -263,6 +263,7 @@ const ChatMessageComponent: React.FC<ChatMessageProps> = ({ message, onSendMessa
             <ClarificationCard
               question={question || ''}
               options={options}
+              title={message.extra.title as string | undefined}
               onSendMessage={onSendMessage}
               disabled={interleaveDisabled}
             />

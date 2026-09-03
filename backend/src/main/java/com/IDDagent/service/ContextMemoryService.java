@@ -339,6 +339,25 @@ public class ContextMemoryService {
         cancelledFlags.remove(conversationId);
     }
 
+    /** 意图穿插累计次数上限：达上限后不再接受新的穿插意图，提示并自动回到穿插前断点继续执行 */
+    public static final int MAX_INTERLEAVE_COUNT = 3;
+
+    /** 记录一次意图穿插（累计次数 +1，用于穿插次数上限控制） */
+    public void recordInterleave(String conversationId) {
+        ConversationContext ctx = store.get(conversationId);
+        if (ctx != null) {
+            ctx.interleaveCount++;
+            log.info("Interleave count for conversation {}: {}/{}",
+                    conversationId, ctx.interleaveCount, MAX_INTERLEAVE_COUNT);
+        }
+    }
+
+    /** 是否还可发起意图穿插（累计次数未达上限） */
+    public boolean canInterleave(String conversationId) {
+        ConversationContext ctx = store.get(conversationId);
+        return ctx == null || ctx.interleaveCount < MAX_INTERLEAVE_COUNT;
+    }
+
     public static class ConversationContext {
         public String companyName = "";
         public String creditCode = "";
@@ -365,6 +384,8 @@ public class ContextMemoryService {
         public Map<String, Object> pendingClarification = new LinkedHashMap<>();
         /** 挂起规划栈（意图穿插时深拷贝压栈，支持多层嵌套穿插；新意图完成后逐层断点再续） */
         public Deque<SuspendFrame> suspendStack = new ArrayDeque<>();
+        /** 意图穿插累计次数（会话级，达 MAX_INTERLEAVE_COUNT 后拒绝新穿插并自动回到断点） */
+        public int interleaveCount = 0;
 
         public boolean isEmpty() {
             return (companyName == null || companyName.isEmpty())

@@ -72,6 +72,20 @@ public class DDReportService {
             });
             log.info("Step1a - creditCode filter: {} -> {} (removed {})",
                     before, candidateIds.size(), before - candidateIds.size());
+            // 同码多公司名（如"星河"与"北京星河科技有限公司"共用 91110108MA01B3XK2P）：
+            // 码过滤后若同时提供了公司名（候选点击场景），再按名称精确过滤，
+            // 避免同码另一家公司的报告混入结果
+            if (companyName != null && !companyName.isEmpty()) {
+                int beforeName = candidateIds.size();
+                candidateIds.removeIf(id -> {
+                    Map<String, Object> report = reports.get(id);
+                    if (report == null) return true;
+                    String name = (String) report.getOrDefault("company_name", "");
+                    return !companyName.equals(name);
+                });
+                log.info("Step1a2 - companyName filter after cc: {} -> {} (removed {})",
+                        beforeName, candidateIds.size(), beforeName - candidateIds.size());
+            }
         } else if (companyName != null && !companyName.isEmpty()) {
             // 1b. 公司名：先精确匹配，无结果时再用包含匹配兑底
             int before = candidateIds.size();

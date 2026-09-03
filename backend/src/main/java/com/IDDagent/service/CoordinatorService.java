@@ -27,6 +27,11 @@ public class CoordinatorService {
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final Pattern JSON_PATTERN = Pattern.compile("\\{[\\s\\S]*\\}");
 
+    /** 模糊海关意图的企业名提取：剥除查询动词前缀与"海关..."词尾，捕获组 1 为企业名（可空，未提供企业名时整体不匹配前缀仍可澄清） */
+    private static final Pattern CUSTOMS_VAGUE_PATTERN = Pattern.compile(
+            "^(?:帮我|请|麻烦)?(?:查询|查一下|查下|查|核实|核验|核查|验证|看下|看看)(?:一下|下|一遍)?\\s*"
+            + "([^，。；、\\n]{0,30}?)\\s*(?:的)?海关(?:信息|情况|相关|资讯)?$");
+
     private final SkillRegistry skillRegistry;
     private final WebClient webClient;
     private final AppConfig config;
@@ -44,6 +49,14 @@ public class CoordinatorService {
      * @return Mono<Map<String, Object>> 决策结果
      */
     public Mono<Map<String, Object>> routeIntent(String userMessage, List<Message> history) {
+        // 模糊"海关"意图（未指明认证/失信）→ 意图澄清卡片（海关认证信息 vs 海关失信名单），
+        // 规则层直接返回澄清决策，不依赖 LLM 对模糊词的选择稳定性
+        Map<String, Object> customsClar = buildCustomsClarification(userMessage);
+        if (customsClar != null) {
+            log.info("Vague customs intent detected, returning clarification: {}", userMessage);
+            return Mono.just(customsClar);
+        }
+
         String systemPrompt = buildSystemPrompt();
         String apiKey = config.getDeepseek().getApiKey();
         String baseUrl = config.getDeepseek().getBaseUrl();
@@ -291,6 +304,55 @@ public class CoordinatorService {
     /**
      * 构建 fallback 决策（普通聊天模式）
      */
+    /**
+     * 模糊海关意图澄清：输入含"海关"但未指明"认证/失信/黑名单"等明确查询类型时，
+     * 返回 clarification 决策（卡片两个选项：海关认证信息查询 / 海关失信名单查询），
+     * 点击选项发送 {"skill":"query_customs_*"}，由 handleClarificationReply 覆盖目标技能后直接执行。
+     * 命中其他明确技能关键词（如多意图句子的其他子意图）时不拦截，交给 LLM 正常解析。
+     *
+     * @return 需要澄清时返回 clarification 决策；否则返回 null
+     */
+    private Map<String, Object> buildCustomsClarification(String userMessage) {
+        if (userMessage == null) return null;
+        String trimmed = userMessage.trim();
+        if (!trimmed.contains("海关")) return null;
+        // 已明确查询类型（认证/失信/黑名单/AEO）→ 直接走正常技能路由，无需澄清
+        if (trimmed.contains("认证") || trimmed.contains("失信") || trimmed.contains("黑名单")
+                || trimmed.contains("AEO")) {
+            return null;
+        }
+        // 命中其他明确技能关键词（多意图句子中含风险/融资等其他子意图）→ 不拦截，交给 LLM 解析
+        if (skillRegistry.matchByKeyword(trimmed) != null) return null;
+
+        String company = "";
+        Matcher m = CUSTOMS_VAGUE_PATTERN.matcher(trimmed);
+        if (m.find() && m.group(1) != null) {
+            company = m.group(1).trim();
+        }
+        String question = company.isEmpty()
+                ? "您想查询哪家企业的海关认证信息，还是海关失信名单信息？"
+                : "您想查询 " + company + " 的海关认证信息，还是海关失信名单信息？";
+
+        Map<String, Object> params = new LinkedHashMap<>();
+        if (!company.isEmpty()) params.put("company_name", company);
+        Map<String, Object> context = new LinkedHashMap<>();
+        context.put("skill", "query_customs_auth");
+        context.put("params", params);
+
+        List<Map<String, String>> options = new ArrayList<>();
+        options.add(Map.of("label", "海关认证信息查询", "value", "{\"skill\":\"query_customs_auth\"}"));
+        options.add(Map.of("label", "海关失信名单查询", "value", "{\"skill\":\"query_customs_blacklist\"}"));
+
+        Map<String, Object> decision = new LinkedHashMap<>();
+        decision.put("action", "clarification");
+        decision.put("title", "请选择查询类型");
+        decision.put("question", question);
+        decision.put("options", options);
+        decision.put("context", context);
+        decision.put("reason", "模糊海关意图需澄清认证/失信");
+        return decision;
+    }
+
     private Map<String, Object> fallbackMap(String reason) {
         Map<String, Object> fallback = new LinkedHashMap<>();
         fallback.put("action", "chat");

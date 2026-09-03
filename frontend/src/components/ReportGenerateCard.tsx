@@ -295,40 +295,26 @@ const ProgressCard: React.FC<{
         // SSE 事件流（persistPlanCardEvent 拦截不到）；不持久化则切换对话框后确认卡消失，
         // 无法继续下一步。后端按穿插边界规则插入，切换后按原位置恢复（与模板跳转卡同机制）
         persistCardMessage(convId, { id: confirmMsg.id, extra: confirmMsg.extra }).catch(() => {});
-      } else if (resp?.status === 'finished' && onAddMessage) {
-        const summaryMsg: ChatMessage = {
-          id: `plan-summary-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      }
+      // 嵌套穿插收尾：该穿插任务本身是规划（后端挂起栈非空）且已完成 → 响应携带
+      // resume_confirm 恢复确认卡数据，本地立即渲染"穿插任务已完成"卡片（不经 SSE 流，
+      // 不等用户下一条消息），与 SSE resume_confirm 事件同结构、后端已持久化不重复落盘
+      if (resp?.resume_confirm && onAddMessage) {
+        const rc = resp.resume_confirm as Record<string, unknown>;
+        const resumeMsg: ChatMessage = {
+          id: `resume-confirm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           role: 'assistant',
           content: '',
           extra: {
-            action: 'plan_progress',
-            text: resp.text,
+            action: 'resume_confirm',
+            text: (rc.content as string) || '是否需要回到穿插进来前的那一步？',
+            step_index: rc.step_index,
+            total_steps: rc.total_steps,
+            step_desc: rc.step_desc,
           },
           created_at: new Date().toISOString(),
         };
-        onAddMessage(summaryMsg);
-        // 同步持久化收尾汇总气泡（同上：本地生成不经 SSE，不持久化则切换会话后消失）
-        persistCardMessage(convId, { id: summaryMsg.id, extra: summaryMsg.extra }).catch(() => {});
-        // 嵌套穿插收尾：该穿插任务本身是规划（后端挂起栈非空）且已完成 → 响应携带
-        // resume_confirm 恢复确认卡数据，本地立即渲染"穿插任务已完成"卡片（不经 SSE 流，
-        // 不等用户下一条消息），与 SSE resume_confirm 事件同结构、后端已持久化不重复落盘
-        if (resp?.resume_confirm) {
-          const rc = resp.resume_confirm as Record<string, unknown>;
-          const resumeMsg: ChatMessage = {
-            id: `resume-confirm-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-            role: 'assistant',
-            content: '',
-            extra: {
-              action: 'resume_confirm',
-              text: (rc.content as string) || '是否需要回到穿插进来前的那一步？',
-              step_index: rc.step_index,
-              total_steps: rc.total_steps,
-              step_desc: rc.step_desc,
-            },
-            created_at: new Date().toISOString(),
-          };
-          onAddMessage(resumeMsg);
-        }
+        onAddMessage(resumeMsg);
       }
     } catch {
       // 通知失败不影响进度卡自身展示，用户仍可查看/重试报告

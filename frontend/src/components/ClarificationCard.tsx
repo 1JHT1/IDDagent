@@ -4,23 +4,26 @@ import type { ClarificationOption } from '../types'
 interface ClarificationCardProps {
   question: string
   options: ClarificationOption[]
+  /** 卡片标题（默认"请确认执行对象"，模糊意图澄清可自定义，如"请选择查询类型"） */
+  title?: string
   /** 穿插区域已结束（穿插确认卡片已消费）时禁用，不再可点击执行 */
   disabled?: boolean
-  onSendMessage?: (content: string) => void
+  /** 发送消息回调；silent=true 时不展示用户气泡（选项为 JSON 协议，直接进入结果） */
+  onSendMessage?: (content: string, silent?: boolean, extra?: Record<string, unknown>) => void
 }
 
 /**
- * 意图澄清卡片（Phase 4）：同技能多主体冲突时让用户确认执行对象。
- * 点击选项原样发送 option.value（JSON 字符串），后端解析后直接执行对应技能；
+ * 意图澄清卡片（Phase 4）：同技能多主体冲突/模糊意图澄清时让用户确认执行对象或查询类型。
+ * 点击选项静默发送 option.value（JSON 字符串，不展示用户气泡），后端解析后直接执行对应技能；
  * “全部执行”选项（label 为“全部执行”）点击后发送 {"action":"execute_all"}，后端放行全部意图到任务规划。
  */
-const ClarificationCard: React.FC<ClarificationCardProps> = ({ question, options, onSendMessage, disabled }) => {
+const ClarificationCard: React.FC<ClarificationCardProps> = ({ question, options, onSendMessage, disabled, title }) => {
   return (
     <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl border border-amber-200 overflow-hidden">
       <div className="px-4 py-3 border-b border-amber-100 bg-white/60">
         <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
           <span className="text-lg">🤔</span>
-          请确认执行对象
+          {title || '请确认执行对象'}
         </h3>
       </div>
       {question && (
@@ -34,7 +37,7 @@ const ClarificationCard: React.FC<ClarificationCardProps> = ({ question, options
           return (
             <button
               key={`${opt.label}-${idx}`}
-              onClick={() => onSendMessage?.(opt.value)}
+              onClick={() => onSendMessage?.(opt.value, true)}
               disabled={disabled}
               className={
                 isAll

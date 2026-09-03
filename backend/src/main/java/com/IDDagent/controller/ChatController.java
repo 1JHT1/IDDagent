@@ -252,7 +252,7 @@ public class ChatController {
             resp.put("next_step", nextDesc);
             return Mono.just(resp);
         }
-        // 最后一步 → 关闭规划，返回汇总文案（前端展示"全部任务已完成"）
+        // 最后一步 → 关闭规划，返回收尾汇总文案（供前端注入终态面板 summary 展示，不再渲染收尾气泡）
         String summaryText = intentPlannerService.buildPlanSummary(ctx);
         // 终态快照（全部步骤 DONE）须在 clearPendingPlan 之前取，供前端规划面板刷新完成态
         resp.put("plan", contextMemoryService.getPlanStatusData(conversationId));
@@ -503,13 +503,25 @@ public class ChatController {
             //     挂起当前规划优先执行穿插意图（与分支 3/4 一致）；报告生成完成的收尾由前端进度卡
             //     轮询调 /api/plan/report-complete（穿插期间穿透挂起快照标记，恢复后按状态分支继续）
             if (intentPlannerService.isInterleavingIntent(currentPlanStep.skill, finalMessage)) {
-                log.info("Interleaving intent while plan step waits external, suspending plan: {}", finalMessage);
-                contextMemoryService.suspendPlan(convId);
-                // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
-                mainFlow = Flux.concat(
-                        Flux.just(intentPlannerService.planStatusEvent(convId)),
-                        coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
-                                .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+                if (!contextMemoryService.canInterleave(convId)) {
+                    // 穿插次数已达上限：拒绝新穿插，提示后维持当前规划（穿插前的断点）继续执行
+                    log.warn("Interleave limit reached ({}) for conversation {}, ignoring interleave: {}",
+                            ContextMemoryService.MAX_INTERLEAVE_COUNT, convId, finalMessage);
+                    mainFlow = Flux.just(
+                            intentPlannerService.planStatusEvent(convId),
+                            intentPlannerService.planProgressEvent(convId,
+                                    "已达到意图穿插次数上限（" + ContextMemoryService.MAX_INTERLEAVE_COUNT
+                                            + " 次），本次穿插不执行，请先完成当前任务。"));
+                } else {
+                    log.info("Interleaving intent while plan step waits external, suspending plan: {}", finalMessage);
+                    contextMemoryService.recordInterleave(convId);
+                    contextMemoryService.suspendPlan(convId);
+                    // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
+                    mainFlow = Flux.concat(
+                            Flux.just(intentPlannerService.planStatusEvent(convId)),
+                            coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                                    .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+                }
             } else {
                 // 非穿插输入（无技能命中/与报告步骤无关的闲聊）→ 拦截提示等待，不推进规划
                 log.info("Plan step {} waiting external report generation, ignoring input: {}",
@@ -541,13 +553,25 @@ public class ChatController {
                     && currentPlanStep.params.get("credit_code") != null
                     && !String.valueOf(currentPlanStep.params.get("credit_code")).trim().isEmpty();
             if (intentPlannerService.isInterleavingIntent(currentPlanStep.skill, finalMessage, !waitingAttachment)) {
-                log.info("Interleaving intent while plan step waits input, suspending plan: {}", finalMessage);
-                contextMemoryService.suspendPlan(convId);
-                // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
-                mainFlow = Flux.concat(
-                        Flux.just(intentPlannerService.planStatusEvent(convId)),
-                        coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
-                                .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+                if (!contextMemoryService.canInterleave(convId)) {
+                    // 穿插次数已达上限：拒绝新穿插，提示后维持当前规划（穿插前的断点）继续执行
+                    log.warn("Interleave limit reached ({}) for conversation {}, ignoring interleave: {}",
+                            ContextMemoryService.MAX_INTERLEAVE_COUNT, convId, finalMessage);
+                    mainFlow = Flux.just(
+                            intentPlannerService.planStatusEvent(convId),
+                            intentPlannerService.planProgressEvent(convId,
+                                    "已达到意图穿插次数上限（" + ContextMemoryService.MAX_INTERLEAVE_COUNT
+                                            + " 次），本次穿插不执行，请先完成当前任务。"));
+                } else {
+                    log.info("Interleaving intent while plan step waits input, suspending plan: {}", finalMessage);
+                    contextMemoryService.recordInterleave(convId);
+                    contextMemoryService.suspendPlan(convId);
+                    // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
+                    mainFlow = Flux.concat(
+                            Flux.just(intentPlannerService.planStatusEvent(convId)),
+                            coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                                    .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+                }
             } else {
                 log.info("Plan step needs input, merging user input: {}", finalMessage);
                 intentPlannerService.mergeUserInput(convId, currentPlanStep, finalMessage);
@@ -557,13 +581,25 @@ public class ChatController {
             // 4. 规划激活但当前步骤无输入等待：输入可能是穿插的新意图（→ 挂起规划优先处理），
             //    否则视为步骤疑似已完成，发确认卡片或收尾（正常流程由技能结果链式触发）
             if (intentPlannerService.isInterleavingIntent(currentPlanStep.skill, finalMessage)) {
-                log.info("Interleaving intent during plan execution, suspending plan: {}", finalMessage);
-                contextMemoryService.suspendPlan(convId);
-                // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
-                mainFlow = Flux.concat(
-                        Flux.just(intentPlannerService.planStatusEvent(convId)),
-                        coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
-                                .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+                if (!contextMemoryService.canInterleave(convId)) {
+                    // 穿插次数已达上限：拒绝新穿插，提示后维持当前规划（穿插前的断点）继续执行
+                    log.warn("Interleave limit reached ({}) for conversation {}, ignoring interleave: {}",
+                            ContextMemoryService.MAX_INTERLEAVE_COUNT, convId, finalMessage);
+                    mainFlow = Flux.just(
+                            intentPlannerService.planStatusEvent(convId),
+                            intentPlannerService.planProgressEvent(convId,
+                                    "已达到意图穿插次数上限（" + ContextMemoryService.MAX_INTERLEAVE_COUNT
+                                            + " 次），本次穿插不执行，请先完成当前任务。"));
+                } else {
+                    log.info("Interleaving intent during plan execution, suspending plan: {}", finalMessage);
+                    contextMemoryService.recordInterleave(convId);
+                    contextMemoryService.suspendPlan(convId);
+                    // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
+                    mainFlow = Flux.concat(
+                            Flux.just(intentPlannerService.planStatusEvent(convId)),
+                            coordinatorService.routeIntent(finalMessage, finalConv.getMessages())
+                                    .flatMapMany(decision -> dispatchDecision(decision, convId, userId, finalConv, finalMessage)));
+                }
             } else {
                 log.info("Plan active with no pending input, finalizing current step for confirmation");
                 mainFlow = intentPlannerService.stepDoneAndConfirm(convId, planInvoker(convId, userId, finalConv));
@@ -707,6 +743,16 @@ public class ChatController {
             return executeAllAfterClarification(convId, userId, conv, clarContext, userMessage);
         }
         if (replyJson != null) {
+            // 澄清选项 value 可携带目标技能（模糊海关澄清：认证/失信两个技能）→ 覆盖澄清上下文
+            // 默认技能后执行；skill 字段不进入技能参数
+            if (replyJson.containsKey("skill")) {
+                String chosen = String.valueOf(replyJson.get("skill"));
+                if (!chosen.isBlank() && skillRegistry.get(chosen) != null) {
+                    skill = chosen;
+                    log.info("Clarification reply switched skill to {}", skill);
+                }
+                replyJson.remove("skill");
+            }
             replyJson.forEach(params::put);
             log.info("Clarification reply merged JSON params: {}", replyJson.keySet());
         } else if (!trimmed.isEmpty()) {
@@ -767,6 +813,17 @@ public class ChatController {
         // 输出第一步内容"的死循环；而第一步流程内的卡片点击（candidates/info_needed，needsInput=true）
         // 走 chatStream 分支 3 合并输入重跑，不经过本方法，因此此处可安全视为"用户发起了新请求"。
         log.info("Plan confirm stage got non-confirm input '{}', suspending plan and re-routing intent", trimmed);
+        // 穿插次数上限检查：达上限时不再挂起/路由新意图，提示后维持当前规划（穿插前的断点）继续执行
+        if (!contextMemoryService.canInterleave(convId)) {
+            log.warn("Interleave limit reached ({}) for conversation {}, keeping current plan: {}",
+                    ContextMemoryService.MAX_INTERLEAVE_COUNT, convId, trimmed);
+            return Flux.just(
+                    intentPlannerService.planStatusEvent(convId),
+                    intentPlannerService.planProgressEvent(convId,
+                            "已达到意图穿插次数上限（" + ContextMemoryService.MAX_INTERLEAVE_COUNT
+                                    + " 次），本次穿插不执行，请先完成当前任务。"));
+        }
+        contextMemoryService.recordInterleave(convId);
         contextMemoryService.suspendPlan(convId);
         // 挂起旧规划 → 先发状态快照（active=false, suspended=true，前端面板切挂起态）再路由新意图
         return Flux.concat(
@@ -813,9 +870,23 @@ public class ChatController {
             return intentPlannerService.confirmResume(convId, userId, planInvoker(convId, userId, conv));
         }
         // 其他输入：保留挂起规划继续穿插（不恢复也不丢弃），按新意图正常路由；
-        // 新意图处理完成后 resumePlanIfSuspended 会再次发送确认卡片询问是否回到穿插前那一步
+        // 新意图处理完成后 resumePlanIfSuspended 会再次发送确认卡片询问是否回到穿插前那一步。
+        // 穿插次数已达上限时不再接受新的穿插：提示并自动恢复栈顶断点（当前无激活规划，
+        // 栈顶即"穿插前的断点"）继续执行
         log.info("Resume confirm got non-answer input '{}', keeping suspended plan and routing intent", trimmed);
         contextMemoryService.setResumeConfirming(convId, false);
+        if (!contextMemoryService.canInterleave(convId)) {
+            log.warn("Interleave limit reached ({}) for conversation {}, auto-resuming breakpoint: {}",
+                    ContextMemoryService.MAX_INTERLEAVE_COUNT, convId, trimmed);
+            return Flux.just(
+                    intentPlannerService.planStatusEvent(convId),
+                    intentPlannerService.planProgressEvent(convId,
+                            "已达到意图穿插次数上限（" + ContextMemoryService.MAX_INTERLEAVE_COUNT
+                                    + " 次），本次穿插不执行，已自动回到穿插前的断点继续执行"))
+                    .concatWith(intentPlannerService.autoResumeSuspendedPlan(convId, userId,
+                            planInvoker(convId, userId, conv)));
+        }
+        contextMemoryService.recordInterleave(convId);
         return coordinatorService.routeIntent(trimmed, conv.getMessages())
                 .flatMapMany(decision -> dispatchDecision(decision, convId, userId, conv, trimmed));
     }
@@ -842,8 +913,7 @@ public class ChatController {
             log.warn("Clarification execute_all but no valid intents, falling back to chat");
             return handleChat(convId, conv, userMessage == null ? "" : userMessage);
         }
-        ContextMemoryService.ConversationContext planCtx = contextMemoryService.get(convId);
-        List<ContextMemoryService.PlanStep> steps = intentPlannerService.buildPlan(intents, planCtx);
+        List<ContextMemoryService.PlanStep> steps = intentPlannerService.buildPlan(intents);
         if (steps.isEmpty()) {
             log.warn("Clarification execute_all produced no plan steps, falling back to chat");
             return handleChat(convId, conv, userMessage == null ? "" : userMessage);
@@ -878,7 +948,7 @@ public class ChatController {
             return Flux.just(sseEvent("clarification", conflict, null, convId));
         }
         // 无冲突 → 转为任务规划模式串行执行（可穿插等待用户输入）
-        List<ContextMemoryService.PlanStep> steps = intentPlannerService.buildPlan(intents, planCtx);
+        List<ContextMemoryService.PlanStep> steps = intentPlannerService.buildPlan(intents);
         if (steps.isEmpty()) {
             log.warn("multi_skill decision produced no valid plan steps, falling back to chat");
             return handleChat(convId, conv, userMessage == null ? "" : userMessage);
@@ -906,10 +976,10 @@ public class ChatController {
         // 若规划中再用 ctx 补全，会把其他步骤的主体记忆（如第一步小米）串扰进当前步骤（如第二步华为），
         // 导致"查小米风险再查华为"时第二步仍查小米；非规划模式保持旧行为（"查下风险"用 ctx 记忆补全）。
         ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
-        // 历史尽调报告查询/信息核实/风险识别跳过 ctx 补全（与规划模式 buildPlan 跳过预补全一致）：
-        // 查询/核实/风险识别主体必须由用户显式提供，ctx 记忆主体直接补全会导致"查询历史尽调报告"
-        // /"信息核实"/"风险识别"（无主体）按旧主体直接查询而误报"未查询到报告"/"未找到匹配企业"，
-        // 应退回技能层询问主体。
+        // 历史尽调报告查询/信息核实/风险识别跳过 ctx 补全（规划模式 buildPlan 已完全不沿用 ctx 主体，
+        // 此处仅约束非规划模式）：查询/核实/风险识别主体必须由用户显式提供，ctx 记忆主体直接补全
+        // 会导致"查询历史尽调报告"/"信息核实"/"风险识别"（无主体）按旧主体直接查询而误报
+        // "未查询到报告"/"未找到匹配企业"，应退回技能层询问主体。
         if (!ctx.planActive && !ctx.isEmpty()
                 && !"query_due_diligence_reports".equals(skillName)
                 && !"verify_business_license".equals(skillName)
@@ -939,13 +1009,22 @@ public class ChatController {
 
         // 候选点击协议文本主体提取（穿插/pendingSkill 重跑场景）：分支 5 重跑时 pendingParams 保留
         // 旧模糊词（如"小米"），技能层因 company_name 非空跳过 _user_input 兜底提取 → 点击候选后
-        // 仍匹配同一批候选循环。此处按候选卡片固定句式（"帮我核实{企业名}的信息"）提取中间的新企业名
-        // 覆盖旧值；含 18 位码的协议文本（RiskCheckCard）以码为主体，跳过名称提取
+        // 仍匹配同一批候选循环。此处按候选卡片固定句式提取中间的新企业名覆盖旧值，支持两种协议：
+        // 1) 动作词句式（"帮我核实{企业名}的信息"，RiskCheckCard 等）；
+        // 2) 字段名句式（"公司：{企业名}\n统一信用代码：{码}"，CompanyNameSelector/InformationCheckCard）；
+        // 含 18 位码的协议文本（RiskCheckCard）以码为主体，跳过名称提取；无码候选点击提取到名称后
+        // 打 _candidate_clicked 标记，技能层跳过二次弹选项卡直接查询
         String protocolName = intentPlannerService.extractCandidateClickName(
                 String.valueOf(skillParams.getOrDefault("_user_input", "")));
         if (protocolName != null && !protocolName.isEmpty()) {
             skillParams.put("company_name", protocolName);
+            // 候选点击确认标记：技能层据此跳过"二次弹选项卡"直接查询（无码公司点击场景）
+            skillParams.put("_candidate_clicked", true);
             log.info("Overrode company_name from candidate-click protocol text: '{}'", protocolName);
+        } else {
+            // 本次输入不是候选点击协议（或含 18 位码以码为主体）→ 清除旧标记，
+            // 避免上一次点击残留导致后续手动输入精确名称被技能层跳过选项卡直接查询
+            skillParams.remove("_candidate_clicked");
         }
 
         String assistantMsgId = UUID.randomUUID().toString();
@@ -968,7 +1047,8 @@ public class ChatController {
                             ContextMemoryService.PlanStep curStep = contextMemoryService.getCurrentPlanStep(convId);
                             if (curStep != null) {
                                 curStep.status = ContextMemoryService.PlanStatus.FAILED;
-                                curStep.summary = skillName + "（失败）";
+                                // 步骤摘要必须用中文技能名（SkillRegistry.displayName），否则规划完成面板/收尾文案出现英文技能名
+                                curStep.summary = SkillRegistry.displayName(skillName) + "（失败）";
                             }
                             log.info("Plan step {} failed with error, pausing for user confirmation", skillName);
                             eventFlux = eventFlux.concatWith(
@@ -1194,9 +1274,10 @@ public class ChatController {
                                     }
                                     if ("result".equals(action)) {
                                         Object company = result.getOrDefault("company_name", "");
-                                        curStep.summary = skillName + "（" + (company == null ? "" : company) + "）";
+                                        // 步骤摘要必须用中文技能名（SkillRegistry.displayName），否则规划完成面板/收尾文案出现英文技能名
+                                        curStep.summary = SkillRegistry.displayName(skillName) + "（" + (company == null ? "" : company) + "）";
                                     } else {
-                                        curStep.summary = skillName + "（未找到）";
+                                        curStep.summary = SkillRegistry.displayName(skillName) + "（未找到）";
                                     }
                                     curStep.status = ContextMemoryService.PlanStatus.DONE;
                                 }

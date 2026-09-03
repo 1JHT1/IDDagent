@@ -94,27 +94,15 @@ public class IntentPlannerService {
     /**
      * 将多意图决策转换为规划步骤列表（Phase 5 增强）：
      * 1. 按 priority 稳定升序排序（无 priority 的意图保持数组顺序，排在有 priority 的之后）
-     * 2. ctx 参数预补全：非 chat 步骤缺 company_name/credit_code 且上下文记忆有 → 规划期填充（提前消除 needsInput 误判）
+     * 2. 主体仅来自用户显式表达：LLM 解析参数或规划内前序步骤继承（主体继承 pass）——
+     *    不沿用对话记忆（ctx）主体，缺主体的非 chat 步骤标记 needsInput，由技能层询问用户显式补充
      * 3. chat 意图 question 缺失时用 _user_input 补全
      * 4. needsInput 判定：非 chat 步骤且 company_name/credit_code 均缺失 → 需要用户补充
      */
     @SuppressWarnings("unchecked")
-    public List<ContextMemoryService.PlanStep> buildPlan(List<Map<String, Object>> intents,
-                                                         ContextMemoryService.ConversationContext ctx) {
+    public List<ContextMemoryService.PlanStep> buildPlan(List<Map<String, Object>> intents) {
         List<ContextMemoryService.PlanStep> steps = new ArrayList<>();
         if (intents == null) return steps;
-        // 预扫描：intents 中是否存在带主体标识（company_name/credit_code）的意图。
-        // 存在 → 视为多主体/多意图场景（如"查小米风险再查华为"），ctx 记忆可能属于其中某个主体
-        // （第一步小米），无主体步骤若用 ctx 预补全会把该主体串扰进本步骤（华为），故跳过预补全。
-        boolean anyIntentHasSubject = false;
-        for (Map<String, Object> intent : intents) {
-            Object raw = intent.get("params");
-            if (raw instanceof Map<?, ?> pm
-                    && (pm.containsKey("company_name") || pm.containsKey("credit_code"))) {
-                anyIntentHasSubject = true;
-                break;
-            }
-        }
         for (Map<String, Object> intent : intents) {
             String skill = (String) intent.getOrDefault("skill", "");
             if (skill == null || skill.isBlank()) continue;
@@ -156,28 +144,10 @@ public class IntentPlannerService {
                 params.put("_from_multi_intent", true);
             }
 
-            // 非 chat 步骤：ctx 参数预补全（与 handleSingleSkill 执行期补全逻辑一致，提前消除误判）。
-            // 多主体场景（anyIntentHasSubject）跳过：ctx 记忆可能属于其他主体，预补全会导致主体串扰。
-            // 历史尽调报告查询/信息核实/风险识别跳过：这三个技能的查询/核实/风险识别主体必须由用户
-            // 显式提供——ctx 记忆主体属于其他业务场景（风险/融资等），用它直接查询会误报"未查询到报告"
-            // /"未找到匹配企业"且用户无法察觉系统默认用了旧主体；其余技能保留预补全（"查下股权"沿用
-            // 记忆主体符合旧行为）。
-            if (ctx != null && !ctx.isEmpty() && !anyIntentHasSubject
-                    && !"query_due_diligence_reports".equals(skill)
-                    && !"verify_business_license".equals(skill)
-                    && !"check_company_risk".equals(skill)) {
-                if (!params.containsKey("company_name") && !params.containsKey("credit_code")) {
-                    if (ctx.creditCode != null && !ctx.creditCode.isEmpty()) {
-                        params.put("credit_code", ctx.creditCode);
-                        if (ctx.companyName != null && !ctx.companyName.isEmpty()) {
-                            params.put("company_name", ctx.companyName);
-                        }
-                    } else if (ctx.companyName != null && !ctx.companyName.isEmpty()) {
-                        params.put("company_name", ctx.companyName);
-                    }
-                }
-            }
-
+            // 非 chat 步骤不沿用对话记忆（ctx）主体：规划步骤的主体只接受用户显式表达
+            // （LLM 解析参数 / 前序步骤继承 / 等待输入时用户补充），缺主体直接标记 needsInput，
+            // 执行时由技能层询问用户——避免把其他业务场景（风险/融资等）的旧记忆主体悄悄套用
+            // 到本步骤，误报"未查询到报告"/"未找到匹配企业"且用户无法察觉。
             boolean needsInput = !params.containsKey("company_name")
                     && !params.containsKey("credit_code");
             steps.add(new ContextMemoryService.PlanStep(skill, params, needsInput, priority));
@@ -364,12 +334,19 @@ public class IntentPlannerService {
         // 若不提取中间的新企业名覆盖 params，旧的模糊查询词（如"小米"）会保留，重跑仍匹配同一批
         // 候选 → 点击候选后循环模糊。含 18 位码的协议文本（RiskCheckCard 的"查询统一信用代码为
         // xxx的客户的风险"）以码为主体（码已在上方提取），跳过名称提取避免把整句当企业名。
-        if (!"chat".equals(step.skill) && !hasCreditCode
-                && !CREDIT_CODE_PATTERN.matcher(trimmed).find()) {
+        // 候选点击协议主体提取：字段名协议（"公司：X\n统一信用代码：Y"）无论是否含 18 位码，
+        // X 都是用户显式点击的主体，必须提取覆盖旧 company_name（含码时 LLM/旧主体可能残留）；
+        // 动作词协议（"查询统一信用代码为xxx的客户的风险"）含码时以码为主体，跳过名称提取
+        boolean fieldProtocol = COMPANY_PATTERN.matcher(trimmed).find();
+        if (!"chat".equals(step.skill) && (fieldProtocol
+                || (!hasCreditCode && !CREDIT_CODE_PATTERN.matcher(trimmed).find()))) {
             String nameFromProtocol = extractNameFromCandidateProtocol(trimmed);
             if (nameFromProtocol != null) {
                 params.put("company_name", nameFromProtocol);
                 resolved.put("company_name", nameFromProtocol);
+                // 候选点击确认标记：技能层据此跳过"二次弹选项卡"直接查询（无码公司点击场景）；
+                // 非协议输入不置此标记，用户手动输入精确名称仍会弹选项卡确认（防同名不同码）
+                params.put("_candidate_clicked", true);
                 if (inheritedPlaceholder) {
                     params.remove("credit_code");
                 }
@@ -438,6 +415,16 @@ public class IntentPlannerService {
      */
     private String extractNameFromCandidateProtocol(String text) {
         if (text == null) return null;
+        // 候选卡片字段名协议（CompanyNameSelector/InformationCheckCard 点击发送的
+        // "公司：X\n统一信用代码：Y"）：直接取"公司："后的名称。Y 为空（无码公司，
+        // 选项 credit_code 已被技能层置空）时同样生效——X 即用户显式选择的主体，
+        // 必须识别出来，否则点击无码候选后主体丢失 → 二次弹卡/反复询问
+        Matcher cm = COMPANY_PATTERN.matcher(text);
+        if (cm.find()) {
+            String n = cm.group(1).replaceAll("[，。；、！？!?\\s：:（）()]+", "").trim();
+            n = n.replaceAll("统一信用代码.*$", "").trim();
+            if (n.length() >= 2) return n;
+        }
         Matcher pm = CANDIDATE_PROTOCOL_PREFIX.matcher(text);
         if (!pm.find()) return null;   // 必须以动作词开头才视为协议文本
         String name = pm.replaceFirst("")
@@ -457,6 +444,14 @@ public class IntentPlannerService {
      */
     public String extractCandidateClickName(String userInput) {
         if (userInput == null || userInput.isBlank()) return null;
+        // 字段名协议（"公司：X\n统一信用代码：Y"，CompanyNameSelector/InformationCheckCard 点击）：
+        // X 即用户显式点击的主体，无论 Y 是否 18 位码都必须提取覆盖旧 company_name——
+        // 含码时 LLM 意图解析可能把对话历史中的旧主体填进 company_name，不覆盖会查错主体
+        if (COMPANY_PATTERN.matcher(userInput).find()) {
+            return extractNameFromCandidateProtocol(userInput);
+        }
+        // 含 18 位码的动作词协议（RiskCheckCard 的"查询统一信用代码为xxx的客户的风险"）以码为主体，
+        // 名称提取会得到整句垃圾——直接跳过
         if (CREDIT_CODE_PATTERN.matcher(userInput).find()) return null;
         return extractNameFromCandidateProtocol(userInput);
     }
@@ -590,13 +585,10 @@ public class IntentPlannerService {
         // 最后一步完成，直接收尾（无需确认）
         log.info("Plan finished for conversation {}", convId);
         String summaryText = buildPlanSummary(ctx);
-        // 先发"任务完成"汇总气泡（plan_progress，与报告生成 report-complete finished 收尾行为一致，
-        // 前端渲染为消息流中的任务完成展示），再发终态快照（全部步骤 DONE + 汇总文本）。
-        // 若只发 plan_status，消息流中只有规划面板更新而无"任务完成"气泡展示
+        // 只发终态快照（全部步骤 DONE + 汇总文本）：各步骤状态与完成态已由规划面板终态展示，
+        // 不再发"任务完成"汇总气泡（plan_progress），避免消息流中面板之外出现重复的收尾文本。
         // 最终状态快照（全部步骤 DONE + 汇总文本）必须在 clearPendingPlan 之前发出，否则步骤列表已被清空
-        Flux<String> tail = Flux.concat(
-                Flux.just(planProgressEvent(convId, summaryText)),
-                Flux.just(planStatusEvent(convId, summaryText)));
+        Flux<String> tail = Flux.just(planStatusEvent(convId, summaryText));
         contextMemoryService.clearPendingPlan(convId);
         // 意图穿插恢复：本规划若是穿插期间的新规划，收尾后立即断点再续挂起的旧规划
         Flux<String> resume = resumePlanIfSuspended(convId, skillInvoker);
@@ -649,30 +641,18 @@ public class IntentPlannerService {
         return tail.concatWith(resume);
     }
 
-    /** 拼接各步骤结果摘要：全部成功 → "任务完成：1. xxx 2. xxx"；有失败 → 追加"；其中 N 项未完成：..." */
+    /** 拼接规划收尾文案：不再逐步骤列举（各步骤状态与中文摘要已在规划面板/终态快照中展示，
+     * 避免"任务完成：1. xxx 2. xxx"列表式冗余输出），只输出简洁中文收尾语；有失败步骤时
+     * 给出失败数量提示（失败明细由面板徽章与步骤摘要承担）。
+     */
     public String buildPlanSummary(ContextMemoryService.ConversationContext ctx) {
         if (ctx == null || ctx.pendingPlan.isEmpty()) return "任务完成";
-        List<String> done = new ArrayList<>();
-        List<String> failed = new ArrayList<>();
-        int i = 1;
+        int failedCount = 0;
         for (ContextMemoryService.PlanStep step : ctx.pendingPlan) {
-            String label = step.summary == null || step.summary.isBlank()
-                    ? SkillRegistry.displayName(step.skill)
-                    : step.summary;
-            if (step.status == ContextMemoryService.PlanStatus.FAILED) {
-                failed.add(i + ". " + label);
-            } else {
-                done.add(i + ". " + label);
-            }
-            i++;
+            if (step.status == ContextMemoryService.PlanStatus.FAILED) failedCount++;
         }
-        StringBuilder sb = new StringBuilder("任务完成：");
-        sb.append(String.join(" ", done));
-        if (!failed.isEmpty()) {
-            sb.append("；其中 ").append(failed.size()).append(" 项未完成：")
-                    .append(String.join(" ", failed));
-        }
-        return sb.toString();
+        if (failedCount == 0) return "任务完成";
+        return "任务完成，其中 " + failedCount + " 项未完成";
     }
 
     /**
@@ -707,7 +687,7 @@ public class IntentPlannerService {
     }
 
     /** 构造 plan_progress SSE 事件（与 ChatController.sseEvent 同格式：content 字段承载文案） */
-    private String planProgressEvent(String convId, String text) {
+    public String planProgressEvent(String convId, String text) {
         try {
             Map<String, Object> event = new LinkedHashMap<>();
             event.put("type", "plan_progress");
@@ -841,6 +821,16 @@ public class IntentPlannerService {
                 || (ctx.pendingClarification != null && !ctx.pendingClarification.isEmpty())) {
             return Flux.empty();
         }
+        // 穿插次数已达上限：不再询问用户是否回到穿插前（resume_confirm 卡片），
+        // 直接自动恢复挂起断点继续执行，并提示已达到上限
+        if (ctx.interleaveCount >= ContextMemoryService.MAX_INTERLEAVE_COUNT) {
+            log.info("Interleave count limit reached ({}), auto-resuming suspended plan for conversation {}",
+                    ctx.interleaveCount, convId);
+            return Flux.just(planProgressEvent(convId,
+                    "已达到意图穿插次数上限（" + ContextMemoryService.MAX_INTERLEAVE_COUNT
+                            + " 次），已自动回到穿插前的断点继续执行"))
+                    .concatWith(autoResumeSuspendedPlan(convId, null, skillInvoker));
+        }
         // 穿插的新意图已处理完：不自动执行旧规划的下一步，先由用户决定是否回到穿插前那一步
         log.info("Interleaved task done, asking whether to resume suspended plan for conversation {}", convId);
         contextMemoryService.setResumeConfirming(convId, true);
@@ -860,6 +850,37 @@ public class IntentPlannerService {
         ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
         if (ctx == null || !contextMemoryService.hasSuspendedPlan(convId)) return Flux.empty();
         contextMemoryService.setResumeConfirming(convId, false);
+        return doResumeSuspended(convId, userId, skillInvoker, true);
+    }
+
+    /**
+     * 意图穿插次数达上限时自动恢复挂起的规划断点（不询问用户，跳过 resume_confirm）：
+     * 与 confirmResume 恢复逻辑一致，区别在于挂起时处于步骤确认阶段的场景——用户尚未答复
+     * 确认卡，不能擅自推进下一步，改为重发步骤确认卡等待用户决定。
+     *
+     * @param userId 可能为 null（从 resumePlanIfSuspended 链式触发时无 userId 上下文），
+     *               仅报告步骤外部生成且无 report_id 的兜底卡片重发需要，null 时跳过该兜底
+     */
+    public Flux<String> autoResumeSuspendedPlan(String convId, String userId, SkillInvoker skillInvoker) {
+        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
+        if (ctx == null || !contextMemoryService.hasSuspendedPlan(convId)) return Flux.empty();
+        if (ctx.resumeConfirming) {
+            // 正常流程穿插完成后处于 resumeConfirming（等待用户答复确认卡），达上限自动恢复时关闭该标记
+            contextMemoryService.setResumeConfirming(convId, false);
+        }
+        return doResumeSuspended(convId, userId, skillInvoker, false);
+    }
+
+    /**
+     * 恢复挂起规划断点的公共逻辑：restoreSuspendedPlan 弹出栈顶快照回填 pendingPlan 后，
+     * 按挂起时的断点状态继续执行。confirmedByUser 区分两种触发来源：
+     * - true（confirmResume）：用户已明确确认"回到之前的任务"，确认阶段直接推进下一步；
+     * - false（autoResumeSuspendedPlan，穿插次数达上限）：用户尚未答复确认卡，确认阶段
+     *   重发步骤确认卡等待用户决定，其余分支行为一致。
+     */
+    private Flux<String> doResumeSuspended(String convId, String userId, SkillInvoker skillInvoker,
+                                           boolean confirmedByUser) {
+        ContextMemoryService.ConversationContext ctx = contextMemoryService.get(convId);
         ContextMemoryService.SuspendFrame frame = ctx.suspendStack.peek();
         if (frame == null) return Flux.empty();
         boolean wasConfirming = frame.confirming;
@@ -877,26 +898,35 @@ public class IntentPlannerService {
         }
         contextMemoryService.restoreSuspendedPlan(convId);
         ctx = contextMemoryService.get(convId);
-        log.info("User confirmed to resume suspended plan for conversation {} at step {}/{} (wasConfirming={})",
-                convId, resumeIdx, total, wasConfirming);
-        // 挂起时处于步骤确认阶段，或报告步骤穿插期间已完成收尾：用户点击"回到之前的任务"
-        // 已是明确的继续信号 → 不再重发确认卡，直接推进执行下一步（延续穿插前规划）。
-        // 挂起时处于确认阶段（wasConfirming）时 restoreSuspendedPlan 已恢复 planConfirming=true，
-        // 必须先关闭确认标记再推进（否则步骤执行期间 planConfirming 残留，用户下一条消息会被
-        // handlePlanConfirmReply 误拦截）；advancePlan 使 planIndex 指向待执行的下一步（resumeIdx）
+        log.info("Resuming suspended plan for conversation {} at step {}/{} (wasConfirming={}, confirmedByUser={})",
+                convId, resumeIdx, total, wasConfirming, confirmedByUser);
+        // 挂起时处于步骤确认阶段，或报告步骤穿插期间已完成收尾：
+        // - 用户确认回到（confirmedByUser）：已是明确的继续信号 → 不再重发确认卡，直接推进执行下一步
+        //   （延续穿插前规划；挂起时处于确认阶段 restoreSuspendedPlan 已恢复 planConfirming=true，
+        //   必须先关闭确认标记再推进，否则步骤执行期间 planConfirming 残留，用户下一条消息会被
+        //   handlePlanConfirmReply 误拦截；advancePlan 使 planIndex 指向待执行的下一步（resumeIdx））；
+        // - 自动恢复（穿插次数达上限）：用户尚未答复确认卡 → 重发步骤确认卡等待用户决定，不擅自推进
         if ((wasConfirming || suspendedDone) && resumeIdx < total) {
             contextMemoryService.setPlanConfirming(convId, false);
-            contextMemoryService.advancePlan(convId);
-            log.info("Resumed plan from confirmation stage, auto-advancing to step {}/{}", resumeIdx, total);
+            if (confirmedByUser) {
+                contextMemoryService.advancePlan(convId);
+                log.info("Resumed plan from confirmation stage, auto-advancing to step {}/{}", resumeIdx, total);
+                return Flux.just(planStatusEvent(convId),
+                        planProgressEvent(convId,
+                                "好的，已回到之前的任务规划，继续执行第 " + resumeIdx + "/" + total + " 步"))
+                        .concatWith(runPlan(convId, skillInvoker));
+            }
+            log.info("Auto-resumed plan from confirmation stage, re-sending step confirm card {}/{}",
+                    resumeIdx, total);
             return Flux.just(planStatusEvent(convId),
                     planProgressEvent(convId,
-                            "好的，已回到之前的任务规划，继续执行第 " + resumeIdx + "/" + total + " 步"))
-                    .concatWith(runPlan(convId, skillInvoker));
+                            "已达到意图穿插次数上限，已自动回到穿插前的任务，请确认是否继续下一步"))
+                    .concatWith(stepDoneAndConfirm(convId, skillInvoker));
         }
         // 防御：确认阶段/已收尾但已无下一步（穿插期间报告完成穿透标记 DONE 且报告是最后一步时
         // 可达——恢复后无需重跑，直接收尾当前穿插规划）
         if (wasConfirming || suspendedDone) {
-            log.warn("Confirmed resume but no next step, finishing plan");
+            log.warn("Resumed but no next step, finishing plan");
             String summaryText = buildPlanSummary(ctx);
             // 最终状态快照（全部步骤 DONE + 汇总文本）必须在 clearPendingPlan 之前发出
             Flux<String> tail = Flux.just(planStatusEvent(convId, summaryText));
@@ -919,7 +949,7 @@ public class IntentPlannerService {
             if (reportId != null && !reportId.isEmpty()) {
                 // 重发报告生成进度卡片（前端渲染 ProgressCard 轮询真实状态，含失败态）
                 flow = flow.concatWith(Flux.just(reportGenerateProgressEvent(convId, reportId)));
-            } else {
+            } else if (userId != null && !userId.isEmpty()) {
                 // 兜底：连最新任务都解析不到（会话无报告任务记录，如 H5 旧标签页生成时未携带
                 // conversationId、或任务从未创建）时不回退为纯文本，而是重发报告生成步骤卡片
                 // （已选模板 → redirect 跳转卡；否则 → 模板选择卡），让用户回到穿插前的
